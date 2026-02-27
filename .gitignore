@@ -1,0 +1,5 @@
+/Backend/node_modules
+/src/generated/prisma
+/scr/generated
+/dist/
+/Backend/.env

@@ -9,7 +9,13 @@
     "lint": "eslint . ",
     "build": "tsc --build",
     "start": "node ./dist/src/index.js",
-    "dev": "nodemon ./src/index.ts"
+    "dev": "nodemon --exec ts-node index.ts",
+    "db:start": "prisma dev start default --detach",
+    "db:stop": "prisma dev stop default",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:seed": "ts-node src/seed.ts",
+    "db:init": "npm run db:start && npm run db:generate && npm run db:push && npm run db:seed"
   },
   "jest": {
     "preset": "ts-jest",
@@ -27,8 +33,11 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "prisma": {
+    "seed": "ts-node src/seed.ts"
+  },
   "dependencies": {
-    "@prisma/client": "^6.17.1",
+    "@prisma/client": "^6.19.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "express": "^5.1.0",
@@ -54,7 +63,7 @@
     "jest": "^30.2.0",
     "jiti": "^2.6.1",
     "nodemon": "^3.1.10",
-    "prisma": "^6.17.1",
+    "prisma": "^6.19.2",
     "supertest": "^7.1.4",
     "ts-jest": "^29.4.5",
     "ts-node": "^10.9.2",
