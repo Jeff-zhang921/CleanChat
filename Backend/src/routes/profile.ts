@@ -115,6 +115,14 @@ router.patch("/clean-id",requireProfileSession,async (req,res)=>{
 })
 
 
+router.get("/me/overview",async (req,res)=>{
+    const sessionUser=req.session.user
+    if(!sessionUser){
+        return res.status(401).json({error:"Not authenticated"})
+    }
+    res.json({user:sessionUser})
+})
+
 
 
 

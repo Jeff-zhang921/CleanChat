@@ -1,3 +1,7 @@
 # CleanChat
 
 
+## FORNTEND GITHUB
+## BACKEND RAILWAY
+## DATABASE NEON
+## UPLOAD-PHOTO UploadThing.

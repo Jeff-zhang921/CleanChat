@@ -2,13 +2,7 @@
 
 Backend service for CleanChat using Express, TypeScript, Prisma, and PostgreSQL.
 
-## What is currently implemented
 
-- Express server entrypoint in `index.ts`
-- `GET /` route returns `{"message":"Hello CleanChat"}`
-- Prisma schema with a basic `User` model (`prisma/schema.prisma`)
-- CORS enabled for `http://localhost:5273`
-- Server port from `PORT` env var, defaulting to `3000`
 
 ## Prerequisites
 

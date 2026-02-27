@@ -8,7 +8,7 @@ declare module "express-session" {
       id: number;
       email: string;
       name: string | null;
-      cleanId?: string;
+      cleanId: string;
       avatar?: Avatar | null;
       provider: "email";
     };
