@@ -2,7 +2,7 @@ import {Router}from "express"
 import{PrismaClient}from"@prisma/client"
 import crypto from "crypto"
 import nodemailer from "nodemailer"
-import {AVATAR_URLS, DEFAULT_AVATAR} from "../avatar"
+import { DEFAULT_AVATAR } from "../avatar"
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -31,6 +31,21 @@ function generateLoginCode():string{
 }
 function hashCode(code:string):string{
     return crypto.createHmac("sha256", LOGIN_CODE_SECRET).update(code).digest("hex");
+}
+
+function generateCleanId(): string {
+  return `u_${crypto.randomBytes(6).toString("hex")}`
+}
+
+async function generateUniqueCleanId(): Promise<string> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const candidate = generateCleanId()
+    const exists = await prisma.user.findUnique({ where: { cleanId: candidate } })
+    if (!exists) {
+      return candidate
+    }
+  }
+  throw new Error("Failed to generate unique cleanId")
 }
 
 async function sendLoginCode(name:string,email:string, code:string){
@@ -186,21 +201,28 @@ if (loginCode.attempts >= MAX_ATTEMPTS) {
     res.status(401).json({ message: "Invalid or expired code." });
     return;
   }
-await prisma.loginCode.deleteMany({ where: { email } });
+  await prisma.loginCode.deleteMany({ where: { email } });
 
- const user = await prisma.user.upsert({
-    where: { email:email },
-    update: {},
-    create: {
-        email,
-        name:email.split("@")[0],
-        avatar:DEFAULT_AVATAR,
-    },
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true, email: true, name: true, avatar: true, cleanId: true },
   });
+
+  const user = existingUser
+    ? existingUser
+    : await prisma.user.create({
+        data: {
+          email,
+          name: email.split("@")[0],
+          avatar: DEFAULT_AVATAR,
+          cleanId: await generateUniqueCleanId(),
+        },
+      });
     req.session.user = {
     id: user.id,
     email: user.email,
     name: user.name ?? null,
+    cleanId: user.cleanId,
     provider: "email",
   };
 

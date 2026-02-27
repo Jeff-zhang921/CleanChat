@@ -8,11 +8,12 @@ async function main(): Promise<void> {
 
   const host = await prisma.user.upsert({
     where: { email: hostEmail },
-    update: { name: "Host User", avatar: DEFAULT_AVATAR },
+    update: { name: "Host User", avatar: DEFAULT_AVATAR, cleanId: "host" },
     create: {
       email: hostEmail,
       name: "Host User",
       avatar: DEFAULT_AVATAR,
+      cleanId: "host",
     },
   });
 
