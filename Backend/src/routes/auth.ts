@@ -3,7 +3,6 @@ import{PrismaClient}from"@prisma/client"
 import crypto from "crypto"
 import nodemailer from "nodemailer"
 import {AVATAR_URLS, DEFAULT_AVATAR} from "../avatar"
-import { setDefaultAutoSelectFamily } from "net"
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -80,3 +79,148 @@ await mailer.sendMail({
 }
 
 
+router.post("email/start",async(req,res)=>{
+    const email=typeof req.body.email==="string"?req.body.email.toLowerCase().trim():""
+    if(!Email_REGEX.test(email)){
+        return res.status(400).json({error:"Invalid email"})
+    }
+    if (!LOGIN_CODE_SECRET || !mailer) {
+    res.status(500).json({ message: "Email login is not configured." });
+    return;
+  }
+  const now = new Date()
+  const user=await prisma.user.findUnique({where:{email},
+select:{name:true}})
+let name:string;
+if(!user){
+    name="New User"
+
+}else{
+    name = user.name
+}
+
+const activeCode = await prisma.loginCode.findFirst({
+    where: {
+      email,
+      usedAt: null,
+      expireAt: { gt: now },
+    },
+    orderBy: { createdAt: "desc" },
+  })
+    if (activeCode) {
+    res.status(429).json({ message: "A verification code is already active. Please wait for it to expire." });
+    return;
+  }
+  const code=generateLoginCode()
+const hashedCode=hashCode(code)
+const expireAt=new Date(Date.now()+CODE_TTL_MS)
+await prisma.$transaction(
+    [
+        prisma.loginCode.deleteMany({
+            where:{
+                email,
+            },
+        }),
+        prisma.loginCode.create({
+            data:{
+                email,
+                codeHash:hashedCode,
+                expireAt,
+            }
+        })
+    ]
+)
+try{
+    if(process.env.NODE_ENV !== "test"){
+        await sendLoginCode(name,email,code)
+    }}catch(error){
+        console.error("Failed to send login code email:", error)
+        res.status(500).json({error:"Failed to send verification code email"})
+        return;
+}
+res.json({message:"Verification code sent"})
+
+})
+
+
+router.post("/email/verify",async(req,res)=>{
+    const email=typeof req.body.email==="string"?req.body.email.toLowerCase().trim():""
+    const code=typeof req.body.code==="string"?req.body.code.trim():""
+    if(!Email_REGEX.test(email)){
+        return res.status(400).json({error:"Invalid email"})
+    }
+    if(code.length!==CODE_LENGTH){
+        return res.status(400).json({error:"Invalid code"})
+    }
+    if (!LOGIN_CODE_SECRET || !mailer) {
+    res.status(500).json({ message: "Email login is not configured." });
+    return;
+  }
+  const loginCode=await prisma.loginCode.findFirst({
+    where:{
+        email,
+        usedAt: null,
+        expireAt: { gt: new Date() },
+    },
+})
+if(!loginCode){
+    return res.status(400).json({error:"Invalid or expired code"})
+}
+ if (!loginCode) {
+    res.status(401).json({ message: "Invalid or expired code." });
+    return;
+  }
+if (loginCode.attempts >= MAX_ATTEMPTS) {
+    res.status(429).json({ message: "Too many failed attempts. Please request a new code." });
+    return;
+  }
+  const providedCodeHash = hashCode(code)
+  const storedHash = loginCode.codeHash
+  const hashesMatch=   providedCodeHash.length === storedHash.length && providedCodeHash === storedHash;
+
+  if (!hashesMatch) {
+    await prisma.loginCode.update({
+      where: { id: loginCode.id },
+      data: { attempts: loginCode.attempts + 1 },
+    });
+    res.status(401).json({ message: "Invalid or expired code." });
+    return;
+  }
+await prisma.loginCode.deleteMany({ where: { email } });
+
+ const user = await prisma.user.upsert({
+    where: { email:email },
+    update: {},
+    create: {
+        email,
+        name:email.split("@")[0],
+        avatar:DEFAULT_AVATAR,
+    },
+  });
+    req.session.user = {
+    id: user.id,
+    email: user.email,
+    name: user.name ?? null,
+    provider: "email",
+  };
+
+res.json({message:"Login code verified",user})
+})
+
+
+
+router.get("/me",(req,res)=>{
+    if(!req.session.user){
+        return res.status(401).json({error:"Not authenticated"})
+    }
+    res.json({user:req.session.user})
+
+})
+router.post("/logout",(req,res)=>{
+    req.session.destroy((err)=>{
+        if(err){ res.status(500).json({error:"Failed to log out"})}
+        else{res.json({message:"Logged out successfully"})}
+    })
+})
+
+export default router
