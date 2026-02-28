@@ -210,14 +210,14 @@ const ConversationPage = () => {
     return conversations.filter((item) => item.cleanId.toLowerCase().includes(query));
   }, [conversations, searchTerm]);
 
-  const handleOpenThread = (threadId: number, other: string) => {
-    navigate("/chat", { state: { threadId, other } });
+  const handleOpenThread = (threadId: number, other: string, avatarUrl?: string) => {
+    navigate("/chat", { state: { threadId, other, avatarUrl } });
   };
 
   const handleOpenUser = async (user: UserSummary) => {
     const existingThreadId = threadByUserId.get(user.id);
     if (existingThreadId) {
-      handleOpenThread(existingThreadId, user.cleanId || user.email);
+      handleOpenThread(existingThreadId, user.cleanId || user.email, getAvatarUrl(user.avatar));
       return;
     }
 
@@ -247,7 +247,7 @@ const ConversationPage = () => {
       }
 
       setSearchStatus("");
-      handleOpenThread(threadId, user.cleanId || user.email);
+      handleOpenThread(threadId, user.cleanId || user.email, getAvatarUrl(user.avatar));
     } catch {
       setSearchStatus("Failed to create conversation.");
     } finally {
@@ -345,11 +345,11 @@ const ConversationPage = () => {
               <article
                 key={item.threadId}
                 className="conversation-card"
-                onClick={() => handleOpenThread(item.threadId, item.cleanId || item.email)}
+                onClick={() => handleOpenThread(item.threadId, item.cleanId || item.email, item.avatarUrl)}
                 role="button"
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
-                    handleOpenThread(item.threadId, item.cleanId || item.email);
+                    handleOpenThread(item.threadId, item.cleanId || item.email, item.avatarUrl);
                   }
                 }}
               >

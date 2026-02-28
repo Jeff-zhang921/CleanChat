@@ -35,8 +35,18 @@ export function initSocket(server: HTTPServer) {
     io.on("connection",(socket)=>{
         console.log("A user connected:", socket.data.user)
         const sessionUser=socket.data.user
+        const emitChatError = (message: string) => {
+            socket.emit("chat:error", message)
+            socket.emit("message:error", message)
+            socket.emit("Thread:error", message)
+            socket.emit("thread:error", message)
+        }
         const ensureThreadValid=(raw:unknown):number|null=>{
-            const parsedid=typeof raw === "number" ? raw:Number(raw)
+            const candidate =
+                typeof raw === "object" && raw !== null && "threadId" in raw
+                    ? (raw as { threadId?: unknown }).threadId
+                    : raw
+            const parsedid=typeof candidate === "number" ? candidate:Number(candidate)
             if(!Number.isInteger(parsedid)||isNaN(parsedid)||parsedid<=0){
                 console.warn("Invalid thread id:",raw)
                 return null
@@ -61,36 +71,44 @@ export function initSocket(server: HTTPServer) {
             }
             return thread
         }
-        socket.on("Thread:join",async(threadIdRaw:unknown)=>{
-
+        const handleJoinThread=async(threadIdRaw:unknown)=>{
             const threadId=ensureThreadValid(threadIdRaw)
             if(!threadId){
-                socket.emit("Thread:error","Invalid thread ID")
+                emitChatError("Invalid thread ID")
                 return
             }
             const thread=await ensureMemberShip(threadId,sessionUser.id)
             if(!thread){
-                socket.emit("Thread:error","Thread not found or access denied")
+                emitChatError("Thread not found or access denied")
                 return
             }
-            socket.join(`thread_${threadId}`)
+            socket.join(`thread:${threadId}`)
             console.log(`User ${sessionUser.id} joined thread ${threadId}`)
-        })
+        }
+        socket.on("thread:join",handleJoinThread)
+        socket.on("Thread:join",handleJoinThread)
 
-        socket.on("message:send",async(data)=>{
-            const {threadId,content}=data
+        socket.on("message:send",async(data:unknown)=>{
+            const payload = (typeof data === "object" && data !== null) ? data as { threadId?: unknown; content?: unknown; body?: unknown } : {}
+            const {threadId}=payload
+            const content =
+                typeof payload.content === "string"
+                    ? payload.content
+                    : typeof payload.body === "string"
+                        ? payload.body
+                        : ""
             const validThreadId=ensureThreadValid(threadId)
             if(!validThreadId){
-                socket.emit("message:error","Invalid thread ID")
+                emitChatError("Invalid thread ID")
                 return
             }
             const thread=await ensureMemberShip(validThreadId,sessionUser.id)
             if(!thread){
-                socket.emit("message:error","Thread not found or access denied")
+                emitChatError("Thread not found or access denied")
                 return
             }
             if(typeof content!=="string"||content.trim()===""){
-                socket.emit("message:error","Content cannot be empty")
+                emitChatError("Content cannot be empty")
                 return
             }
             const message=await prisma.chatMessage.create({
@@ -112,7 +130,8 @@ export function initSocket(server: HTTPServer) {
             })
             io.to(`thread:${validThreadId}`).emit("message:new",{
                 id:message.id,
-                content:message.body,
+                threadId:validThreadId,
+                body:message.body,
                 senderId:message.senderId,
                 createdAt:message.createdAt,
             })

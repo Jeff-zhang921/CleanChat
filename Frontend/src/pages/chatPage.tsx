@@ -26,7 +26,9 @@ type ChatMessage={
 
 const ChatPage = () => {
   const location=useLocation()
-  const other = (location.state as { other?: string } | null)?.other ?? "";
+  const locationState = (location.state as { other?: string; avatarUrl?: string } | null) ?? null;
+  const other = locationState?.other ?? "";
+  const avatarUrl = locationState?.avatarUrl ?? "";
   const navigate=useNavigate()
   //bring extra info the previous page tried to send.
   const socketRef=useRef<Socket|null>(null);
@@ -104,7 +106,7 @@ const connectSocket=()=>{
 socketRef.current=socket
 //connect is a reserved keyword in socket unlike thread:id
 //when they connect it will execute the following code
- socket.on("connect",()=>{
+  socket.on("connect",()=>{
   setStatus("Connected")
   const activeThreadId = threadIdRef.current;
   if(activeThreadId){
@@ -190,8 +192,18 @@ socketRef.current=socket
       setStatus(data.message||"fail to create thread")
       return
     }
-    //When you call setThreadId(data.threadId), React updates its internal memory.
-    setThreadId(data.threadId)
+    // Backend returns { thread: {...} } for both create and existing thread.
+    const createdThreadId =
+      typeof data?.thread?.id === "number"
+        ? data.thread.id
+        : typeof data?.threadId === "number"
+          ? data.threadId
+          : null
+    if (!createdThreadId) {
+      setStatus("Thread created but thread ID is missing")
+      return
+    }
+    setThreadId(createdThreadId)
     setStatus("Thread Ready")
   }catch{
     setStatus("Failed to create thread")
@@ -256,7 +268,11 @@ const handleSendMessage=()=>{
            ⤺
           </button>
           <span className='avatar'>
-           {other ? other[0].toUpperCase() : "?"}
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={`${other || "User"} avatar`} />
+            ) : (
+              other ? other[0].toUpperCase() : "?"
+            )}
           </span>
           <span>{other}</span>
         </div>

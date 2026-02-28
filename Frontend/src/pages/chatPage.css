@@ -99,7 +99,16 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
   background: var(--accent);
   color: #ffffff;
   display: grid;
+  place-items: center;
   text-transform: uppercase;
+  overflow: hidden;
+}
+
+.chat-bar .avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .chat-input {
