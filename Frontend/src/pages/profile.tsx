@@ -46,6 +46,7 @@ const ProfilePage = () => {
   const [avatar, setAvatar] = useState<AvatarKey>("AVATAR_LEO");
   const [status, setStatus] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const normalizedCleanId = useMemo(() => cleanId.trim().toLowerCase(), [cleanId]);
 
@@ -173,6 +174,21 @@ const ProfilePage = () => {
     }
   };
 
+  const handleBackToLogin = async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+    try {
+      await fetch(`${BACKEND_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } finally {
+      navigate("/login", { replace: true });
+      setIsLoggingOut(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="profile-shell">
@@ -208,9 +224,10 @@ const ProfilePage = () => {
           <button
             type="button"
             className="profile-link-btn"
-            onClick={() => navigate("/conversations")}
+            onClick={handleBackToLogin}
+            disabled={isLoggingOut}
           >
-            Back
+            {isLoggingOut ? "Logging out..." : "Back to Login"}
           </button>
         </header>
 

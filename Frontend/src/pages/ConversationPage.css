@@ -28,6 +28,30 @@
   font-size: 25px;
 }
 
+.conversations-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.notify-button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  padding: 0.45rem 0.85rem;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.notify-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .eyebrow {
   margin: 0;
   text-transform: uppercase;

@@ -1,7 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { io, type Socket } from "socket.io-client";
 import BottomNav from "../components/BottomNav";
-import { BACKEND_URL } from "../config";
+import { BACKEND_URL, SOCKET_URL } from "../config";
+import {
+  getNotificationPermission,
+  requestNotificationPermission,
+  showMessageNotification,
+} from "../utils/notifications";
 import "./ConversationPage.css";
 
 type AvatarKey =
@@ -50,6 +56,14 @@ type ConversationItem = {
   time: string;
 };
 
+type RealtimeMessage = {
+  id: number;
+  threadId: number;
+  senderId: number;
+  body: string;
+  createdAt: string;
+};
+
 const AVATAR_URLS: Record<AvatarKey, string> = {
   AVATAR_LEO: "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo",
   AVATAR_SOPHIE: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sophie",
@@ -70,16 +84,43 @@ const formatTime = (time?: string) => {
   return date.toLocaleDateString();
 };
 
+const toTimestamp = (time?: string | null) => {
+  if (!time) return 0;
+  const date = new Date(time);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+};
+
+const sortThreadsByLatestActivity = (items: ThreadResponse[]) =>
+  [...items].sort((a, b) => {
+    const aTime = toTimestamp(a.lastMessageAt || a.updatedAt);
+    const bTime = toTimestamp(b.lastMessageAt || b.updatedAt);
+    return bTime - aTime;
+  });
+
 const ConversationPage = () => {
   const navigate = useNavigate();
 
   const [me, setMe] = useState<SessionUser | null>(null);
   const [threads, setThreads] = useState<ThreadResponse[]>([]);
   const [status, setStatus] = useState("Loading...");
+  const [notificationPermission, setNotificationPermission] = useState(getNotificationPermission());
+  const [notificationStatus, setNotificationStatus] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [searchUsers, setSearchUsers] = useState<UserSummary[]>([]);
   const [searchStatus, setSearchStatus] = useState("");
   const [openingUserId, setOpeningUserId] = useState<number | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const joinedThreadIdsRef = useRef(new Set<number>());
+  const meRef = useRef<SessionUser | null>(null);
+  const threadsRef = useRef<ThreadResponse[]>([]);
+
+  useEffect(() => {
+    meRef.current = me;
+  }, [me]);
+
+  useEffect(() => {
+    threadsRef.current = threads;
+  }, [threads]);
 
   useEffect(() => {
     let isMounted = true;
@@ -113,7 +154,7 @@ const ConversationPage = () => {
 
         const data = await threadsResponse.json().catch(() => []);
         if (isMounted) {
-          setThreads(Array.isArray(data) ? data : []);
+          setThreads(sortThreadsByLatestActivity(Array.isArray(data) ? data : []));
           setStatus("");
         }
       } catch {
@@ -126,6 +167,84 @@ const ConversationPage = () => {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!me) return;
+
+    const socket = io(SOCKET_URL, { withCredentials: true });
+    socketRef.current = socket;
+    joinedThreadIdsRef.current.clear();
+
+    const joinKnownThreads = () => {
+      for (const thread of threadsRef.current) {
+        if (joinedThreadIdsRef.current.has(thread.id)) continue;
+        socket.emit("thread:join", { threadId: thread.id });
+        joinedThreadIdsRef.current.add(thread.id);
+      }
+    };
+
+    const handleIncomingMessage = (message: RealtimeMessage) => {
+      setThreads((prev) => {
+        const threadExists = prev.some((item) => item.id === message.threadId);
+        if (!threadExists) return prev;
+
+        const next = prev.map((item) => {
+          if (item.id !== message.threadId) return item;
+
+          return {
+            ...item,
+            lastMessageAt: message.createdAt,
+            updatedAt: message.createdAt,
+            Messages: [
+              {
+                id: message.id,
+                body: message.body,
+                senderId: message.senderId,
+                createdAt: message.createdAt,
+              },
+            ],
+          };
+        });
+
+        return sortThreadsByLatestActivity(next);
+      });
+
+      const currentUser = meRef.current;
+      if (!currentUser || message.senderId === currentUser.id) return;
+      if (typeof document !== "undefined" && !document.hidden) return;
+
+      const targetThread = threadsRef.current.find((item) => item.id === message.threadId);
+      if (!targetThread) return;
+
+      const sender = targetThread.UserA.id === message.senderId ? targetThread.UserA : targetThread.UserB;
+      const senderName = sender.cleanId || sender.name || sender.email;
+      showMessageNotification(senderName, message.body, `thread-${message.threadId}`);
+    };
+
+    socket.on("connect", joinKnownThreads);
+    socket.on("message:new", handleIncomingMessage);
+    socket.on("connect_error", () => {
+      setNotificationStatus("Realtime connection lost. Trying to reconnect...");
+    });
+
+    return () => {
+      socket.off("message:new", handleIncomingMessage);
+      socket.disconnect();
+      socketRef.current = null;
+      joinedThreadIdsRef.current.clear();
+    };
+  }, [me]);
+
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket || !socket.connected) return;
+
+    for (const thread of threads) {
+      if (joinedThreadIdsRef.current.has(thread.id)) continue;
+      socket.emit("thread:join", { threadId: thread.id });
+      joinedThreadIdsRef.current.add(thread.id);
+    }
+  }, [threads]);
 
   useEffect(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -210,6 +329,25 @@ const ConversationPage = () => {
     return conversations.filter((item) => item.cleanId.toLowerCase().includes(query));
   }, [conversations, searchTerm]);
 
+  const handleEnableNotifications = async () => {
+    const permission = await requestNotificationPermission();
+    setNotificationPermission(permission);
+
+    if (permission === "granted") {
+      setNotificationStatus("Notifications enabled.");
+      return;
+    }
+    if (permission === "denied") {
+      setNotificationStatus("Notifications blocked. Please allow notifications in browser settings.");
+      return;
+    }
+    if (permission === "unsupported") {
+      setNotificationStatus("This browser does not support notifications.");
+      return;
+    }
+    setNotificationStatus("Notification permission not granted yet.");
+  };
+
   const handleOpenThread = (threadId: number, other: string, avatarUrl?: string) => {
     navigate("/chat", { state: { threadId, other, avatarUrl } });
   };
@@ -265,7 +403,17 @@ const ConversationPage = () => {
             <p className="eyebrow" />
             <h1>{me?.cleanId || me?.email}</h1>
           </div>
+          <button
+            type="button"
+            className="notify-button"
+            onClick={handleEnableNotifications}
+            disabled={notificationPermission === "granted"}
+          >
+            {notificationPermission === "granted" ? "Notifications On" : "Enable Notifications"}
+          </button>
         </header>
+
+        {notificationStatus && <div className="status-text">{notificationStatus}</div>}
 
         <div className="conversations-toolbar">
           <div className="search-field">

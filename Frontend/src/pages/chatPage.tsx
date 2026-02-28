@@ -2,6 +2,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import{useLocation,useNavigate}from"react-router-dom";
 import{io,type Socket}from "socket.io-client"
 import { BACKEND_URL, SOCKET_URL } from "../config";
+import { getNotificationPermission, showMessageNotification } from "../utils/notifications";
 //chatPage/css has not been commited.
 import"./chatPage.css"
 
@@ -45,6 +46,7 @@ const ChatPage = () => {
 
   //<> is the generic: this box is empty right now (null), but eventually, it is going to hold an object with an id, an email, and a name. Please get the memory ready for that
   const [me, setMe] = useState<{ id: number; email: string; name: string | null } | null>(null);
+  const meRef = useRef<{ id: number; email: string; name: string | null } | null>(null);
   const autoThreadRef=useRef(false)
 //useEffect: After you finish drawing the screen, run this specific piece of code.
 const [messageBody,setMessageBody]=useState("")
@@ -62,10 +64,12 @@ const loadMe=async()=>{
     }
     const data=await res.json();
     setMe(data.user||null)
+    meRef.current = data.user || null
     return data.user||null
 
   }catch{
     setMe(null)
+    meRef.current = null
     return null
   }
 }
@@ -126,6 +130,17 @@ socketRef.current=socket
 //socket.on is the listener
   socket.on("message:new", (msg: ChatMessage) => {
       setMessages((prev) => [...prev, msg]);
+      const currentUser = meRef.current;
+      if (
+        currentUser &&
+        msg.senderId !== currentUser.id &&
+        typeof document !== "undefined" &&
+        document.hidden &&
+        getNotificationPermission() === "granted"
+      ) {
+        const title = other || "New message";
+        showMessageNotification(title, msg.body, `thread-${msg.threadId}`);
+      }
     });
   }
 
@@ -137,6 +152,10 @@ socketRef.current=socket
   useEffect(() => {
     threadIdRef.current = threadId;
   }, [threadId]);
+
+  useEffect(() => {
+    meRef.current = me;
+  }, [me]);
 
   useEffect(()=>{
    ( async()=>{

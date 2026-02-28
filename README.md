@@ -52,6 +52,30 @@ Users log in by email code, create profile identity (`cleanId`, nickname, avatar
 - Backend API origin: `https://clinical-ursulina-cleanchan-eb6e1ee6.koyeb.app`
 - Browser requests in production use Cloudflare proxy paths (`/api/*`, `/socket.io/*`) for better cookie/session compatibility.
 
+## PWA (Install on Phone)
+
+CleanChat can be installed to phone home screen as a PWA.
+
+Install steps:
+
+1. Open `https://cleanchat.pages.dev` on mobile browser.
+2. Android Chrome: menu -> `Install app` or `Add to Home screen`.
+3. iPhone Safari: Share -> `Add to Home Screen`.
+
+Update behavior:
+
+- PWA service worker is enabled with auto update.
+- After a new deployment, clients fetch the new version on next open/refresh while online.
+- Some browsers (especially iOS Safari) may require closing and reopening once.
+
+PWA config files:
+
+- `Frontend/vite.config.ts` (VitePWA plugin + manifest)
+- `Frontend/src/main.tsx` (service worker registration)
+- `Frontend/public/icons/icon-192.svg`
+- `Frontend/public/icons/icon-512.svg`
+- `Frontend/index.html` (mobile meta tags)
+
 ## Avatar Guide
 
 ### How avatars are used
@@ -101,107 +125,49 @@ Recommended frontend build variables:
 
 ```text
 CleanChat/
-  Backend/     # Express + Prisma API
-  Frontend/    # React + Vite app
+  Backend/
+    index.ts                   # Express app entry
+    prisma/
+      schema.prisma            # Data model + enums (User/Thread/Message/Avatar...)
+    src/
+      routes/
+        auth.ts
+        profile.ts
+        chat.ts
+      socket/
+        index.ts               # Socket.IO server logic
+      avatar.ts                # Avatar enum -> DiceBear URL mapping
+      session.ts               # Session configuration
+  Frontend/
+    vite.config.ts             # Vite + PWA plugin config
+    public/
+      icons/
+        icon-192.svg           # PWA app icon
+        icon-512.svg           # PWA app icon
+    functions/                 # Cloudflare Pages Functions (reverse proxy)
+      api/[[path]].ts          # /api/* -> Koyeb
+      socket.io/[[path]].ts    # /socket.io/* -> Koyeb
+    src/
+      config.ts                # BACKEND_URL/SOCKET_URL config
+      main.tsx                 # React root + service worker register
+      components/
+        BottomNav.tsx
+      pages/
+        login.tsx
+        verify.tsx
+        basicInfo.tsx
+        ConversationPage.tsx
+        chatPage.tsx
+        profile.tsx
   Docs/
+    README.md                  # Deployment/Proxy issue report and fix guide
 ```
 
-## Quick Start
+## Docs
 
-### Prerequisites
+- Reverse proxy issue + solution: [Docs/README.md](Docs/README.md)
+- Backend API reference: [Docs/API_README.md](Docs/API_README.md)
 
-- Node.js 18+
-- npm
-- PostgreSQL database
-- SMTP account for verification emails
-
-### 1) Backend
-
-```bash
-cd Backend
-npm install
-```
-
-Create `Backend/.env`:
-
-```env
-DATABASE_URL=postgresql://<user>:<password>@<host>/<db>?sslmode=require
-PORT=4000
-SMTP_USER=your_email@gmail.com
-SMTP_PASS=your_app_password
-SMTP_FROM=CleanChat <no-reply@example.com>
-LOGIN_CODE_SECRET=replace_with_a_long_random_secret
-NODE_ENV=development
-```
-
-Run migrations and start dev server:
-
-```bash
-npm run db:generate
-npm run db:push
-npm run dev
-```
-
-Backend URL: `http://localhost:4000`
-
-### 2) Frontend
-
-```bash
-cd Frontend
-npm install
-npm run dev
-```
-
-Frontend URL: usually `http://localhost:5173` or `http://localhost:5273`
-
-## Frontend Routes
-
-| Route | Purpose |
-| --- | --- |
-| `/login` | Enter email |
-| `/verify` | Enter verification code |
-| `/basic-info` | First-time profile setup |
-| `/conversations` | Conversation list + cleanId search |
-| `/chat` | Thread messages |
-| `/profile` | View/Edit profile |
-
-## Backend API
-
-### Auth
-
-- `POST /auth/email/start`
-- `POST /auth/email/verify`
-- `GET /auth/me`
-- `POST /auth/logout`
-
-### Profile
-
-- `GET /profile/me`
-- `PATCH /profile/me`
-- `PATCH /profile/clean-id`
-
-### Chat
-
-- `GET /chat/threads`
-- `POST /chat/threads`
-- `GET /chat/threads/:threadId/messages`
-- `GET /chat/users/search?cleanId=<query>`
-
-## Scripts
-
-### Backend
-
-- `npm run dev` - start backend with nodemon + ts-node
-- `npm run build` - compile TypeScript
-- `npm run db:generate` - generate Prisma client
-- `npm run db:push` - push schema to database
-- `npm run db:seed` - seed data
-
-### Frontend
-
-- `npm run dev` - start Vite dev server
-- `npm run build` - build production bundle
-- `npm run preview` - preview build
 
 ## License
 

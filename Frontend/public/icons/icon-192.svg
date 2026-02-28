@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="CleanChat icon">
+  <rect width="192" height="192" rx="42" fill="#111111" />
+  <path d="M50 66c0-9.9 8.1-18 18-18h56c9.9 0 18 8.1 18 18v34c0 9.9-8.1 18-18 18H92l-23 18c-2.8 2.2-6.9.2-6.9-3.4V118h-4.1c-9.9 0-18-8.1-18-18V66z" fill="#ffffff"/>
+  <circle cx="78" cy="84" r="6" fill="#111111"/>
+  <circle cx="96" cy="84" r="6" fill="#111111"/>
+  <circle cx="114" cy="84" r="6" fill="#111111"/>
+</svg>
