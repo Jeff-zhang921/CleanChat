@@ -8,6 +8,11 @@ import authRouter from "./src/routes/auth";
 import http from "http";
 import { initSocket } from "./src/socket";
 const app = express();
+const isProduction = process.env.NODE_ENV === "production";
+
+if (isProduction) {
+    app.set("trust proxy", 1);
+}
 
 const defaultOrigins = ["http://localhost:5173", "http://localhost:5273"];
 const envOrigins = (process.env.FRONTEND_URLS ?? process.env.FRONTEND_URL ?? "")
