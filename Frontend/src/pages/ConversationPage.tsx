@@ -97,6 +97,18 @@ const sortThreadsByLatestActivity = (items: ThreadResponse[]) =>
     return bTime - aTime;
   });
 
+const isIOSDevice = () =>
+  typeof navigator !== "undefined" && /iPad|iPhone|iPod/i.test(navigator.userAgent);
+
+const isStandalonePwa = () => {
+  if (typeof window === "undefined") return false;
+  const mediaStandalone = window.matchMedia("(display-mode: standalone)").matches;
+  const navigatorStandalone = (
+    window.navigator as Navigator & { standalone?: boolean }
+  ).standalone === true;
+  return mediaStandalone || navigatorStandalone;
+};
+
 const ConversationPage = () => {
   const navigate = useNavigate();
 
@@ -342,6 +354,12 @@ const ConversationPage = () => {
       return;
     }
     if (permission === "unsupported") {
+      if (isIOSDevice() && !isStandalonePwa()) {
+        setNotificationStatus(
+          "iPhone Safari tab cannot enable web push. Add CleanChat to Home Screen, open from app icon, then enable notifications."
+        );
+        return;
+      }
       setNotificationStatus("This browser does not support notifications.");
       return;
     }
