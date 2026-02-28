@@ -6,15 +6,38 @@ import { UTApi, UTFile } from "uploadthing/server";
 const router = Router();
 const prisma = new PrismaClient();
 const utapi = new UTApi();
+const MAX_IMAGE_UPLOAD_BYTES = 15 * 1024 * 1024;
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 },
+  limits: { fileSize: MAX_IMAGE_UPLOAD_BYTES },
 });
 
 const ensureAuth = (sessionUserId: number | undefined): sessionUserId is number =>
   typeof sessionUserId === "number" && Number.isInteger(sessionUserId) && sessionUserId > 0;
 
-router.post("/upload-image", upload.single("image"), async (req, res) => {
+router.post(
+  "/upload-image",
+  (req, res, next) => {
+    upload.single("image")(req, res, (error: unknown) => {
+      if (!error) {
+        next();
+        return;
+      }
+
+      if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+        res.status(413).json({
+          error: `Image is too large. Max size is ${Math.floor(
+            MAX_IMAGE_UPLOAD_BYTES / (1024 * 1024)
+          )}MB.`,
+        });
+        return;
+      }
+
+      const details = error instanceof Error ? error.message : String(error);
+      res.status(400).json({ error: "Invalid image upload request.", details });
+    });
+  },
+  async (req, res) => {
   const sessionUserId = req.session.user?.id;
   if (!ensureAuth(sessionUserId)) {
     res.status(401).json({ error: "Not authenticated" });
@@ -66,7 +89,8 @@ router.post("/upload-image", upload.single("image"), async (req, res) => {
     const details = error instanceof Error ? error.message : String(error);
     res.status(500).json({ error: "Failed to upload image.", details });
   }
-});
+  }
+);
 
 router.get("/users/search", async (req, res) => {
   const sessionUserId = req.session.user?.id;

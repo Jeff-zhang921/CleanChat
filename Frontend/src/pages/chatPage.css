@@ -143,11 +143,20 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
   border-radius: 10px;
   padding: 0 14px;
   font-weight: 600;
+  min-width: 78px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 
-.photo-button:disabled,
+.photo-button.disabled,
 .send-button:disabled {
   opacity: 0.65;
+}
+
+.photo-button.disabled {
+  pointer-events: none;
 }
 
 .send-button {
@@ -180,6 +189,7 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
 .chat-row {
   display: flex;
   gap: 12px;
+  min-width: 0;
 }
 
 .chat-row.me {
@@ -187,13 +197,22 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
 }
 
 .chat-bubble {
-  max-width: 99%;
+  max-width: min(78%, 38rem);
   padding: 5px 10px;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
   gap:4px;
   line-height: 1.5;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chat-bubble p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .chat-image {

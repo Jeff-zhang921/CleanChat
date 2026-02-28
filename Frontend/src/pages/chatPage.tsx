@@ -1,4 +1,4 @@
-import { type ChangeEvent, useEffect,useMemo,useRef,useState} from 'react';
+import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import{useLocation,useNavigate}from"react-router-dom";
 import{io,type Socket}from "socket.io-client"
 import { BACKEND_URL, SOCKET_URL } from "../config";
@@ -17,17 +17,28 @@ type ChatMessage={
 }
 
 const IMAGE_MESSAGE_PREFIX = "IMG::";
-const IMAGE_URL_REGEX = /^https:\/\/(?:utfs\.io|[^/]*uploadthing\.com)\//i;
+const IMAGE_URL_REGEX =
+  /^https:\/\/(?:utfs\.io|(?:[a-z0-9-]+\.)?ufs\.sh|[^/\s]*uploadthing\.com)\//i;
+const IMAGE_EXTENSION_REGEX =
+  /\.(?:png|jpe?g|gif|webp|bmp|svg|heic|heif|avif)(?:\?.*)?$/i;
+const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+
+const isHttpUrl = (value: string) => /^https?:\/\/\S+$/i.test(value);
 
 const getImageUrlFromMessage = (body: string) => {
   const trimmedBody = body.trim();
-  if (trimmedBody.startsWith(IMAGE_MESSAGE_PREFIX)) {
-    const url = trimmedBody.slice(IMAGE_MESSAGE_PREFIX.length).trim();
-    return url || null;
+  const normalizedBody = trimmedBody.startsWith(IMAGE_MESSAGE_PREFIX)
+    ? trimmedBody.slice(IMAGE_MESSAGE_PREFIX.length).trim()
+    : trimmedBody;
+
+  if (!normalizedBody || !isHttpUrl(normalizedBody)) {
+    return null;
   }
-  if (IMAGE_URL_REGEX.test(trimmedBody)) {
-    return trimmedBody;
+
+  if (IMAGE_URL_REGEX.test(normalizedBody) || IMAGE_EXTENSION_REGEX.test(normalizedBody)) {
+    return normalizedBody;
   }
+
   return null;
 };
 
@@ -56,7 +67,6 @@ const ChatPage = () => {
   //when call <div className="chat-body" ref={messageListRef}>, it wll do 
   //messageListRef.current = <the actual div DOM node>: the stuff that inside the div will auto scroll or do some action
   const messageListRef=useRef<HTMLDivElement|null>(null)
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const threadIdRef = useRef<number | null>(null);
   //change a useState value, React rerender the UI to show the new information."
   const [status,setStatus]=useState("Not connected")
@@ -295,15 +305,20 @@ const handleSendMessage=()=>{
   setMessageBody("")
 }
 
-const handlePickImage = () => {
-  if (isUploadingImage) return;
-  fileInputRef.current?.click();
-};
-
 const handleUploadImage = async (event: ChangeEvent<HTMLInputElement>) => {
   const file = event.target.files?.[0];
   event.target.value = "";
   if (!file) return;
+
+  if (!file.type.startsWith("image/")) {
+    setStatus("Only image files are allowed.");
+    return;
+  }
+
+  if (file.size > MAX_UPLOAD_BYTES) {
+    setStatus("Image is too large. Please upload a file up to 15MB.");
+    return;
+  }
 
   if (!threadId) {
     setStatus("Create or join a thread first");
@@ -327,9 +342,23 @@ const handleUploadImage = async (event: ChangeEvent<HTMLInputElement>) => {
       body: formData,
     });
 
-    const data = await response.json().catch(() => ({}));
+    const raw = await response.text();
+    let data: Record<string, string> = {};
+    if (raw) {
+      try {
+        data = JSON.parse(raw) as Record<string, string>;
+      } catch {
+        data = {};
+      }
+    }
+
     if (!response.ok) {
-      setStatus(data.error || data.message || "Failed to upload image");
+      setStatus(
+        data.error ||
+          data.message ||
+          raw ||
+          `Failed to upload image (HTTP ${response.status}).`
+      );
       return;
     }
 
@@ -449,20 +478,25 @@ useEffect(() => {
 
         <div className='chat-input'>
           <input
-            ref={fileInputRef}
+            id="chat-photo-input"
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.heif"
             className="chat-file-input"
             onChange={handleUploadImage}
-          />
-          <button
-            type="button"
-            className="photo-button"
-            onClick={handlePickImage}
             disabled={isUploadingImage}
+          />
+          <label
+            htmlFor="chat-photo-input"
+            className={`photo-button ${isUploadingImage ? "disabled" : ""}`}
+            aria-disabled={isUploadingImage}
+            onClick={(event) => {
+              if (isUploadingImage) {
+                event.preventDefault();
+              }
+            }}
           >
             {isUploadingImage ? "Uploading..." : "Photo"}
-          </button>
+          </label>
           {/* <button type="button" className="input-icon" >
           </button> */}
           <input

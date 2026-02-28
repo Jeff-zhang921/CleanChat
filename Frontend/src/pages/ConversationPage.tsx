@@ -70,7 +70,11 @@ type RealtimeMessage = {
 };
 
 const IMAGE_MESSAGE_PREFIX = "IMG::";
-const IMAGE_URL_REGEX = /^https:\/\/(?:utfs\.io|[^/]*uploadthing\.com)\//i;
+const IMAGE_URL_REGEX =
+  /^https:\/\/(?:utfs\.io|(?:[a-z0-9-]+\.)?ufs\.sh|[^/\s]*uploadthing\.com)\//i;
+const IMAGE_EXTENSION_REGEX =
+  /\.(?:png|jpe?g|gif|webp|bmp|svg|heic|heif|avif)(?:\?.*)?$/i;
+const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
 const AVATAR_URLS: Record<AvatarKey, string> = {
   AVATAR_LEO: "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo",
@@ -112,7 +116,13 @@ const sortThreadsByLatestActivity = (items: ThreadResponse[]) =>
 
 const isImageMessageBody = (body: string) => {
   const trimmedBody = body.trim();
-  return trimmedBody.startsWith(IMAGE_MESSAGE_PREFIX) || IMAGE_URL_REGEX.test(trimmedBody);
+  const normalizedBody = trimmedBody.startsWith(IMAGE_MESSAGE_PREFIX)
+    ? trimmedBody.slice(IMAGE_MESSAGE_PREFIX.length).trim()
+    : trimmedBody;
+  if (!normalizedBody || !HTTP_URL_REGEX.test(normalizedBody)) {
+    return false;
+  }
+  return IMAGE_URL_REGEX.test(normalizedBody) || IMAGE_EXTENSION_REGEX.test(normalizedBody);
 };
 
 const getConversationPreview = (body?: string | null) => {
