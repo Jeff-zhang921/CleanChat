@@ -17,11 +17,18 @@ type ChatMessage={
 }
 
 const IMAGE_MESSAGE_PREFIX = "IMG::";
+const IMAGE_URL_REGEX = /^https:\/\/(?:utfs\.io|[^/]*uploadthing\.com)\//i;
 
 const getImageUrlFromMessage = (body: string) => {
-  if (!body.startsWith(IMAGE_MESSAGE_PREFIX)) return null;
-  const url = body.slice(IMAGE_MESSAGE_PREFIX.length).trim();
-  return url || null;
+  const trimmedBody = body.trim();
+  if (trimmedBody.startsWith(IMAGE_MESSAGE_PREFIX)) {
+    const url = trimmedBody.slice(IMAGE_MESSAGE_PREFIX.length).trim();
+    return url || null;
+  }
+  if (IMAGE_URL_REGEX.test(trimmedBody)) {
+    return trimmedBody;
+  }
+  return null;
 };
 
 const formatNotificationBody = (body: string) =>

@@ -70,6 +70,7 @@ type RealtimeMessage = {
 };
 
 const IMAGE_MESSAGE_PREFIX = "IMG::";
+const IMAGE_URL_REGEX = /^https:\/\/(?:utfs\.io|[^/]*uploadthing\.com)\//i;
 
 const AVATAR_URLS: Record<AvatarKey, string> = {
   AVATAR_LEO: "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo",
@@ -109,13 +110,18 @@ const sortThreadsByLatestActivity = (items: ThreadResponse[]) =>
     return bTime - aTime;
   });
 
+const isImageMessageBody = (body: string) => {
+  const trimmedBody = body.trim();
+  return trimmedBody.startsWith(IMAGE_MESSAGE_PREFIX) || IMAGE_URL_REGEX.test(trimmedBody);
+};
+
 const getConversationPreview = (body?: string | null) => {
   if (!body) return "No messages yet.";
-  return body.startsWith(IMAGE_MESSAGE_PREFIX) ? "Photo" : body;
+  return isImageMessageBody(body) ? "Photo" : body;
 };
 
 const getNotificationBody = (body: string) =>
-  body.startsWith(IMAGE_MESSAGE_PREFIX) ? "sent a photo" : body;
+  isImageMessageBody(body) ? "sent a photo" : body;
 
 const isIOSDevice = () =>
   typeof navigator !== "undefined" && /iPad|iPhone|iPod/i.test(navigator.userAgent);
