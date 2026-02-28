@@ -79,6 +79,18 @@ const LoginPage = () => {
             <span className="auth-chip">Email code login</span>
             <span className="auth-chip">No password needed</span>
           </div>
+          <section className="auth-intro" aria-label="CleanChat introduction">
+            <h2>Built for focused conversations</h2>
+            <p>
+              CleanChat keeps messaging simple: quick access, clean interfaces, and real-time chat that
+              works well on both desktop and mobile.
+            </p>
+            <ul className="auth-intro-list">
+              <li>Email verification sign-in with no password setup</li>
+              <li>CleanID-based search to find and start chats quickly</li>
+              <li>Profile personalization with nickname and avatar</li>
+            </ul>
+          </section>
         </section>
 
         <section className="auth-panel">
