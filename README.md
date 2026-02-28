@@ -46,6 +46,55 @@ Users log in by email code, create profile identity (`cleanId`, nickname, avatar
 | Backend | Koyeb | Frankfurt (Germany) |
 | Database | Neon | Singapore (AWS AP Southeast 1) |
 
+## Live Website
+
+- Frontend: `https://cleanchat.pages.dev`
+- Backend API origin: `https://clinical-ursulina-cleanchan-eb6e1ee6.koyeb.app`
+- Browser requests in production use Cloudflare proxy paths (`/api/*`, `/socket.io/*`) for better cookie/session compatibility.
+
+## Avatar Guide
+
+### How avatars are used
+
+1. New users choose an avatar on `/basic-info`.
+2. Existing users can change avatar on `/profile`.
+3. The selected avatar key (for example `AVATAR_LEO`) is stored in database.
+4. Frontend converts the key to a DiceBear image URL and displays it in conversations/chat/profile.
+
+Current avatar set:
+
+- `AVATAR_LEO`
+- `AVATAR_SOPHIE`
+- `AVATAR_MAX`
+- `AVATAR_BELLA`
+- `AVATAR_CHARLIE`
+
+### How to add a new avatar
+
+1. Add the new value to Prisma `Avatar` enum in `Backend/prisma/schema.prisma`.
+2. Run Prisma update commands (`npm run db:generate` and migration/push).
+3. Add URL mapping in `Backend/src/avatar.ts`.
+4. Add the new option in frontend avatar lists:
+   - `Frontend/src/pages/basicInfo.tsx`
+   - `Frontend/src/pages/profile.tsx`
+   - `Frontend/src/pages/ConversationPage.tsx` (avatar URL map)
+
+### Cloudflare Proxy Setup
+
+To keep auth/session stable on mobile browsers, this project proxies backend requests through Cloudflare Pages Functions:
+
+- `/api/*` -> Koyeb backend
+- `/socket.io/*` -> Koyeb backend socket endpoint
+
+Required Cloudflare environment variable:
+
+- `KOYEB_ORIGIN=https://your-koyeb-service.koyeb.app`
+
+Recommended frontend build variables:
+
+- `VITE_API_URL=/api`
+- `VITE_SOCKET_URL=https://your-pages-domain.pages.dev` (optional, default is current site origin in production)
+
 ## Project Structure
 
 ```text
