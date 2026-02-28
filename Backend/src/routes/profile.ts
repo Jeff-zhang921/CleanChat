@@ -96,13 +96,14 @@ router.delete("/me", requireProfileSession, async (req, res) => {
       });
 
       const threadIds = threads.map((item) => item.id);
-      if (threadIds.length > 0) {
-        await tx.chatMessage.deleteMany({
-          where: {
-            threadId: { in: threadIds },
-          },
-        });
-      }
+      await tx.chatMessage.deleteMany({
+        where: {
+          OR: [
+            { senderId: sessionUser.id },
+            { threadId: { in: threadIds } },
+          ],
+        },
+      });
 
       await tx.chatThread.deleteMany({
         where: {
