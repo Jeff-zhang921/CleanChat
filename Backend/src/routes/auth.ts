@@ -94,7 +94,7 @@ await mailer.sendMail({
 }
 
 
-router.post("email/start",async(req,res)=>{
+router.post("/email/start",async(req,res)=>{
     const email=typeof req.body.email==="string"?req.body.email.toLowerCase().trim():""
     if(!Email_REGEX.test(email)){
         return res.status(400).json({error:"Invalid email"})

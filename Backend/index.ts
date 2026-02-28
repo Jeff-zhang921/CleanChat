@@ -10,18 +10,18 @@ import { initSocket } from "./src/socket";
 const app = express();
 
 app.use(cors({
-    origin:"http://localhost:5273",
+    origin:["http://localhost:5173","http://localhost:5273"],
     credentials:true
 }));
+app.use(express.json());
 app.use(sessionMiddleware);
 app.use("/auth",authRouter);
 app.use("/profile",profileRouter);
 app.use("/chat",chatRouter);
-app.use(express.json());
 
 
 
-const PORT = Number(process.env.PORT || 3000);
+const PORT = Number(process.env.PORT || 4000);
 
 app.get("/",(request:Request,response:Response)=>{
      response.json({message:"Hello CleanChat"});

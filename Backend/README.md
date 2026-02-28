@@ -61,7 +61,7 @@ With auto-reload during development:
 npx nodemon --exec ts-node index.ts
 ```
 
-Server URL: `http://localhost:3000`
+Server URL: `http://localhost:4000`
 
 ## Current npm scripts status
 

@@ -34,7 +34,7 @@ type ThreadResponse = {
   } | null;
 };
 
-const BACKEND_URL = "http://localhost:3000";
+const BACKEND_URL = "http://localhost:4000";
 //accent is used for the avater
 const ACCENTS = ["#1f98b0", "#c43642", "#cb7e4a", "#37c9b8", "#7743ac", "#42a679"];
 

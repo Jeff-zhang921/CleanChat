@@ -1,15 +1,21 @@
 import './App.css';
-import { Routes, Route } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 // import PersonalPage from './pages/personalPage';
 import ChatPage from './pages/chatPage';
 import ConversationsPage from './pages/ConversationPage';
+import LoginPage from './pages/login'
+import VerifyPage from './pages/verify'
 function App(){
     return(
         <Routes>
-          <Route path="/" element={<ConversationsPage />} />
-          <Route path="/chat" element={<ChatPage />} />
-          {/* <Route path="/personal" element={<PersonalPage />} /> */}
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/login" element={<LoginPage/>} />
+            <Route path="/verify" element={<VerifyPage />} />
           <Route path="/conversations" element={<ConversationsPage />} />
+          <Route path="/chat" element={<ChatPage />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+          {/* <Route path="/personal" element={<PersonalPage />} /> */}
+          
         </Routes>
     )
 }
