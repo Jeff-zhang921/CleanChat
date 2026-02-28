@@ -122,7 +122,6 @@ const ConversationPage = () => {
   const [searchStatus, setSearchStatus] = useState("");
   const [openingUserId, setOpeningUserId] = useState<number | null>(null);
   const socketRef = useRef<Socket | null>(null);
-  const joinedThreadIdsRef = useRef(new Set<number>());
   const meRef = useRef<SessionUser | null>(null);
   const threadsRef = useRef<ThreadResponse[]>([]);
 
@@ -133,6 +132,22 @@ const ConversationPage = () => {
   useEffect(() => {
     threadsRef.current = threads;
   }, [threads]);
+
+  const refreshThreads = async () => {
+    const threadsResponse = await fetch(`${BACKEND_URL}/chat/threads`, {
+      credentials: "include",
+    });
+    if (!threadsResponse.ok) {
+      const data = await threadsResponse.json().catch(() => ({}));
+      setStatus(data.message || "Failed to load conversations.");
+      return false;
+    }
+
+    const data = await threadsResponse.json().catch(() => []);
+    setThreads(sortThreadsByLatestActivity(Array.isArray(data) ? data : []));
+    setStatus("");
+    return true;
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -155,19 +170,8 @@ const ConversationPage = () => {
 
         if (isMounted) setMe(meData.user);
 
-        const threadsResponse = await fetch(`${BACKEND_URL}/chat/threads`, {
-          credentials: "include",
-        });
-        if (!threadsResponse.ok) {
-          const data = await threadsResponse.json().catch(() => ({}));
-          if (isMounted) setStatus(data.message || "Failed to load conversations.");
-          return;
-        }
-
-        const data = await threadsResponse.json().catch(() => []);
         if (isMounted) {
-          setThreads(sortThreadsByLatestActivity(Array.isArray(data) ? data : []));
-          setStatus("");
+          await refreshThreads();
         }
       } catch {
         if (isMounted) setStatus("Failed to load conversations.");
@@ -185,15 +189,6 @@ const ConversationPage = () => {
 
     const socket = io(SOCKET_URL, { withCredentials: true });
     socketRef.current = socket;
-    joinedThreadIdsRef.current.clear();
-
-    const joinKnownThreads = () => {
-      for (const thread of threadsRef.current) {
-        if (joinedThreadIdsRef.current.has(thread.id)) continue;
-        socket.emit("thread:join", { threadId: thread.id });
-        joinedThreadIdsRef.current.add(thread.id);
-      }
-    };
 
     const handleIncomingMessage = (message: RealtimeMessage) => {
       setThreads((prev) => {
@@ -223,40 +218,33 @@ const ConversationPage = () => {
 
       const currentUser = meRef.current;
       if (!currentUser || message.senderId === currentUser.id) return;
-      if (typeof document !== "undefined" && !document.hidden) return;
 
       const targetThread = threadsRef.current.find((item) => item.id === message.threadId);
-      if (!targetThread) return;
+      let senderName = "CleanChat";
+      if (!targetThread) {
+        void refreshThreads();
+      } else {
+        const sender = targetThread.UserA.id === message.senderId ? targetThread.UserA : targetThread.UserB;
+        senderName = sender.cleanId || sender.name || sender.email;
+      }
 
-      const sender = targetThread.UserA.id === message.senderId ? targetThread.UserA : targetThread.UserB;
-      const senderName = sender.cleanId || sender.name || sender.email;
       showMessageNotification(senderName, message.body, `thread-${message.threadId}`);
     };
 
-    socket.on("connect", joinKnownThreads);
-    socket.on("message:new", handleIncomingMessage);
+    socket.on("inbox:new", handleIncomingMessage);
     socket.on("connect_error", () => {
       setNotificationStatus("Realtime connection lost. Trying to reconnect...");
     });
+    socket.on("connect", () => {
+      setNotificationStatus("");
+    });
 
     return () => {
-      socket.off("message:new", handleIncomingMessage);
+      socket.off("inbox:new", handleIncomingMessage);
       socket.disconnect();
       socketRef.current = null;
-      joinedThreadIdsRef.current.clear();
     };
   }, [me]);
-
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket || !socket.connected) return;
-
-    for (const thread of threads) {
-      if (joinedThreadIdsRef.current.has(thread.id)) continue;
-      socket.emit("thread:join", { threadId: thread.id });
-      joinedThreadIdsRef.current.add(thread.id);
-    }
-  }, [threads]);
 
   useEffect(() => {
     const query = searchTerm.trim().toLowerCase();

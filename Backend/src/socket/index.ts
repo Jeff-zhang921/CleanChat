@@ -35,6 +35,7 @@ export function initSocket(server: HTTPServer) {
     io.on("connection",(socket)=>{
         console.log("A user connected:", socket.data.user)
         const sessionUser=socket.data.user
+        socket.join(`user:${sessionUser.id}`)
         const emitChatError = (message: string) => {
             socket.emit("chat:error", message)
             socket.emit("message:error", message)
@@ -128,13 +129,17 @@ export function initSocket(server: HTTPServer) {
                 where:{id:validThreadId},
                 data:{lastMessageAt:new Date()},
             })
-            io.to(`thread:${validThreadId}`).emit("message:new",{
+            const messagePayload = {
                 id:message.id,
                 threadId:validThreadId,
                 body:message.body,
                 senderId:message.senderId,
                 createdAt:message.createdAt,
-            })
+            }
+
+            io.to(`thread:${validThreadId}`).emit("message:new", messagePayload)
+            io.to(`user:${thread.AID}`).emit("inbox:new", messagePayload)
+            io.to(`user:${thread.BID}`).emit("inbox:new", messagePayload)
             
         })
     }
