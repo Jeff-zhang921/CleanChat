@@ -114,7 +114,7 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
 
 .chat-input {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 8px;
   border-radius:12px;
   /* space inside the bar */
@@ -131,6 +131,7 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
   border-radius: 12px;
   padding: 14px 16px;
   color: var(--text);
+  min-width: 0;
 }
 
 .chat-file-input {
@@ -149,6 +150,7 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .photo-button.disabled,
@@ -167,6 +169,7 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
   border-radius: 10px;
   padding: 0 22px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .bubble-me {
@@ -315,5 +318,24 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
     max-width: 980px;
     margin: 0 auto;
     width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .chat-input {
+    padding: 12px 10px;
+    gap: 6px;
+    bottom: 0;
+  }
+
+  .chat-input input[type="text"] {
+    padding: 12px;
+  }
+
+  .photo-button,
+  .send-button {
+    min-width: 64px;
+    padding: 0 10px;
+    border-radius: 9px;
   }
 }
