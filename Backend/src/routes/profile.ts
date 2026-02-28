@@ -80,6 +80,59 @@ router.patch("/me",requireProfileSession,async (req,res)=>{
   res.json({ message: "Profile updated.", user: updatedUser })
 })
 
+router.delete("/me", requireProfileSession, async (req, res) => {
+  const sessionUser = req.session.user;
+  if (!sessionUser) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const threads = await tx.chatThread.findMany({
+        where: {
+          OR: [{ AID: sessionUser.id }, { BID: sessionUser.id }],
+        },
+        select: { id: true },
+      });
+
+      const threadIds = threads.map((item) => item.id);
+      if (threadIds.length > 0) {
+        await tx.chatMessage.deleteMany({
+          where: {
+            threadId: { in: threadIds },
+          },
+        });
+      }
+
+      await tx.chatThread.deleteMany({
+        where: {
+          OR: [{ AID: sessionUser.id }, { BID: sessionUser.id }],
+        },
+      });
+
+      await tx.loginCode.deleteMany({
+        where: { email: sessionUser.email },
+      });
+
+      await tx.user.delete({
+        where: { id: sessionUser.id },
+      });
+    });
+
+    req.session.destroy((error) => {
+      if (error) {
+        res.status(500).json({ error: "Account deleted, but failed to clear session." });
+        return;
+      }
+      res.clearCookie("connect.sid");
+      res.json({ message: "Account deleted." });
+    });
+  } catch (error) {
+    const details = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ error: "Failed to delete account.", details });
+  }
+});
+
 
 router.patch("/clean-id",requireProfileSession,async (req,res)=>{
   const sessionUser=req.session.user

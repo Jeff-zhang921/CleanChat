@@ -56,6 +56,8 @@ const ProfilePage = () => {
   const [status, setStatus] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleteConfirming, setIsDeleteConfirming] = useState(false);
 
   const normalizedCleanId = useMemo(() => cleanId.trim().toLowerCase(), [cleanId]);
 
@@ -101,12 +103,14 @@ const ProfilePage = () => {
   const startEdit = () => {
     resetFormToUser();
     setStatus("");
+    setIsDeleteConfirming(false);
     setIsEditing(true);
   };
 
   const cancelEdit = () => {
     resetFormToUser();
     setStatus("");
+    setIsDeleteConfirming(false);
     setIsEditing(false);
   };
 
@@ -187,6 +191,7 @@ const ProfilePage = () => {
     if (isLoggingOut) return;
 
     setIsLoggingOut(true);
+    setIsDeleteConfirming(false);
     try {
       await fetch(`${BACKEND_URL}/auth/logout`, {
         method: "POST",
@@ -195,6 +200,35 @@ const ProfilePage = () => {
     } finally {
       navigate("/login", { replace: true });
       setIsLoggingOut(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (isDeleting) return;
+    if (!isDeleteConfirming) {
+      setIsDeleteConfirming(true);
+      return;
+    }
+
+    setIsDeleting(true);
+    setStatus("Deleting account...");
+    try {
+      const response = await fetch(`${BACKEND_URL}/profile/me`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatus(data.error || data.message || "Failed to delete account.");
+        setIsDeleteConfirming(false);
+        return;
+      }
+      navigate("/login", { replace: true });
+    } catch {
+      setStatus("Unable to connect to server.");
+      setIsDeleteConfirming(false);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -338,6 +372,39 @@ const ProfilePage = () => {
             {status}
           </p>
         )}
+
+        <section className="profile-danger-wrap">
+          {isDeleteConfirming && !isDeleting && (
+            <p className="profile-danger-hint">
+              Are you sure? This will permanently delete your account, profile, and all chats.
+              Click delete again to continue.
+            </p>
+          )}
+          <div className="profile-danger-actions">
+            <button
+              type="button"
+              className={`profile-danger-btn ${isDeleteConfirming ? "confirm" : ""}`}
+              onClick={handleDeleteAccount}
+              disabled={isDeleting || isSaving || isLoggingOut}
+            >
+              {isDeleting
+                ? "Deleting..."
+                : isDeleteConfirming
+                  ? "Delete Account (Confirm)"
+                  : "Delete Account"}
+            </button>
+            {isDeleteConfirming && !isDeleting && (
+              <button
+                type="button"
+                className="profile-secondary-btn"
+                onClick={() => setIsDeleteConfirming(false)}
+                disabled={isSaving || isLoggingOut}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </section>
       </main>
       <BottomNav />
     </div>

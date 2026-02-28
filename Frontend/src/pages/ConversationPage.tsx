@@ -162,6 +162,48 @@ const ConversationPage = () => {
   const threadsRef = useRef<ThreadResponse[]>([]);
 
   useEffect(() => {
+    const syncPermission = () => {
+      const permission = getNotificationPermission();
+      setNotificationPermission(permission);
+      if (permission === "granted") {
+        setNotificationStatus("");
+      }
+    };
+
+    const handleVisibility = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        syncPermission();
+      }
+    };
+
+    syncPermission();
+    window.addEventListener("focus", syncPermission);
+    window.addEventListener("pageshow", syncPermission);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    let permissionStatus: PermissionStatus | null = null;
+    const permissionsApi = typeof navigator !== "undefined" ? navigator.permissions : undefined;
+    if (permissionsApi?.query) {
+      void permissionsApi
+        .query({ name: "notifications" as PermissionName })
+        .then((status) => {
+          permissionStatus = status;
+          permissionStatus.addEventListener("change", syncPermission);
+        })
+        .catch(() => undefined);
+    }
+
+    return () => {
+      window.removeEventListener("focus", syncPermission);
+      window.removeEventListener("pageshow", syncPermission);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      if (permissionStatus) {
+        permissionStatus.removeEventListener("change", syncPermission);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     meRef.current = me;
   }, [me]);
 
