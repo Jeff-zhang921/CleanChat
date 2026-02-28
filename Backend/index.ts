@@ -9,8 +9,15 @@ import http from "http";
 import { initSocket } from "./src/socket";
 const app = express();
 
+const defaultOrigins = ["http://localhost:5173", "http://localhost:5273"];
+const envOrigins = (process.env.FRONTEND_URLS ?? process.env.FRONTEND_URL ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedOrigins = [...new Set([...defaultOrigins, ...envOrigins])];
+
 app.use(cors({
-    origin:["http://localhost:5173","http://localhost:5273"],
+    origin: allowedOrigins,
     credentials:true
 }));
 app.use(express.json());

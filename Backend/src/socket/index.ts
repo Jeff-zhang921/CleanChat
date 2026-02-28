@@ -3,12 +3,20 @@ import { Server } from "socket.io";
 import { PrismaClient } from "@prisma/client";
 
 import{sessionMiddleware} from '../session';
-const prisma=new PrismaClient();``
+const prisma=new PrismaClient();
+
+const defaultOrigins = ["http://localhost:5173", "http://localhost:5273"];
+const envOrigins = (process.env.FRONTEND_URLS ?? process.env.FRONTEND_URL ?? "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedOrigins = [...new Set([...defaultOrigins, ...envOrigins])];
+
 export function initSocket(server: HTTPServer) {
     //io now is the big server
     const io = new Server(server, {
         cors: {
-            origin: "http://localhost:5273",
+            origin: allowedOrigins,
             credentials: true
         }
     });
@@ -118,5 +126,3 @@ return io
 
 
 }
-
-
