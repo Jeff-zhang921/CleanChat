@@ -60,8 +60,8 @@ router.get("/threads",async(req,res)=>{
                 {BID:userId}]
         },
         include:{
-    UserA:{select:{id:true,name:true,email:true}},
-    UserB:{select:{id:true,name:true,email:true}},
+    UserA:{select:{id:true,name:true,email:true,avatar:true}},
+    UserB:{select:{id:true,name:true,email:true,avatar:true}},
     //get one msg for display
     Messages:{
                 take:1,

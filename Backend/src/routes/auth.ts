@@ -208,6 +208,7 @@ if (loginCode.attempts >= MAX_ATTEMPTS) {
     select: { id: true, email: true, name: true, avatar: true, cleanId: true },
   });
 
+  const isNewUser = !existingUser
   const user = existingUser
     ? existingUser
     : await prisma.user.create({
@@ -226,7 +227,7 @@ if (loginCode.attempts >= MAX_ATTEMPTS) {
     provider: "email",
   };
 
-res.json({message:"Login code verified",user})
+ res.json({message:"Login code verified",user,isNewUser})
 })
 
 

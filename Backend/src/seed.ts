@@ -1,3 +1,5 @@
+//npx ts-node src/seed.ts
+
 import { PrismaClient } from "@prisma/client";
 import { DEFAULT_AVATAR } from "./avatar";
 

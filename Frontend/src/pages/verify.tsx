@@ -59,7 +59,7 @@ const VerifyPage = () => {
       }
 
       setStatus("");
-      navigate("/conversations");
+      navigate(data.isNewUser ? "/basic-info" : "/conversations");
     } catch {
       setStatus("Unable to connect to server.");
     } finally {

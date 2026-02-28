@@ -1,48 +1,58 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import BottomNav from "../components/BottomNav";
 import "./ConversationPage.css";
+
+type AvatarKey =
+  | "AVATAR_LEO"
+  | "AVATAR_SOPHIE"
+  | "AVATAR_MAX"
+  | "AVATAR_BELLA"
+  | "AVATAR_CHARLIE";
 
 type UserSummary = {
   id: number;
   name: string | null;
   email: string;
+  avatar: AvatarKey;
+};
+
+type SessionUser = UserSummary & {
+  cleanId?: string | null;
 };
 
 //this is same with the API with backend
 type ThreadResponse = {
   id: number;
-  hostId: number;
-  guestId: number;
+  AID: number;
+  BID: number;
   lastMessageAt: string | null;
   createdAt: string;
   updatedAt: string;
-  host: UserSummary;
-  guest: UserSummary;
-  // current backend shape from /chat/threads
-  Messages?: {
+  UserA: UserSummary;
+  UserB: UserSummary;
+  Messages: {
     id: number;
     body: string;
     createdAt: string;
     senderId: number;
   }[];
-  // optional legacy/alternate shape
-  lastMessage?: {
-    id: number;
-    body: string;
-    createdAt: string;
-    senderId: number;
-  } | null;
 };
 
 const BACKEND_URL = "http://localhost:4000";
-//accent is used for the avater
-const ACCENTS = ["#1f98b0", "#c43642", "#cb7e4a", "#37c9b8", "#7743ac", "#42a679"];
+const AVATAR_URLS: Record<AvatarKey, string> = {
+  AVATAR_LEO: "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo",
+  AVATAR_SOPHIE: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sophie",
+  AVATAR_MAX: "https://api.dicebear.com/7.x/avataaars/svg?seed=Max",
+  AVATAR_BELLA: "https://api.dicebear.com/7.x/avataaars/svg?seed=Bella",
+  AVATAR_CHARLIE: "https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie",
+};
 
-const getInitials=(name:string)=>{
-  const parts=name.split(" ").filter(Boolean)
-  if (parts.length===0)return'Unknown'
-   return parts.join(" ")
-}
+const getAvatarUrl = (avatar?: AvatarKey) => {
+  if (!avatar) return AVATAR_URLS.AVATAR_LEO;
+  return AVATAR_URLS[avatar] ?? AVATAR_URLS.AVATAR_LEO;
+};
+
 const formatTime=(time?:string)=>{
   if(!time)return "New"
   const date=new Date(time)
@@ -54,7 +64,7 @@ const ConversationPage=()=>{
   //强制传送：用户干了某件事，你强行把他传走。
   const navigate=useNavigate()
 
-  const [me,setme]=useState<UserSummary|null>(null)
+  const [me,setme]=useState<SessionUser|null>(null)
   const[thread,setThread]=useState<ThreadResponse[]>([])
   const [status,setStatus]=useState("loading...")
   const [searchTerm, setSearchTerm] = useState("");
@@ -109,20 +119,18 @@ const ConversationPage=()=>{
 const conversations=useMemo(()=>{
 if(!me)return []
 const mapped =thread.map((thread)=>{
-  const isHost=thread.hostId===me.id
-  const other=isHost?thread.guest:thread.host
-  //fall back chain 
-  const latestMessage = thread.lastMessage ?? thread.Messages?.[0] ?? null;
-  //make sure they are different 
-  const accent=ACCENTS[other.id%ACCENTS.length]
+  const isA=thread.AID===me.id
+  const other=isA?thread.UserB:thread.UserA
+  const latestMessage = thread.Messages?.[0] ?? null;
+  const displayName = other.name || other.email;
   return {
     threadId:thread.id,
-    name:other.name||other.email,
+    name:displayName,
     email:other.email,
-    role:isHost? "Host":"Guest",
+    avatarUrl:getAvatarUrl(other.avatar),
+    role:"Direct",
     preview: latestMessage?.body || "No messages yet.",
-    time:formatTime(latestMessage?.createdAt),
-    accent,
+    time:formatTime(latestMessage?.createdAt || thread.lastMessageAt || thread.updatedAt),
   }
 }
 )
@@ -133,7 +141,7 @@ const filteredConversations = useMemo(() => {
   const query = searchTerm.trim().toLowerCase();
   if (!query) return conversations;
   return conversations.filter((item) =>
-    item.name.includes(query)
+    item.name.toLowerCase().includes(query)
   );
 }, [conversations, searchTerm]);
 
@@ -148,7 +156,7 @@ return(
         <header className="conversations-header">
           <div>
             <p className="eyebrow"></p>
-            <h1>{me?.email}</h1>
+            <h1>{me?.cleanId || me?.email}</h1>
           </div>
         </header>
         <div className="conversations-toolbar">
@@ -187,7 +195,6 @@ return(
             <article
               key={item.threadId}
               className="conversation-card"
-              style={{ ["--accent" as any]: item.accent }}
               onClick={() => handleOpenThread(item.threadId,item.email)}
               role="button"
               onKeyDown={(event) => {
@@ -197,8 +204,7 @@ return(
               }}
             >
               <div className="avatar">
-                {/*  span doesn't do anything*/}
-                <span>{getInitials(item.name[0])}</span>
+                <img src={item.avatarUrl} alt={`${item.name} avatar`} />
               </div>
               <div className="conversation-body">
                 <div className="conversation-top">
@@ -215,6 +221,7 @@ return(
         </section>
 
     </div>
+    <BottomNav />
   </div>
 )
 

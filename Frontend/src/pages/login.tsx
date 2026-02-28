@@ -37,6 +37,10 @@ const LoginPage = () => {
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
+        if (response.status === 429) {
+          navigate("/verify", { state: { email: normalizedEmail } });
+          return;
+        }
         setStatus(data.message || data.error || "Failed to send verification code.");
         return;
       }
@@ -53,6 +57,7 @@ const LoginPage = () => {
   return (
     <div className="auth-shell">
       <main className="auth-layout">
+
         <section className="auth-brand">
           <p className="auth-kicker">Secure Messaging</p>
           <h1 className="auth-logo">CleanChat</h1>
