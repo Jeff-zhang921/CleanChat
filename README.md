@@ -86,9 +86,11 @@ To keep auth/session stable on mobile browsers, this project proxies backend req
 - `/api/*` -> Koyeb backend
 - `/socket.io/*` -> Koyeb backend socket endpoint
 
-Required Cloudflare environment variable:
+Recommended Cloudflare environment variable:
 
 - `KOYEB_ORIGIN=https://your-koyeb-service.koyeb.app`
+- If not set, the proxy currently falls back to:
+  `https://clinical-ursulina-cleanchan-eb6e1ee6.koyeb.app`
 
 Recommended frontend build variables:
 
