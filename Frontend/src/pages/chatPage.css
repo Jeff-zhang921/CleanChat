@@ -1,0 +1,198 @@
+/* this is the outer box that hold everything */
+/* padding is the space between the "text" and the "Frame."
+border defines the edge of the box. 
+margin: This is the space outside the frame.
+What it does: It pushes other boxes away. */
+
+/*same size as the browser window */
+.chat-shell {
+    /* this are the variables */
+  --bg: #f4f3f3;
+  --panel-2: #f7f3f3;
+  --line: #e4e4e4;
+  --text: #111111;
+  --muted: #858080;
+  --accent: #000000;
+  --bubble-me: #933fd8;
+  --bubble-them: #b8b5b59f;
+
+  /* ensure chati s at least as tall as screen */
+  min-height: 100vh;
+  /* Locks the height to exactly the screen size. */
+  height: 100vh;
+  width: 100vw;
+  /* Tells the shell to use a "Grid" layout (good for dividing space). */
+  display: grid;
+
+  /* background: var(--bg): Applies that light gray color (#f7f7f7) to the whole background. */
+  background: var(--bg);
+  
+  font-family: "Manrope";
+  /* : Stops the whole page from scrolling */
+  overflow: hidden;
+      /* box sizing says if add the padding the border won't add, it will make content smaller to fit */
+box-sizing: border-box;
+}
+
+
+/* the status logic */
+.status-pill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  background: #eeeeee;
+  color: var(--muted);
+}
+/* <div class="status-pill online">.
+If the element only has .status-pill, it stays gray. As soon as your JavaScript "injects" the word online into the class list, this black-and-white theme kicks in. */
+
+.status-pill.online {
+  background: #111111;
+  color: #ffffff;
+}
+
+
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-2);
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* chat body is the 聊天界面（big chat box） */
+.chat-body {
+  /* flex:1 make sure chat body fit the exact size that is screen- (header+input) */
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  /* Create the scrollbar */
+  display: flex;
+  /* stack them top to bottom */
+  flex-direction: column;
+  gap: 4px;
+}
+.chat-bar{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: var(--bg);
+}
+
+.chat-bar .back-button {
+   font-size: 22px;
+   font-weight: 900;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  align-items: center;
+  padding: 0;
+  background: var(--bg);
+}
+
+.chat-bar .avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #ffffff;
+  display: grid;
+  text-transform: uppercase;
+}
+
+.chat-input {
+  display: grid;
+  grid-template-columns:  1fr auto;
+  gap: 8px;
+  border-radius:12px;
+  /* space inside the bar */
+  padding: 22px 20px;
+  border-top: 1px solid var(--line);
+  background: #ffffff;
+  position: relative;
+  bottom: 24px;
+}
+/* where you type */
+.chat-input input {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: var(--text);
+}
+
+.send-button {
+  background: var(--accent);
+  border: none;
+  color: #ffffff;
+  border-radius: 10px;
+  padding: 0 22px;
+  font-weight: 600;
+}
+
+.bubble-me {
+  background: var(--bubble-me);
+  color: #ffffff;
+  border-bottom-right-radius: 4px;
+}
+
+.bubble-them {
+  background: var(--bubble-them);
+  color: #ffffff;
+  border-bottom-left-radius: 4px;
+}
+
+.chat-date {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.chat-row {
+  display: flex;
+  gap: 12px;
+}
+
+.chat-row.me {
+  justify-content: flex-end;
+}
+
+.chat-bubble {
+  max-width: 99%;
+  padding: 5px 10px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap:4px;
+  line-height: 1.5;
+}
+
+
+.chat-timestamp {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+
+@media (min-width: 1200px) {
+  .chat-shell {
+    padding: 0 24px;
+  }
+
+  .chat-body {
+    padding: 28px 36px;
+  }
+
+  .chat-input {
+    padding: 18px 28px;
+  }
+
+  .chat-body,
+  .chat-input {
+    max-width: 980px;
+    margin: 0 auto;
+    width: 100%;
+  }
+}

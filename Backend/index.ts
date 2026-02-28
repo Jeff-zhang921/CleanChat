@@ -4,6 +4,7 @@ import cors from 'cors';
 import { sessionMiddleware } from "./src/session";
 import profileRouter from "./src/routes/profile";
 import chatRouter from "./src/routes/chat";
+import authRouter from "./src/routes/auth";
 import http from "http";
 import { initSocket } from "./src/socket";
 const app = express();
@@ -13,6 +14,7 @@ app.use(cors({
     credentials:true
 }));
 app.use(sessionMiddleware);
+app.use("/auth",authRouter);
 app.use("/profile",profileRouter);
 app.use("/chat",chatRouter);
 app.use(express.json());
@@ -23,6 +25,7 @@ const PORT = Number(process.env.PORT || 3000);
 
 app.get("/",(request:Request,response:Response)=>{
      response.json({message:"Hello CleanChat"});
+     console.log("Root endpoint was called")
 });
 
 if (require.main === module) {

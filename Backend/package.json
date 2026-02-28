@@ -9,12 +9,12 @@
     "lint": "eslint . ",
     "build": "tsc --build",
     "start": "node ./dist/src/index.js",
-    "dev": "nodemon --exec ts-node index.ts",
+    "dev": "nodemon --exec \"ts-node --files\" index.ts",
     "db:start": "prisma dev start default --detach",
     "db:stop": "prisma dev stop default",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:seed": "ts-node src/seed.ts",
+    "db:seed": "ts-node --files src/seed.ts",
     "db:init": "npm run db:start && npm run db:generate && npm run db:push && npm run db:seed"
   },
   "jest": {
