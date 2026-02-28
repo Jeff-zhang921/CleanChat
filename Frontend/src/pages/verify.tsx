@@ -1,8 +1,8 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { BACKEND_URL } from "../config";
 import "./login.css";
 
-const BACKEND_URL = "http://localhost:4000";
 const CODE_LENGTH = 6;
 
 type VerifyLocationState = {

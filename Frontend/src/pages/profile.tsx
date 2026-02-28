@@ -1,9 +1,9 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
+import { BACKEND_URL } from "../config";
 import "./profile.css";
 
-const BACKEND_URL = "http://localhost:4000";
 const CLEAN_ID_REGEX = /^[a-z0-9_]{3,20}$/;
 
 type AvatarKey =

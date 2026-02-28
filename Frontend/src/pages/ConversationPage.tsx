@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
+import { BACKEND_URL } from "../config";
 import "./ConversationPage.css";
 
 type AvatarKey =
@@ -49,7 +50,6 @@ type ConversationItem = {
   time: string;
 };
 
-const BACKEND_URL = "http://localhost:4000";
 const AVATAR_URLS: Record<AvatarKey, string> = {
   AVATAR_LEO: "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo",
   AVATAR_SOPHIE: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sophie",

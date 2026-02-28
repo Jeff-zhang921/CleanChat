@@ -1,6 +1,7 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import{useLocation,useNavigate}from"react-router-dom";
 import{io,type Socket}from "socket.io-client"
+import { BACKEND_URL, SOCKET_URL } from "../config";
 //chatPage/css has not been commited.
 import"./chatPage.css"
 
@@ -13,7 +14,6 @@ type ChatMessage={
   body:string;
   createdAt:string
 }
-const Backend_URL="http://localhost:4000";
 
 //TIMELINE:
 //0ms	React reads useState(remember in memory).	Blank screen.
@@ -51,7 +51,7 @@ const [messageBody,setMessageBody]=useState("")
 
 const loadMe=async()=>{
   try{
-    const res=await fetch(`${Backend_URL}/auth/me`,{
+    const res=await fetch(`${BACKEND_URL}/auth/me`,{
       credentials:"include"
     })
     if(!res.ok){
@@ -74,7 +74,7 @@ const loadMe=async()=>{
 
 const loadMessages=async(id:number)=>{
   try{
-    const res = await fetch(`${Backend_URL}/chat/threads/${id}/messages`, {
+    const res = await fetch(`${BACKEND_URL}/chat/threads/${id}/messages`, {
      credentials: "include",
     });
     if (!res.ok) {
@@ -100,7 +100,7 @@ const connectSocket=()=>{
  //normal http open and close in each request
  //io Stays open as long as you're on the page.
  //The Verification (Sending)
- const socket=io(Backend_URL,{withCredentials:true})
+ const socket=io(SOCKET_URL,{withCredentials:true})
 socketRef.current=socket
 //connect is a reserved keyword in socket unlike thread:id
 //when they connect it will execute the following code
@@ -179,7 +179,7 @@ socketRef.current=socket
   }
   //when you call setstatus, or set... it immediately broadcast
   try{
-    const res=await fetch(`${Backend_URL}/chat/threads`,{
+    const res=await fetch(`${BACKEND_URL}/chat/threads`,{
       method:"POST",
       headers: { "Content-Type": "application/json" },
       credentials:"include",
