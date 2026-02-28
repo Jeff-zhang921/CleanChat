@@ -95,66 +95,72 @@ await mailer.sendMail({
 
 
 router.post("/email/start",async(req,res)=>{
+  try{
     const email=typeof req.body.email==="string"?req.body.email.toLowerCase().trim():""
     if(!Email_REGEX.test(email)){
-        return res.status(400).json({error:"Invalid email"})
+      return res.status(400).json({error:"Invalid email"})
     }
     if (!LOGIN_CODE_SECRET || !mailer) {
-    res.status(500).json({ message: "Email login is not configured." });
-    return;
-  }
-  const now = new Date()
-  const user=await prisma.user.findUnique({where:{email},
-select:{name:true}})
-let name:string;
-if(!user){
-    name="New User"
+      res.status(500).json({ message: "Email login is not configured." });
+      return;
+    }
 
-}else{
-    name = user.name
-}
+    const now = new Date()
+    const user=await prisma.user.findUnique({where:{email},
+      select:{name:true}})
+    let name:string;
+    if(!user){
+      name="New User"
 
-const activeCode = await prisma.loginCode.findFirst({
-    where: {
-      email,
-      usedAt: null,
-      expireAt: { gt: now },
-    },
-    orderBy: { createdAt: "desc" },
-  })
+    }else{
+      name = user.name
+    }
+
+    const activeCode = await prisma.loginCode.findFirst({
+      where: {
+        email,
+        usedAt: null,
+        expireAt: { gt: now },
+      },
+      orderBy: { createdAt: "desc" },
+    })
     if (activeCode) {
-    res.status(429).json({ message: "A verification code is already active. Please wait for it to expire." });
-    return;
-  }
-  const code=generateLoginCode()
-const hashedCode=hashCode(code)
-const expireAt=new Date(Date.now()+CODE_TTL_MS)
-await prisma.$transaction(
-    [
+      res.status(429).json({ message: "A verification code is already active. Please wait for it to expire." });
+      return;
+    }
+
+    const code=generateLoginCode()
+    const hashedCode=hashCode(code)
+    const expireAt=new Date(Date.now()+CODE_TTL_MS)
+    await prisma.$transaction(
+      [
         prisma.loginCode.deleteMany({
-            where:{
-                email,
-            },
+          where:{
+            email,
+          },
         }),
         prisma.loginCode.create({
-            data:{
-                email,
-                codeHash:hashedCode,
-                expireAt,
-            }
+          data:{
+            email,
+            codeHash:hashedCode,
+            expireAt,
+          }
         })
-    ]
-)
-try{
-    if(process.env.NODE_ENV !== "test"){
-        await sendLoginCode(name,email,code)
-    }}catch(error){
-        console.error("Failed to send login code email:", error)
-        res.status(500).json({error:"Failed to send verification code email"})
-        return;
-}
-res.json({message:"Verification code sent"})
+      ]
+    )
 
+    if(process.env.NODE_ENV !== "test"){
+      await sendLoginCode(name,email,code)
+    }
+
+    res.json({message:"Verification code sent"})
+  }catch(error){
+    const details = error instanceof Error ? error.message : String(error)
+    console.error("Failed to start email verification:", error)
+    res.status(500).json({
+      error: `Failed to send verification code email: ${details}`,
+    })
+  }
 })
 
 

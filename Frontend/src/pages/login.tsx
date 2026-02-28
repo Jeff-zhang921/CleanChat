@@ -34,14 +34,27 @@ const LoginPage = () => {
         body: JSON.stringify({ email: normalizedEmail }),
       });
 
-      const data = await response.json().catch(() => ({}));
+      const raw = await response.text();
+      let data: Record<string, string> = {};
+      if (raw) {
+        try {
+          data = JSON.parse(raw) as Record<string, string>;
+        } catch {
+          data = {};
+        }
+      }
 
       if (!response.ok) {
         if (response.status === 429) {
           navigate("/verify", { state: { email: normalizedEmail } });
           return;
         }
-        setStatus(data.message || data.error || "Failed to send verification code.");
+        setStatus(
+          data.message ||
+            data.error ||
+            raw ||
+            `Failed to send verification code (HTTP ${response.status}).`
+        );
         return;
       }
 
