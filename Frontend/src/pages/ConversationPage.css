@@ -133,3 +133,13 @@ width: 1px;
   color: var(--muted);
   line-height: 1.4;
 }
+
+.conversation-subline {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.status-text {
+  color: var(--muted);
+}
