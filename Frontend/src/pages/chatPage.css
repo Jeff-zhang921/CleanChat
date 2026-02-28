@@ -113,7 +113,7 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
 
 .chat-input {
   display: grid;
-  grid-template-columns:  1fr auto;
+  grid-template-columns: auto 1fr auto;
   gap: 8px;
   border-radius:12px;
   /* space inside the bar */
@@ -130,6 +130,24 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
   border-radius: 12px;
   padding: 14px 16px;
   color: var(--text);
+}
+
+.chat-file-input {
+  display: none;
+}
+
+.photo-button {
+  background: #f4f4f4;
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 0 14px;
+  font-weight: 600;
+}
+
+.photo-button:disabled,
+.send-button:disabled {
+  opacity: 0.65;
 }
 
 .send-button {
@@ -176,6 +194,69 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
   flex-direction: column;
   gap:4px;
   line-height: 1.5;
+}
+
+.chat-image {
+  width: min(16rem, 62vw);
+  max-height: 18rem;
+  object-fit: cover;
+  border-radius: 10px;
+  display: block;
+}
+
+.chat-image-button {
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.image-viewer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.image-viewer-card {
+  max-width: min(96vw, 42rem);
+  max-height: 92vh;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.image-viewer-image {
+  max-width: 100%;
+  max-height: 78vh;
+  border-radius: 12px;
+  display: block;
+  object-fit: contain;
+  background: #000;
+}
+
+.image-viewer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.image-viewer-btn {
+  text-decoration: none;
+  border: 1px solid #2f2f2f;
+  border-radius: 10px;
+  padding: 0.45rem 0.75rem;
+  background: #ffffff;
+  color: #111111;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.image-viewer-btn.secondary {
+  background: #f1f1f1;
 }
 
 

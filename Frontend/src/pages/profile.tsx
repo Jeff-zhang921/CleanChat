@@ -11,7 +11,12 @@ type AvatarKey =
   | "AVATAR_SOPHIE"
   | "AVATAR_MAX"
   | "AVATAR_BELLA"
-  | "AVATAR_CHARLIE";
+  | "AVATAR_CHARLIE"
+  | "AVATAR_AVERY"
+  | "AVATAR_RILEY"
+  | "AVATAR_JORDAN"
+  | "AVATAR_SKYLER"
+  | "AVATAR_MORGAN";
 
 type ProfileUser = {
   id: number;
@@ -21,18 +26,22 @@ type ProfileUser = {
   avatar: AvatarKey;
 };
 
-const AVATAR_OPTIONS: { key: AvatarKey; label: string; seed: string }[] = [
-  { key: "AVATAR_LEO", label: "Leo", seed: "Leo" },
-  { key: "AVATAR_SOPHIE", label: "Sophie", seed: "Sophie" },
-  { key: "AVATAR_MAX", label: "Max", seed: "Max" },
-  { key: "AVATAR_BELLA", label: "Bella", seed: "Bella" },
-  { key: "AVATAR_CHARLIE", label: "Charlie", seed: "Charlie" },
+const AVATAR_OPTIONS: { key: AvatarKey; label: string; url: string }[] = [
+  { key: "AVATAR_LEO", label: "Leo", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo" },
+  { key: "AVATAR_SOPHIE", label: "Sophie", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sophie" },
+  { key: "AVATAR_MAX", label: "Max", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Max" },
+  { key: "AVATAR_BELLA", label: "Bella", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Bella" },
+  { key: "AVATAR_CHARLIE", label: "Charlie", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie" },
+  { key: "AVATAR_AVERY", label: "Avery", url: "https://api.dicebear.com/9.x/adventurer/svg?seed=Avery" },
+  { key: "AVATAR_RILEY", label: "Riley", url: "https://api.dicebear.com/9.x/lorelei/svg?seed=Riley" },
+  { key: "AVATAR_JORDAN", label: "Jordan", url: "https://api.dicebear.com/9.x/adventurer/svg?seed=Jordan" },
+  { key: "AVATAR_SKYLER", label: "Skyler", url: "https://api.dicebear.com/9.x/lorelei/svg?seed=Skyler" },
+  { key: "AVATAR_MORGAN", label: "Morgan", url: "https://api.dicebear.com/9.x/adventurer/svg?seed=Morgan" },
 ];
 
 const avatarUrl = (avatar: AvatarKey) => {
   const option = AVATAR_OPTIONS.find((item) => item.key === avatar);
-  const seed = option?.seed ?? "Leo";
-  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+  return option?.url ?? "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo";
 };
 
 const ProfilePage = () => {
@@ -268,7 +277,7 @@ const ProfilePage = () => {
                       onChange={() => setAvatar(item.key)}
                     />
                     <img
-                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${item.seed}`}
+                      src={item.url}
                       alt={item.label}
                     />
                     <span>{item.label}</span>

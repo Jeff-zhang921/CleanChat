@@ -1,4 +1,4 @@
-import {useEffect,useMemo,useRef,useState} from 'react';
+import { type ChangeEvent, useEffect,useMemo,useRef,useState} from 'react';
 import{useLocation,useNavigate}from"react-router-dom";
 import{io,type Socket}from "socket.io-client"
 import { BACKEND_URL, SOCKET_URL } from "../config";
@@ -15,6 +15,17 @@ type ChatMessage={
   body:string;
   createdAt:string
 }
+
+const IMAGE_MESSAGE_PREFIX = "IMG::";
+
+const getImageUrlFromMessage = (body: string) => {
+  if (!body.startsWith(IMAGE_MESSAGE_PREFIX)) return null;
+  const url = body.slice(IMAGE_MESSAGE_PREFIX.length).trim();
+  return url || null;
+};
+
+const formatNotificationBody = (body: string) =>
+  getImageUrlFromMessage(body) ? "sent a photo" : body;
 
 //TIMELINE:
 //0ms	React reads useState(remember in memory).	Blank screen.
@@ -38,6 +49,7 @@ const ChatPage = () => {
   //when call <div className="chat-body" ref={messageListRef}>, it wll do 
   //messageListRef.current = <the actual div DOM node>: the stuff that inside the div will auto scroll or do some action
   const messageListRef=useRef<HTMLDivElement|null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const threadIdRef = useRef<number | null>(null);
   //change a useState value, React rerender the UI to show the new information."
   const [status,setStatus]=useState("Not connected")
@@ -50,6 +62,8 @@ const ChatPage = () => {
   const autoThreadRef=useRef(false)
 //useEffect: After you finish drawing the screen, run this specific piece of code.
 const [messageBody,setMessageBody]=useState("")
+const [isUploadingImage, setIsUploadingImage] = useState(false);
+const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
 
 
@@ -139,7 +153,7 @@ socketRef.current=socket
         getNotificationPermission() === "granted"
       ) {
         const title = other || "New message";
-        showMessageNotification(title, msg.body, `thread-${msg.threadId}`);
+        showMessageNotification(title, formatNotificationBody(msg.body), `thread-${msg.threadId}`);
       }
     });
   }
@@ -274,6 +288,85 @@ const handleSendMessage=()=>{
   setMessageBody("")
 }
 
+const handlePickImage = () => {
+  if (isUploadingImage) return;
+  fileInputRef.current?.click();
+};
+
+const handleUploadImage = async (event: ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+
+  if (!threadId) {
+    setStatus("Create or join a thread first");
+    return;
+  }
+  if (!socketRef.current || !socketRef.current.connected) {
+    setStatus("Socket not connected");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("image", file);
+
+  setIsUploadingImage(true);
+  setStatus("Uploading image...");
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/chat/upload-image`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setStatus(data.error || data.message || "Failed to upload image");
+      return;
+    }
+
+    const imageUrl = typeof data.url === "string" ? data.url.trim() : "";
+    if (!imageUrl) {
+      setStatus("Upload succeeded but image URL is missing");
+      return;
+    }
+
+    socketRef.current.emit("message:send", {
+      threadId,
+      body: `${IMAGE_MESSAGE_PREFIX}${imageUrl}`,
+    });
+    setStatus("Image sent");
+  } catch {
+    setStatus("Failed to upload image");
+  } finally {
+    setIsUploadingImage(false);
+  }
+};
+
+const handleOpenImagePreview = (imageUrl: string) => {
+  setPreviewImageUrl(imageUrl);
+};
+
+const handleCloseImagePreview = () => {
+  setPreviewImageUrl(null);
+};
+
+useEffect(() => {
+  if (!previewImageUrl) return;
+
+  const handleEsc = (event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      handleCloseImagePreview();
+    }
+  };
+
+  window.addEventListener("keydown", handleEsc);
+  return () => {
+    window.removeEventListener("keydown", handleEsc);
+  };
+}, [previewImageUrl]);
+
   return (
     <div className='chat-shell'>
       <main className='chat-panel'>
@@ -314,6 +407,7 @@ const handleSendMessage=()=>{
           
           {message.map((msg, index) => {
             const isMe = msg.senderId === me?.id;
+            const imageUrl = getImageUrlFromMessage(msg.body);
             //If True: It gives the div the class chat-row me.
             //If False: It gives the div the class chat-row them.
             return (
@@ -325,7 +419,17 @@ const handleSendMessage=()=>{
               //using --i so each chat message is in different i
               >
                  <div className={`chat-bubble ${isMe ? "bubble-me" : "bubble-them"}`}>
-                  <p>{msg.body}</p>
+                  {imageUrl ? (
+                    <button
+                      type="button"
+                      className="chat-image-button"
+                      onClick={() => handleOpenImagePreview(imageUrl)}
+                    >
+                      <img className="chat-image" src={imageUrl} alt="Shared image" />
+                    </button>
+                  ) : (
+                    <p>{msg.body}</p>
+                  )}
                   <span className="chat-timestamp">
                     {new Date(msg.createdAt).toLocaleTimeString()}
                   </span>
@@ -337,6 +441,21 @@ const handleSendMessage=()=>{
 
 
         <div className='chat-input'>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="chat-file-input"
+            onChange={handleUploadImage}
+          />
+          <button
+            type="button"
+            className="photo-button"
+            onClick={handlePickImage}
+            disabled={isUploadingImage}
+          >
+            {isUploadingImage ? "Uploading..." : "Photo"}
+          </button>
           {/* <button type="button" className="input-icon" >
           </button> */}
           <input
@@ -359,10 +478,41 @@ const handleSendMessage=()=>{
           />
            {/* <button type="button" className="input-icon">
           </button> */}
-          <button type="button" className="send-button" onClick={handleSendMessage}>
+          <button
+            type="button"
+            className="send-button"
+            onClick={handleSendMessage}
+            disabled={isUploadingImage}
+          >
             Send
           </button>
         </div>
+        {previewImageUrl && (
+          <div className="image-viewer-overlay" onClick={handleCloseImagePreview} role="presentation">
+            <div
+              className="image-viewer-card"
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+            >
+              <img className="image-viewer-image" src={previewImageUrl} alt="Preview" />
+              <div className="image-viewer-actions">
+                <a
+                  className="image-viewer-btn"
+                  href={previewImageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  download
+                >
+                  Save / Open
+                </a>
+                <button type="button" className="image-viewer-btn secondary" onClick={handleCloseImagePreview}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

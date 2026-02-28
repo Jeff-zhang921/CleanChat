@@ -15,7 +15,12 @@ type AvatarKey =
   | "AVATAR_SOPHIE"
   | "AVATAR_MAX"
   | "AVATAR_BELLA"
-  | "AVATAR_CHARLIE";
+  | "AVATAR_CHARLIE"
+  | "AVATAR_AVERY"
+  | "AVATAR_RILEY"
+  | "AVATAR_JORDAN"
+  | "AVATAR_SKYLER"
+  | "AVATAR_MORGAN";
 
 type UserSummary = {
   id: number;
@@ -64,12 +69,19 @@ type RealtimeMessage = {
   createdAt: string;
 };
 
+const IMAGE_MESSAGE_PREFIX = "IMG::";
+
 const AVATAR_URLS: Record<AvatarKey, string> = {
   AVATAR_LEO: "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo",
   AVATAR_SOPHIE: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sophie",
   AVATAR_MAX: "https://api.dicebear.com/7.x/avataaars/svg?seed=Max",
   AVATAR_BELLA: "https://api.dicebear.com/7.x/avataaars/svg?seed=Bella",
   AVATAR_CHARLIE: "https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie",
+  AVATAR_AVERY: "https://api.dicebear.com/9.x/adventurer/svg?seed=Avery",
+  AVATAR_RILEY: "https://api.dicebear.com/9.x/lorelei/svg?seed=Riley",
+  AVATAR_JORDAN: "https://api.dicebear.com/9.x/adventurer/svg?seed=Jordan",
+  AVATAR_SKYLER: "https://api.dicebear.com/9.x/lorelei/svg?seed=Skyler",
+  AVATAR_MORGAN: "https://api.dicebear.com/9.x/adventurer/svg?seed=Morgan",
 };
 
 const getAvatarUrl = (avatar?: AvatarKey) => {
@@ -96,6 +108,14 @@ const sortThreadsByLatestActivity = (items: ThreadResponse[]) =>
     const bTime = toTimestamp(b.lastMessageAt || b.updatedAt);
     return bTime - aTime;
   });
+
+const getConversationPreview = (body?: string | null) => {
+  if (!body) return "No messages yet.";
+  return body.startsWith(IMAGE_MESSAGE_PREFIX) ? "Photo" : body;
+};
+
+const getNotificationBody = (body: string) =>
+  body.startsWith(IMAGE_MESSAGE_PREFIX) ? "sent a photo" : body;
 
 const isIOSDevice = () =>
   typeof navigator !== "undefined" && /iPad|iPhone|iPod/i.test(navigator.userAgent);
@@ -228,7 +248,7 @@ const ConversationPage = () => {
         senderName = sender.cleanId || sender.name || sender.email;
       }
 
-      showMessageNotification(senderName, message.body, `thread-${message.threadId}`);
+      showMessageNotification(senderName, getNotificationBody(message.body), `thread-${message.threadId}`);
     };
 
     socket.on("inbox:new", handleIncomingMessage);
@@ -317,7 +337,7 @@ const ConversationPage = () => {
         cleanId: other.cleanId,
         avatarUrl: getAvatarUrl(other.avatar),
         role: "Direct",
-        preview: latestMessage?.body || "No messages yet.",
+        preview: getConversationPreview(latestMessage?.body),
         time: formatTime(latestMessage?.createdAt || item.lastMessageAt || item.updatedAt),
       };
     });

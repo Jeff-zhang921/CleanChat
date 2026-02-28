@@ -1,12 +1,76 @@
 import { Router } from "express";
 import { PrismaClient } from "@prisma/client";
+import multer from "multer";
+import { UTApi, UTFile } from "uploadthing/server";
 
 const router = Router();
 const prisma = new PrismaClient();
+const utapi = new UTApi();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+});
+
+const ensureAuth = (sessionUserId: number | undefined): sessionUserId is number =>
+  typeof sessionUserId === "number" && Number.isInteger(sessionUserId) && sessionUserId > 0;
+
+router.post("/upload-image", upload.single("image"), async (req, res) => {
+  const sessionUserId = req.session.user?.id;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  if (!process.env.UPLOADTHING_TOKEN) {
+    res.status(500).json({ error: "UPLOADTHING_TOKEN is not configured on backend." });
+    return;
+  }
+
+  const file = req.file as Express.Multer.File | undefined;
+  if (!file) {
+    res.status(400).json({ error: "Image file is required." });
+    return;
+  }
+  if (!file.mimetype.startsWith("image/")) {
+    res.status(400).json({ error: "Only image files are allowed." });
+    return;
+  }
+
+  try {
+    const uploadBytes = new Uint8Array(file.buffer);
+    const uploadFile = new UTFile([uploadBytes], file.originalname || `chat-${Date.now()}.jpg`, {
+      type: file.mimetype,
+      lastModified: Date.now(),
+    });
+
+    const uploaded = await utapi.uploadFiles(uploadFile);
+    const uploadedData = Array.isArray(uploaded) ? uploaded[0]?.data : uploaded.data;
+    const uploadedError = Array.isArray(uploaded) ? uploaded[0]?.error : uploaded.error;
+
+    if (uploadedError || !uploadedData) {
+      res.status(502).json({
+        error: "Failed to upload image to UploadThing.",
+        details: uploadedError?.message ?? null,
+      });
+      return;
+    }
+
+    const url = uploadedData.ufsUrl ?? uploadedData.url;
+    if (!url) {
+      res.status(502).json({ error: "Upload completed but URL is missing." });
+      return;
+    }
+
+    res.json({ url, key: uploadedData.key });
+  } catch (error) {
+    const details = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ error: "Failed to upload image.", details });
+  }
+});
 
 router.get("/users/search", async (req, res) => {
   const sessionUserId = req.session.user?.id;
-  if (!sessionUserId) {
+  if (!ensureAuth(sessionUserId)) {
     res.status(401).json({ message: "Unauthorized" });
     return;
   }
@@ -48,7 +112,7 @@ router.get("/users/search", async (req, res) => {
 
 router.post("/threads", async (req, res) => {
   const sessionUserId = req.session.user?.id;
-  if (!sessionUserId) {
+  if (!ensureAuth(sessionUserId)) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
@@ -97,7 +161,7 @@ router.post("/threads", async (req, res) => {
 router.get("/threads", async (req, res) => {
   const userId = req.session.user?.id;
 
-  if (!userId) {
+  if (!ensureAuth(userId)) {
     res.status(401).json({ message: "Unauthorized" });
     return;
   }
@@ -123,7 +187,7 @@ router.get("/threads", async (req, res) => {
 
 router.get("/threads/:threadId/messages", async (req, res) => {
   const userId = req.session.user?.id;
-  if (!userId) {
+  if (!ensureAuth(userId)) {
     res.status(401).json({ message: "Unauthorized" });
     return;
   }

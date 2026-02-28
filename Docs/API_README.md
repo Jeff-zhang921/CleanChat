@@ -312,6 +312,35 @@ Success response:
 ]
 ```
 
+### POST `/chat/upload-image`
+
+Upload one image file to UploadThing for chat messages.
+
+Backend env requirement:
+
+- `UPLOADTHING_TOKEN=<your_secret_token>`
+
+Request:
+
+- Content-Type: `multipart/form-data`
+- Field name: `image`
+- Max size: 8 MB
+
+Success response:
+
+```json
+{
+  "url": "https://utfs.io/f/...",
+  "key": "fileKey"
+}
+```
+
+Message format note:
+
+- To send an uploaded image in socket message body, frontend uses:
+  `IMG::<uploaded_url>`
+- UI renders that body as an image bubble.
+
 ## Socket.IO Events
 
 Socket endpoint:

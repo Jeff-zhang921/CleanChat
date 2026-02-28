@@ -76,3 +76,40 @@ VITE_SOCKET_URL=https://cleanchat.pages.dev
 1. 报 `Missing KOYEB_ORIGIN env var`：检查 Cloudflare 环境变量是否在当前环境生效并已重新部署。
 2. 仍请求 `localhost`：检查 `VITE_API_URL` 是否为 `/api`，并确认前端是最新构建。
 3. Socket 不连通：检查 `/socket.io/*` function 是否部署成功，Koyeb 服务是否健康。
+
+## 9. 如何把 Session 变长
+
+当前后端会话时长配置在：
+
+- `Backend/src/session.ts`
+
+关键配置：
+
+- `const SESSION_TTL_MS = 24 * 60 * 60 * 1000;` 表示 24 小时。
+- `cookie.maxAge = SESSION_TTL_MS` 决定浏览器 cookie 过期时间。
+
+如果你想改成更长，例如 7 天：
+
+```ts
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+```
+
+改完后需要：
+
+1. 重新部署后端（Koyeb）。
+2. 用户重新登录一次，拿到新 cookie 过期时间。
+
+线上稳定登录还要确保：
+
+1. `sameSite: "none"`（跨域前后端场景）。
+2. `secure: true`（HTTPS）。
+3. `app.set("trust proxy", 1)` 已启用（Koyeb/Cloudflare 场景）。
+
+本项目当前已经在生产模式下自动使用上述配置。
+
+## 10. Further Reading
+
+- Notification + photo upload implementation details:
+  [NOTIFICATION_UPLOAD_README.md](NOTIFICATION_UPLOAD_README.md)
+- Backend API details:
+  [API_README.md](API_README.md)

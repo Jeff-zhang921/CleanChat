@@ -167,6 +167,7 @@ CleanChat/
 
 - Reverse proxy issue + solution: [Docs/README.md](Docs/README.md)
 - Backend API reference: [Docs/API_README.md](Docs/API_README.md)
+- Notifications + photo upload deep dive: [Docs/NOTIFICATION_UPLOAD_README.md](Docs/NOTIFICATION_UPLOAD_README.md)
 
 
 ## License
