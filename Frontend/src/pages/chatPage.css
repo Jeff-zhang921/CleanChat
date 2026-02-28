@@ -67,6 +67,7 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
   flex: 1;
   padding: 24px;
   overflow-y: auto;
+  overflow-x: hidden;
   /* Create the scrollbar */
   display: flex;
   /* stack them top to bottom */
@@ -190,6 +191,7 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
   display: flex;
   gap: 12px;
   min-width: 0;
+  width: 100%;
 }
 
 .chat-row.me {
@@ -206,6 +208,8 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
   line-height: 1.5;
   min-width: 0;
   overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .chat-bubble p {
@@ -213,6 +217,14 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.chat-row.me .chat-bubble {
+  margin-left: auto;
+}
+
+.chat-row.them .chat-bubble {
+  margin-right: auto;
 }
 
 .chat-image {
