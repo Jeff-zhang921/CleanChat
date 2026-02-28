@@ -40,11 +40,11 @@ Users log in by email code, create profile identity (`cleanId`, nickname, avatar
 
 ## Hosting
 
-| Service | Platform |
-| --- | --- |
-| Frontend | GitHub |
-| Backend | Koyeb |
-| Database | Neon |
+| Service | Platform | Region |
+| --- | --- | --- |
+| Frontend | Cloudflare Pages | Global Edge |
+| Backend | Koyeb | Frankfurt (Germany) |
+| Database | Neon | Singapore (AWS AP Southeast 1) |
 
 ## Project Structure
 

@@ -8,9 +8,15 @@ import authRouter from "./src/routes/auth";
 import http from "http";
 import { initSocket } from "./src/socket";
 const app = express();
+const frontendEnv = `${process.env.FRONTEND_URL ?? ""},${process.env.FRONTEND_URLS ?? ""}`;
+const hasRemoteHttpsFrontend = frontendEnv
+  .split(",")
+  .map((item) => item.trim())
+  .some((item) => item.startsWith("https://"));
 const isProduction = process.env.NODE_ENV === "production";
+const useProxyTrust = isProduction || hasRemoteHttpsFrontend;
 
-if (isProduction) {
+if (useProxyTrust) {
     app.set("trust proxy", 1);
 }
 
