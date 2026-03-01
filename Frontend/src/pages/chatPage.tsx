@@ -67,6 +67,7 @@ const ChatPage = () => {
   //when call <div className="chat-body" ref={messageListRef}>, it wll do 
   //messageListRef.current = <the actual div DOM node>: the stuff that inside the div will auto scroll or do some action
   const messageListRef=useRef<HTMLDivElement|null>(null)
+  const messageInputRef = useRef<HTMLInputElement | null>(null);
   const threadIdRef = useRef<number | null>(null);
   //change a useState value, React rerender the UI to show the new information."
   const [status,setStatus]=useState("Not connected")
@@ -81,6 +82,13 @@ const ChatPage = () => {
 const [messageBody,setMessageBody]=useState("")
 const [isUploadingImage, setIsUploadingImage] = useState(false);
 const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
+const refocusMessageInput = () => {
+  if (typeof window === "undefined") return;
+  window.requestAnimationFrame(() => {
+    messageInputRef.current?.focus({ preventScroll: true });
+  });
+};
 
 
 
@@ -303,6 +311,7 @@ const handleSendMessage=()=>{
   })
   //The message is gone; now make the paper blank again
   setMessageBody("")
+  refocusMessageInput();
 }
 
 const handleUploadImage = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -373,6 +382,7 @@ const handleUploadImage = async (event: ChangeEvent<HTMLInputElement>) => {
       body: `${IMAGE_MESSAGE_PREFIX}${imageUrl}`,
     });
     setStatus("Image sent");
+    refocusMessageInput();
   } catch {
     setStatus("Failed to upload image");
   } finally {
@@ -503,6 +513,7 @@ useEffect(() => {
             type="text"
             placeholder="Messages..."
             value={messageBody}
+            ref={messageInputRef}
           // e.target.value: This is the exact text currently sitting inside the input box.
           //e is the key(键位) that user press
           //it is use when enter text to the input board
@@ -523,6 +534,8 @@ useEffect(() => {
             type="button"
             className="send-button"
             onClick={handleSendMessage}
+            onMouseDown={(event) => event.preventDefault()}
+            onPointerDown={(event) => event.preventDefault()}
             disabled={isUploadingImage}
           >
             Send
