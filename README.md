@@ -17,15 +17,37 @@ Passwordless real-time chat with clean IDs, profiles, and cross-device conversat
 
 **[Open CleanChat](https://cleanchat.pages.dev)**
 
+## Table Of Contents
+
+- [Why This Project](#why-this-project)
+- [Highlights](#highlights)
+- [Product Flow](#product-flow)
+- [Stack And Hosting](#stack-and-hosting)
+- [Architecture](#architecture)
+- [Quick Start](#quick-start)
+- [Environment Variables](#environment-variables)
+- [Production Notes](#production-notes)
+- [PWA (Install on Phone)](#pwa-install-on-phone)
+- [Avatar Guide](#avatar-guide)
+- [Troubleshooting](#troubleshooting)
+- [Project Structure](#project-structure)
+- [Docs](#docs)
+
+## Why This Project
+
+CleanChat is a full-stack messaging app focused on simple onboarding and reliable real-time chat.
+Users sign in with email code, create identity (`cleanId`, nickname, avatar), and start conversations immediately.
+
 ## Highlights
 
 | Area | What You Get |
 | --- | --- |
-| Authentication | Passwordless email verification code (`/auth/email/start`, `/auth/email/verify`) |
-| Identity | Custom `cleanId`, nickname, avatar picker, profile editing |
-| Conversation UX | Conversation list with previews and global user search by `cleanId` |
-| Real-time Chat | Socket.IO messaging + thread-based room join |
-| Backend | Express + Prisma + session auth + PostgreSQL |
+| Passwordless Auth | Email-code login (`/auth/email/start`, `/auth/email/verify`) |
+| Identity Setup | `cleanId`, nickname, avatar selection, profile edit/delete |
+| Conversation UX | Search users by `cleanId`, preview last message, open chat quickly |
+| Real-Time Messaging | Socket.IO room-based messaging and live updates |
+| Media Support | Optional image upload via UploadThing token |
+| Mobile Ready | PWA installable on phone + Cloudflare same-origin proxy |
 
 ## Product Flow
 
@@ -35,15 +57,13 @@ Passwordless real-time chat with clean IDs, profiles, and cross-device conversat
 4. User opens `/conversations` and can search people by `cleanId`.
 5. User opens `/chat` to message in real time.
 
-## Tech Stack
+## Stack And Hosting
 
-| Layer | Stack |
+| Layer | Technology |
 | --- | --- |
-| Frontend | React 18, TypeScript, Vite, React Router |
-| Backend | Express 5, TypeScript, Prisma, Nodemailer, Socket.IO |
-| Database | PostgreSQL (Neon-compatible) |
-
-## Hosting
+| Frontend | React 18, TypeScript, Vite, React Router, Socket.IO Client |
+| Backend | Express 5, TypeScript, Prisma, Express Session, Nodemailer, Socket.IO |
+| Database | PostgreSQL (Neon) |
 
 | Service | Platform | Region |
 | --- | --- | --- |
@@ -51,15 +71,88 @@ Passwordless real-time chat with clean IDs, profiles, and cross-device conversat
 | Backend | Koyeb | Frankfurt (Germany) |
 | Database | Neon | Singapore (AWS AP Southeast 1) |
 
-## Live Website
+## Architecture
 
-- Frontend: `https://cleanchat.pages.dev`
-- Backend API origin: `https://clinical-ursulina-cleanchan-eb6e1ee6.koyeb.app`
-- Browser requests in production use Cloudflare proxy paths (`/api/*`, `/socket.io/*`) for better cookie/session compatibility.
+```text
+Browser/PWA (cleanchat.pages.dev)
+  -> /api/* and /socket.io/* (same origin)
+Cloudflare Pages Functions
+  -> proxy to Koyeb backend (Frankfurt)
+Koyeb Express + Socket.IO
+  -> Neon Postgres (Singapore)
+```
+
+## Quick Start
+
+### 1. Prerequisites
+
+- Node.js 20+ and npm
+- A PostgreSQL database (Neon recommended)
+- SMTP account (Gmail app password recommended) for email verification
+
+### 2. Backend Setup
+
+```bash
+cd CleanChat/Backend
+npm install
+npm run db:generate
+npm run db:push
+npm run dev
+```
+
+Backend runs on `http://localhost:4000` by default.
+
+### 3. Frontend Setup
+
+```bash
+cd CleanChat/Frontend
+npm install
+npm run dev
+```
+
+Frontend runs on `http://localhost:5173` by default.
+
+## Environment Variables
+
+### Backend (Koyeb or local `Backend/.env`)
+
+| Name | Required | Example | Purpose |
+| --- | --- | --- | --- |
+| `DATABASE_URL` | Yes | `postgresql://...` | Prisma connection string |
+| `LOGIN_CODE_SECRET` | Yes | `strong-random-secret` | Signs email verification code |
+| `SESSION_SECRET` | Recommended | `another-strong-secret` | Express session signing |
+| `SMTP_USER` | Yes | `you@gmail.com` | SMTP username |
+| `SMTP_PASS` | Yes | `xxxxxxxxxxxxxxxx` | SMTP app password |
+| `SMTP_FROM` | Yes | `CleanChat <you@gmail.com>` | Sender identity |
+| `FRONTEND_URL` or `FRONTEND_URLS` | Yes (prod) | `https://cleanchat.pages.dev` | CORS + cookie origin allowlist |
+| `UPLOADTHING_TOKEN` | Optional | `eyJ...` | Enables image upload route |
+| `NODE_ENV` | Yes (prod) | `production` | Production cookie/security mode |
+| `PORT` | Optional | `4000` | Backend port |
+
+### Frontend Build Variables (Cloudflare Pages)
+
+| Name | Required | Example | Purpose |
+| --- | --- | --- | --- |
+| `VITE_API_URL` | Yes | `/api` | Frontend API base URL |
+| `VITE_SOCKET_URL` | Optional | `https://cleanchat.pages.dev` | Socket.IO base URL |
+
+### Cloudflare Pages Functions Variables
+
+| Name | Required | Example | Purpose |
+| --- | --- | --- | --- |
+| `KOYEB_ORIGIN` | Yes | `https://your-service.koyeb.app` | Upstream backend origin for `/api/*` and `/socket.io/*` proxy |
+
+## Production Notes
+
+1. Keep browser requests same-origin through Cloudflare proxy paths (`/api/*`, `/socket.io/*`).
+2. Frontend requests must include `credentials: "include"` for session cookie auth.
+3. In production, cookie mode should stay `sameSite: "none"` and `secure: true`.
+4. Session max age is set to 24 hours in backend session config.
+5. If phone still shows old UI after deploy, remove old PWA and clear browser cache.
 
 ## PWA (Install on Phone)
 
-CleanChat can be installed to phone home screen as a PWA.
+CleanChat is installable on mobile and desktop as a PWA.
 
 Install steps:
 
@@ -103,10 +196,7 @@ Current avatar set:
 1. Add the new value to Prisma `Avatar` enum in `Backend/prisma/schema.prisma`.
 2. Run Prisma update commands (`npm run db:generate` and migration/push).
 3. Add URL mapping in `Backend/src/avatar.ts`.
-4. Add the new option in frontend avatar lists:
-   - `Frontend/src/pages/basicInfo.tsx`
-   - `Frontend/src/pages/profile.tsx`
-   - `Frontend/src/pages/ConversationPage.tsx` (avatar URL map)
+4. Add the new option in frontend avatar lists: `Frontend/src/pages/basicInfo.tsx`, `Frontend/src/pages/profile.tsx`, `Frontend/src/pages/ConversationPage.tsx` (avatar URL map).
 
 ### Cloudflare Proxy Setup
 
@@ -125,6 +215,17 @@ Recommended frontend build variables:
 
 - `VITE_API_URL=/api`
 - `VITE_SOCKET_URL=https://your-pages-domain.pages.dev` (optional, default is current site origin in production)
+
+## Troubleshooting
+
+| Problem | Fast Check |
+| --- | --- |
+| Verification email send fails | Validate `SMTP_USER`/`SMTP_PASS` and provider app password |
+| CORS or cookie issues on phone | Confirm frontend uses `/api`, set `KOYEB_ORIGIN`, include credentials |
+| `public.User does not exist` | Run `npm run db:generate` and `npm run db:push` |
+| `EADDRINUSE` port conflict | Stop previous process using port `4000` |
+| Uploaded image disappears | Confirm `UPLOADTHING_TOKEN` is set on backend deployment |
+| Android notifications not showing | Verify browser notification permission and PWA install state |
 
 ## Project Structure
 
@@ -173,7 +274,6 @@ CleanChat/
 - Reverse proxy issue + solution: [Docs/README.md](Docs/README.md)
 - Backend API reference: [Docs/API_README.md](Docs/API_README.md)
 - Notifications + photo upload deep dive: [Docs/NOTIFICATION_UPLOAD_README.md](Docs/NOTIFICATION_UPLOAD_README.md)
-
 
 ## License
 
