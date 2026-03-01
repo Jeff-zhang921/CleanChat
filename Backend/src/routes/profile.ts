@@ -51,6 +51,14 @@ router.patch("/me",requireProfileSession,async (req,res)=>{
   const avatar = Object.values(Avatar).includes(avatarRaw as Avatar)
     ? (avatarRaw as Avatar)
     : null
+  const avatarProvided = typeof avatarRaw === "string"
+
+  if (avatarProvided && avatar === null) {
+    return res.status(400).json({
+      error: "Unsupported avatar value.",
+      details: `Allowed values: ${Object.values(Avatar).join(", ")}`,
+    })
+  }
 
   const updates: { name?: string; avatar?: Avatar } = {}
   if (name !== null) {
@@ -64,20 +72,35 @@ router.patch("/me",requireProfileSession,async (req,res)=>{
     return res.status(400).json({ error: "Invalid name or avatar" })
   }
 
-  const updatedUser = await prisma.user.update({
-    where: { id: sessionUser.id },
-    data: updates,
-    select: { id: true, email: true, name: true, cleanId: true, avatar: true },
-  })
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: sessionUser.id },
+      data: updates,
+      select: { id: true, email: true, name: true, cleanId: true, avatar: true },
+    })
 
-  req.session.user = {
-    ...sessionUser,
-    name: updatedUser.name ?? null,
-    cleanId: updatedUser.cleanId,
-    avatar: updatedUser.avatar ?? null,
+    req.session.user = {
+      ...sessionUser,
+      name: updatedUser.name ?? null,
+      cleanId: updatedUser.cleanId,
+      avatar: updatedUser.avatar ?? null,
+    }
+
+    res.json({ message: "Profile updated.", user: updatedUser })
+  } catch (error) {
+    const details = error instanceof Error ? error.message : String(error)
+    const enumMismatch =
+      details.includes("invalid input value for enum") && details.toLowerCase().includes("avatar")
+
+    if (enumMismatch) {
+      return res.status(500).json({
+        error: "Avatar options are out of sync with the deployed database.",
+        details: "Run Prisma migration/db push on your production database and redeploy backend.",
+      })
+    }
+
+    return res.status(500).json({ error: "Failed to update profile.", details })
   }
-
-  res.json({ message: "Profile updated.", user: updatedUser })
 })
 
 router.delete("/me", requireProfileSession, async (req, res) => {

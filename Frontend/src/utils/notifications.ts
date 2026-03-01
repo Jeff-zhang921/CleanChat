@@ -2,6 +2,7 @@ type NotificationPermissionState = NotificationPermission | "unsupported";
 
 const isSupported = () => typeof window !== "undefined" && "Notification" in window;
 const hasServiceWorker = () => typeof navigator !== "undefined" && "serviceWorker" in navigator;
+const DEBUG_PREFIX = "[CleanChat][notifications]";
 
 export const getNotificationPermission = (): NotificationPermissionState => {
   if (!isSupported()) return "unsupported";
@@ -27,30 +28,40 @@ export const showMessageNotification = async (
       if (!registration) {
         registration = await Promise.race<ServiceWorkerRegistration | undefined>([
           navigator.serviceWorker.ready,
-          new Promise<undefined>((resolve) => window.setTimeout(() => resolve(undefined), 1200)),
+          new Promise<undefined>((resolve) => window.setTimeout(() => resolve(undefined), 4000)),
         ]);
       }
 
       if (registration) {
-        await registration.showNotification(title, {
-          body,
-          tag,
-          icon: "/icons/icon-192.png",
-          badge: "/icons/icon-192.png",
-          data: { url: "/conversations" },
-        });
-        return true;
+        try {
+          await registration.showNotification(title, {
+            body,
+            tag,
+            icon: "/icons/icon-192.png",
+            badge: "/icons/icon-192.png",
+            data: { url: "/conversations" },
+          });
+          return true;
+        } catch (swError) {
+          console.warn(`${DEBUG_PREFIX} service worker showNotification failed`, swError);
+        }
       }
     }
 
-    const notification = new Notification(title, {
-      body,
-      tag,
-      icon: "/icons/icon-192.png",
-    });
-    notification.onclick = () => window.focus();
-    return true;
-  } catch {
+    try {
+      const notification = new Notification(title, {
+        body,
+        tag,
+        icon: "/icons/icon-192.png",
+      });
+      notification.onclick = () => window.focus();
+      return true;
+    } catch (domError) {
+      console.warn(`${DEBUG_PREFIX} Notification constructor failed`, domError);
+      return false;
+    }
+  } catch (error) {
+    console.warn(`${DEBUG_PREFIX} unexpected notification error`, error);
     return false;
   }
 };

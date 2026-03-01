@@ -482,11 +482,9 @@ const ConversationPage = () => {
   return (
     <div className="conversations-page">
       <div className="conversations-shell">
+        <p className="search-owner-name">{me?.name || me?.cleanId || me?.email}</p>
         <header className="conversations-header">
-          <div>
-            <p className="eyebrow" />
-            <h1>{me?.cleanId || me?.email}</h1>
-          </div>
+          <div className="conversations-header-spacer" />
           <button
             type="button"
             className="notify-button"

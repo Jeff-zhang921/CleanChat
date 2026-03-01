@@ -113,3 +113,5 @@ const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
   [NOTIFICATION_UPLOAD_README.md](NOTIFICATION_UPLOAD_README.md)
 - Backend API details:
   [API_README.md](API_README.md)
+- Release notes / changelog:
+  [CHANGELOG_README.md](CHANGELOG_README.md)

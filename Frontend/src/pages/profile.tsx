@@ -139,9 +139,23 @@ const ProfilePage = () => {
           credentials: "include",
           body: JSON.stringify({ cleanId: normalizedCleanId }),
         });
-        const cleanIdData = await cleanIdResponse.json().catch(() => ({}));
+        const cleanIdRaw = await cleanIdResponse.text();
+        let cleanIdData: Record<string, string> = {};
+        if (cleanIdRaw) {
+          try {
+            cleanIdData = JSON.parse(cleanIdRaw) as Record<string, string>;
+          } catch {
+            cleanIdData = {};
+          }
+        }
         if (!cleanIdResponse.ok) {
-          setStatus(cleanIdData.error || cleanIdData.message || "Failed to update CleanID.");
+          setStatus(
+            cleanIdData.error ||
+              cleanIdData.message ||
+              cleanIdData.details ||
+              cleanIdRaw ||
+              "Failed to update CleanID."
+          );
           return;
         }
       }
@@ -157,9 +171,23 @@ const ProfilePage = () => {
             avatar,
           }),
         });
-        const profileData = await profileResponse.json().catch(() => ({}));
+        const profileRaw = await profileResponse.text();
+        let profileData: Record<string, string> = {};
+        if (profileRaw) {
+          try {
+            profileData = JSON.parse(profileRaw) as Record<string, string>;
+          } catch {
+            profileData = {};
+          }
+        }
         if (!profileResponse.ok) {
-          setStatus(profileData.error || profileData.message || "Failed to update profile.");
+          setStatus(
+            profileData.error ||
+              profileData.message ||
+              profileData.details ||
+              profileRaw ||
+              "Failed to update profile."
+          );
           return;
         }
       }
@@ -217,9 +245,17 @@ const ProfilePage = () => {
         method: "DELETE",
         credentials: "include",
       });
-      const data = await response.json().catch(() => ({}));
+      const raw = await response.text();
+      let data: Record<string, string> = {};
+      if (raw) {
+        try {
+          data = JSON.parse(raw) as Record<string, string>;
+        } catch {
+          data = {};
+        }
+      }
       if (!response.ok) {
-        setStatus(data.error || data.message || "Failed to delete account.");
+        setStatus(data.error || data.message || data.details || raw || "Failed to delete account.");
         setIsDeleteConfirming(false);
         return;
       }
