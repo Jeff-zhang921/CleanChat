@@ -1,16 +1,21 @@
-# CleanChat
+# CleanChat: Passwordless Real-Time Messaging
+
+Passwordless real-time chat with clean IDs, profiles, and cross-device conversations.
 
 <p>
-  <img alt="Frontend" src="https://img.shields.io/badge/Frontend-React%2018-61DAFB?logo=react&logoColor=white" />
-  <img alt="Backend" src="https://img.shields.io/badge/Backend-Express%205-000000?logo=express&logoColor=white" />
-  <img alt="Language" src="https://img.shields.io/badge/Language-TypeScript-3178C6?logo=typescript&logoColor=white" />
-  <img alt="Database" src="https://img.shields.io/badge/Database-PostgreSQL-336791?logo=postgresql&logoColor=white" />
-  <img alt="ORM" src="https://img.shields.io/badge/ORM-Prisma-2D3748?logo=prisma&logoColor=white" />
+  <img alt="React" src="https://img.shields.io/badge/Frontend-React%2018-61DAFB?logo=react&logoColor=white" />
+  <img alt="Node.js" src="https://img.shields.io/badge/Runtime-Node.js-339933?logo=nodedotjs&logoColor=white" />
+  <img alt="Express" src="https://img.shields.io/badge/Backend-Express%205-000000?logo=express&logoColor=white" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/Language-TypeScript-3178C6?logo=typescript&logoColor=white" />
+  <img alt="Cloudflare Pages" src="https://img.shields.io/badge/Hosting-Cloudflare%20Pages-F38020?logo=cloudflare&logoColor=white" />
+  <img alt="Koyeb" src="https://img.shields.io/badge/Backend%20Hosting-Koyeb-121212?logoColor=white" />
+  <img alt="Neon Postgres" src="https://img.shields.io/badge/Database-Neon%20Postgres-00E699?logo=postgresql&logoColor=white" />
   <img alt="Realtime" src="https://img.shields.io/badge/Realtime-Socket.IO-010101?logo=socketdotio&logoColor=white" />
 </p>
 
-CleanChat is a full-stack messaging app with passwordless sign-in, clean identity setup, and real-time chat.  
-Users log in by email code, create profile identity (`cleanId`, nickname, avatar), and continue into conversations.
+## Live Demo
+
+**[Open CleanChat](https://cleanchat.pages.dev)**
 
 ## Highlights
 
