@@ -15,9 +15,7 @@ const upload = multer({
 const ensureAuth = (sessionUserId: number | undefined): sessionUserId is number =>
   typeof sessionUserId === "number" && Number.isInteger(sessionUserId) && sessionUserId > 0;
 
-router.post(
-  "/upload-image",
-  (req, res, next) => {
+router.post("/upload-image",(req, res, next) => {
     upload.single("image")(req, res, (error: unknown) => {
       if (!error) {
         next();
@@ -60,8 +58,8 @@ router.post(
   }
 
   try {
-    const uploadBytes = new Uint8Array(file.buffer);
-    const uploadFile = new UTFile([uploadBytes], file.originalname || `chat-${Date.now()}.jpg`, {
+    //UTFile expects a BlobPart which can be ArrayBuffer, ArrayBufferView, Blob, or string. Buffer from multer can be treated as a BlobPart.
+    const uploadFile = new UTFile([file.buffer as BlobPart], file.originalname || `chat-${Date.now()}.jpg`, {
       type: file.mimetype,
       lastModified: Date.now(),
     });

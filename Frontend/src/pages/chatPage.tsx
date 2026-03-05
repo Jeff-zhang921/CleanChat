@@ -30,7 +30,6 @@ const getImageUrlFromMessage = (body: string) => {
   const normalizedBody = trimmedBody.startsWith(IMAGE_MESSAGE_PREFIX)
     ? trimmedBody.slice(IMAGE_MESSAGE_PREFIX.length).trim()
     : trimmedBody;
-
   if (!normalizedBody || !isHttpUrl(normalizedBody)) {
     return null;
   }
@@ -314,6 +313,9 @@ const handleSendMessage=()=>{
   refocusMessageInput();
 }
 
+
+
+
 const handleUploadImage = async (event: ChangeEvent<HTMLInputElement>) => {
   const file = event.target.files?.[0];
   event.target.value = "";
@@ -498,6 +500,8 @@ useEffect(() => {
           <label
             htmlFor="chat-photo-input"
             className={`photo-button ${isUploadingImage ? "disabled" : ""}`}
+            aria-label={isUploadingImage ? "Uploading image" : "Add photo"}
+            title={isUploadingImage ? "Uploading image..." : "Add photo"}
             aria-disabled={isUploadingImage}
             onClick={(event) => {
               if (isUploadingImage) {
@@ -505,7 +509,7 @@ useEffect(() => {
               }
             }}
           >
-            {isUploadingImage ? "Uploading..." : "Photo"}
+            <span aria-hidden="true">{isUploadingImage ? "..." : "+"}</span>
           </label>
           {/* <button type="button" className="input-icon" >
           </button> */}
@@ -545,7 +549,7 @@ useEffect(() => {
           <div className="image-viewer-overlay" onClick={handleCloseImagePreview} role="presentation">
             <div
               className="image-viewer-card"
-              onClick={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation() }
               role="dialog"
               aria-modal="true"
             >

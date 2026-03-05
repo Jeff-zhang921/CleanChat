@@ -142,15 +142,18 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
   background: #f4f4f4;
   border: 1px solid var(--line);
   color: var(--text);
-  border-radius: 10px;
-  padding: 0 14px;
+  border-radius: 999px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
   font-weight: 600;
-  min-width: 78px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  white-space: nowrap;
+  font-size: 1.35rem;
+  line-height: 1;
 }
 
 .photo-button.disabled,
@@ -334,8 +337,17 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
 
   .photo-button,
   .send-button {
-    min-width: 64px;
+    min-width: 44px;
     padding: 0 10px;
     border-radius: 9px;
+  }
+
+  .photo-button {
+    width: 42px;
+    min-width: 42px;
+    height: 42px;
+    padding: 0;
+    border-radius: 999px;
+    font-size: 1.25rem;
   }
 }

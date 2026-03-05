@@ -15,15 +15,24 @@ const MAX_ATTEMPTS = 5;
 const SMTP_USER =process.env.SMTP_USER || "";
 const SMTP_PASS = process.env.SMTP_PASS || "";
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || "CleanChat <no-reply@CleanChat.local>";
-const LOGIN_CODE_SECRET = process.env.LOGIN_CODE_SECRET || "default_secret";
+const LOGIN_CODE_SECRET = process.env.LOGIN_CODE_SECRET?.trim() || "";
  
-const mailer=nodemailer.createTransport({
-    service:"gmail",
-    auth:{
-        user:SMTP_USER,
-        pass:SMTP_PASS
-    }
-})
+const mailer =
+  SMTP_USER && SMTP_PASS
+    ? nodemailer.createTransport({
+        service:"gmail",
+        pool:true,
+        maxConnections:2,
+        maxMessages:100,
+        connectionTimeout:10_000,
+        greetingTimeout:10_000,
+        socketTimeout:15_000,
+        auth:{
+            user:SMTP_USER,
+            pass:SMTP_PASS
+        }
+      })
+    : null
 
 function generateLoginCode():string{
     const max=10**CODE_LENGTH
@@ -49,6 +58,9 @@ async function generateUniqueCleanId(): Promise<string> {
 }
 
 async function sendLoginCode(name:string,email:string, code:string){
+if(!mailer){
+  throw new Error("Email login is not configured.");
+}
 const subject = "NO REPLY Your CleanCode verification code";
 
 
@@ -93,6 +105,28 @@ await mailer.sendMail({
 })  
 }
 
+function queueLoginCodeEmail(name: string, email: string, code: string, codeHash: string) {
+  if (process.env.NODE_ENV === "test") {
+    return;
+  }
+
+  void sendLoginCode(name, email, code).catch(async (error) => {
+    console.error("Failed to send verification email:", error);
+    try {
+      // Remove only the unused code that failed to send so user can request again immediately.
+      await prisma.loginCode.deleteMany({
+        where: {
+          email,
+          codeHash,
+          usedAt: null,
+        },
+      });
+    } catch (cleanupError) {
+      console.error("Failed to cleanup unsent verification code:", cleanupError);
+    }
+  });
+}
+
 
 router.post("/email/start",async(req,res)=>{
   try{
@@ -106,15 +140,7 @@ router.post("/email/start",async(req,res)=>{
     }
 
     const now = new Date()
-    const user=await prisma.user.findUnique({where:{email},
-      select:{name:true}})
-    let name:string;
-    if(!user){
-      name="New User"
-
-    }else{
-      name = user.name
-    }
+    const name = email.split("@")[0] || "there";
 
     const activeCode = await prisma.loginCode.findFirst({
       where: {
@@ -149,11 +175,8 @@ router.post("/email/start",async(req,res)=>{
       ]
     )
 
-    if(process.env.NODE_ENV !== "test"){
-      await sendLoginCode(name,email,code)
-    }
-
-    res.json({message:"Verification code sent"})
+    queueLoginCodeEmail(name,email,code,hashedCode)
+    res.status(202).json({message:"Verification code is being sent"})
   }catch(error){
     const details = error instanceof Error ? error.message : String(error)
     console.error("Failed to start email verification:", error)
@@ -173,7 +196,7 @@ router.post("/email/verify",async(req,res)=>{
     if(code.length!==CODE_LENGTH){
         return res.status(400).json({error:"Invalid code"})
     }
-    if (!LOGIN_CODE_SECRET || !mailer) {
+    if (!LOGIN_CODE_SECRET) {
     res.status(500).json({ message: "Email login is not configured." });
     return;
   }
