@@ -225,6 +225,13 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
   word-break: break-word;
 }
 
+.chat-bubble .group-sender {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  opacity: 0.92;
+}
+
 .chat-row.me .chat-bubble {
   margin-left: auto;
 }

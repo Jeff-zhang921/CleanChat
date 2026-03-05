@@ -9,7 +9,7 @@
   bottom: max(10px, env(safe-area-inset-bottom, 0px));
   width: min(100% - 1rem, 460px);
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 0.55rem;
   padding: 0.5rem;
   border-radius: 0.95rem;

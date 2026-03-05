@@ -10,11 +10,24 @@ import"./chatPage.css"
 
 type ChatMessage={
   id:number;
-  threadId:number;
+  threadId?:number;
+  groupId?:string;
   senderId:number;
+  senderName?:string;
   body:string;
   createdAt:string
 }
+
+type ChatMode = "direct" | "group";
+
+type ChatLocationState = {
+  other?: string;
+  avatarUrl?: string;
+  hostId?: number;
+  threadId?: number;
+  groupId?: string;
+  chatType?: ChatMode;
+};
 
 const IMAGE_MESSAGE_PREFIX = "IMG::";
 const IMAGE_URL_REGEX =
@@ -55,7 +68,11 @@ const formatNotificationBody = (body: string) =>
 
 const ChatPage = () => {
   const location=useLocation()
-  const locationState = (location.state as { other?: string; avatarUrl?: string } | null) ?? null;
+  const locationState = (location.state as ChatLocationState | null) ?? null;
+  const initialChatMode: ChatMode =
+    locationState?.chatType === "group" || typeof locationState?.groupId === "string"
+      ? "group"
+      : "direct";
   const other = locationState?.other ?? "";
   const avatarUrl = locationState?.avatarUrl ?? "";
   const navigate=useNavigate()
@@ -68,9 +85,21 @@ const ChatPage = () => {
   const messageListRef=useRef<HTMLDivElement|null>(null)
   const messageInputRef = useRef<HTMLInputElement | null>(null);
   const threadIdRef = useRef<number | null>(null);
+  const groupIdRef = useRef<string | null>(
+    initialChatMode === "group" && typeof locationState?.groupId === "string"
+      ? locationState.groupId
+      : null
+  );
+  const chatModeRef = useRef<ChatMode>(initialChatMode);
   //change a useState value, React rerender the UI to show the new information."
   const [status,setStatus]=useState("Not connected")
   const [threadId,setThreadId]=useState<number|null>(null)
+  const [groupId, setGroupId] = useState<string | null>(
+    initialChatMode === "group" && typeof locationState?.groupId === "string"
+      ? locationState.groupId
+      : null
+  );
+  const [chatMode, setChatMode] = useState<ChatMode>(initialChatMode);
   const [message,setMessages]=useState<ChatMessage[]>([])
 
   //<> is the generic: this box is empty right now (null), but eventually, it is going to hold an object with an id, an email, and a name. Please get the memory ready for that
@@ -116,7 +145,7 @@ const loadMe=async()=>{
 
 
 
-const loadMessages=async(id:number)=>{
+const loadThreadMessages=async(id:number)=>{
   try{
     const res = await fetch(`${BACKEND_URL}/chat/threads/${id}/messages`, {
      credentials: "include",
@@ -132,6 +161,25 @@ const loadMessages=async(id:number)=>{
       setStatus("Failed to load messages.");
     }
   }
+
+const loadGroupMessages = async (id: string) => {
+  try {
+    const response = await fetch(`${BACKEND_URL}/chat/groups/${encodeURIComponent(id)}/messages`, {
+      credentials: "include",
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setStatus(data.message || "Failed to load group messages.");
+      return;
+    }
+
+    const data = await response.json().catch(() => ({}));
+    const incoming = Array.isArray(data.messages) ? data.messages : [];
+    setMessages(incoming);
+  } catch {
+    setStatus("Failed to load group messages.");
+  }
+}
 
 
 
@@ -150,11 +198,21 @@ socketRef.current=socket
 //when they connect it will execute the following code
   socket.on("connect",()=>{
   setStatus("Connected")
+  const mode = chatModeRef.current;
+  if (mode === "group") {
+    const activeGroupId = groupIdRef.current;
+    if (activeGroupId) {
+      socket.emit("group:join", { groupId: activeGroupId });
+      void loadGroupMessages(activeGroupId);
+    }
+    return;
+  }
+
   const activeThreadId = threadIdRef.current;
-  if(activeThreadId){
+  if (activeThreadId) {
     //tells the server put the user in the thread room
     socket.emit("thread:join", { threadId: activeThreadId });
-    loadMessages(activeThreadId);
+    void loadThreadMessages(activeThreadId);
   }
  })
 
@@ -180,6 +238,21 @@ socketRef.current=socket
         showMessageNotification(title, formatNotificationBody(msg.body), `thread-${msg.threadId}`);
       }
     });
+
+    socket.on("group:message:new", (msg: ChatMessage) => {
+      setMessages((prev) => [...prev, msg]);
+      const currentUser = meRef.current;
+      if (
+        currentUser &&
+        msg.senderId !== currentUser.id &&
+        typeof document !== "undefined" &&
+        document.hidden &&
+        getNotificationPermission() === "granted"
+      ) {
+        const title = other || "Group message";
+        showMessageNotification(title, formatNotificationBody(msg.body), `group-${msg.groupId ?? "room"}`);
+      }
+    });
   }
 
 
@@ -190,6 +263,14 @@ socketRef.current=socket
   useEffect(() => {
     threadIdRef.current = threadId;
   }, [threadId]);
+
+  useEffect(() => {
+    groupIdRef.current = groupId;
+  }, [groupId]);
+
+  useEffect(() => {
+    chatModeRef.current = chatMode;
+  }, [chatMode]);
 
   useEffect(() => {
     meRef.current = me;
@@ -211,12 +292,20 @@ socketRef.current=socket
 
   //this useEffect is to join the chat and load
     useEffect(()=>{
-    if(!threadId) return
-    loadMessages(threadId)
+    if(chatMode!=="direct"||!threadId) return
+    void loadThreadMessages(threadId)
     if (socketRef.current?.connected) {
       socketRef.current.emit("thread:join",{threadId})
     }
-  },[threadId ])  
+  },[threadId,chatMode ])  
+
+  useEffect(() => {
+    if (chatMode !== "group" || !groupId) return;
+    void loadGroupMessages(groupId);
+    if (socketRef.current?.connected) {
+      socketRef.current.emit("group:join", { groupId });
+    }
+  }, [groupId, chatMode]);
 
 
 //this is use to handle the visual scrolling and 
@@ -231,6 +320,8 @@ socketRef.current=socket
 
 
  const createThreadForHostId=async(rawHostId:number)=>{
+  setChatMode("direct")
+  setGroupId(null)
   const parsed=Number(rawHostId)
   if (!Number.isInteger(parsed)||parsed<=0){
     setStatus("HostNumber must valid")
@@ -276,16 +367,28 @@ socketRef.current=socket
 //location is the suitcase that you bring other stuff into thispage
 //the info is store in Ref so next time render it can stil remember
 useEffect(()=>{
-  const state=location.state as{hostId?:number;threadId?:number}|null
+  const state=location.state as ChatLocationState | null
   if(!state||autoThreadRef.current)return
-  if(state.threadId){
+  if((state.chatType==="group"||typeof state.groupId==="string") && typeof state.groupId==="string"){
     autoThreadRef.current=true
+    setChatMode("group")
+    setThreadId(null)
+    setGroupId(state.groupId)
+    setStatus("Group ready")
+    return
+  }
+  if(typeof state.threadId==="number"){
+    autoThreadRef.current=true
+    setChatMode("direct")
+    setGroupId(null)
     setThreadId(state.threadId)
     setStatus("thread ready")
     return
   }
-  if(state.hostId){
+  if(typeof state.hostId==="number"){
     autoThreadRef.current=true
+    setChatMode("direct")
+    setGroupId(null)
     createThreadForHostId(state.hostId)
   }
 },[location.state])
@@ -296,18 +399,29 @@ const handleSendMessage=()=>{
     setStatus("socket Not conencted")
     return
   }
-  if (!threadId){
-    setStatus("create or join a thread first")
-    return
-  }
   const trimmed=messageBody.trim()
   if (!trimmed){
     setStatus("mesage cannot be empty")
     return
   }
-  socketRef.current.emit("message:send",{
-    threadId,body:trimmed
-  })
+  if (chatMode === "group") {
+    if (!groupId) {
+      setStatus("Join a group first");
+      return;
+    }
+    socketRef.current.emit("group:message:send", {
+      groupId,
+      body: trimmed,
+    });
+  } else {
+    if (!threadId) {
+      setStatus("create or join a thread first");
+      return;
+    }
+    socketRef.current.emit("message:send",{
+      threadId,body:trimmed
+    })
+  }
   //The message is gone; now make the paper blank again
   setMessageBody("")
   refocusMessageInput();
@@ -331,7 +445,11 @@ const handleUploadImage = async (event: ChangeEvent<HTMLInputElement>) => {
     return;
   }
 
-  if (!threadId) {
+  if (chatMode === "group" && !groupId) {
+    setStatus("Join a group first");
+    return;
+  }
+  if (chatMode === "direct" && !threadId) {
     setStatus("Create or join a thread first");
     return;
   }
@@ -379,10 +497,17 @@ const handleUploadImage = async (event: ChangeEvent<HTMLInputElement>) => {
       return;
     }
 
-    socketRef.current.emit("message:send", {
-      threadId,
-      body: `${IMAGE_MESSAGE_PREFIX}${imageUrl}`,
-    });
+    if (chatMode === "group") {
+      socketRef.current.emit("group:message:send", {
+        groupId,
+        body: `${IMAGE_MESSAGE_PREFIX}${imageUrl}`,
+      });
+    } else {
+      socketRef.current.emit("message:send", {
+        threadId,
+        body: `${IMAGE_MESSAGE_PREFIX}${imageUrl}`,
+      });
+    }
     setStatus("Image sent");
     refocusMessageInput();
   } catch {
@@ -445,12 +570,12 @@ useEffect(() => {
                 </div>
 
           {/* this is the checkgate, check whetjer it is 0 or null... for threadid  if check pass, render the next thing*/}
-          {threadId && (
+          {((chatMode === "direct" && threadId) || (chatMode === "group" && groupId)) && (
             <div className='chat-date'>{new Date().toLocaleString()}</div>
           )}
 
           {message.length === 0 && (
-            <div>Start a conversation</div>
+            <div>{chatMode === "group" ? "No group messages yet." : "Start a conversation"}</div>
           )}
           
           {message.map((msg, index) => {
@@ -467,6 +592,9 @@ useEffect(() => {
               //using --i so each chat message is in different i
               >
                  <div className={`chat-bubble ${isMe ? "bubble-me" : "bubble-them"}`}>
+                  {chatMode === "group" && !isMe && msg.senderName && (
+                    <p className="group-sender">{msg.senderName}</p>
+                  )}
                   {imageUrl ? (
                     <button
                       type="button"

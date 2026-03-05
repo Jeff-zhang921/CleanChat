@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 // import PersonalPage from './pages/personalPage';
 import ChatPage from './pages/chatPage';
 import ConversationsPage from './pages/ConversationPage';
+import GroupConversationPage from './pages/GroupConversationPage';
 import LoginPage from './pages/login'
 import VerifyPage from './pages/verify'
 import BasicInfoPage from './pages/basicInfo'
@@ -16,6 +17,7 @@ function App(){
           <Route path="/basic-info" element={<BasicInfoPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/conversations" element={<ConversationsPage />} />
+          <Route path="/groups" element={<GroupConversationPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
           {/* <Route path="/personal" element={<PersonalPage />} /> */}

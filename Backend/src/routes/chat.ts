@@ -2,6 +2,15 @@ import { Router } from "express";
 import { PrismaClient } from "@prisma/client";
 import multer from "multer";
 import { UTApi, UTFile } from "uploadthing/server";
+import {
+  getGroupById,
+  joinGroup,
+  leaveGroup,
+  listGroupMessages,
+  listGroupsForUser,
+  normalizeGroupId,
+  isGroupMember,
+} from "../groupStore";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -130,6 +139,86 @@ router.get("/users/search", async (req, res) => {
   });
 
   res.json({ users });
+});
+
+router.get("/groups", async (req, res) => {
+  const sessionUserId = req.session.user?.id;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  res.json({ groups: listGroupsForUser(sessionUserId) });
+});
+
+router.post("/groups/:groupId/join", async (req, res) => {
+  const sessionUserId = req.session.user?.id;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const groupId = normalizeGroupId(req.params.groupId);
+  if (!groupId) {
+    res.status(400).json({ message: "Invalid group ID." });
+    return;
+  }
+
+  const joined = joinGroup(groupId, sessionUserId);
+  if (!joined) {
+    res.status(404).json({ message: "Group not found." });
+    return;
+  }
+
+  res.status(joined.alreadyJoined ? 200 : 201).json({ group: joined.summary });
+});
+
+router.post("/groups/:groupId/leave", async (req, res) => {
+  const sessionUserId = req.session.user?.id;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const groupId = normalizeGroupId(req.params.groupId);
+  if (!groupId) {
+    res.status(400).json({ message: "Invalid group ID." });
+    return;
+  }
+
+  const left = leaveGroup(groupId, sessionUserId);
+  if (!left) {
+    res.status(404).json({ message: "Group not found." });
+    return;
+  }
+
+  res.status(200).json({ group: left.summary, alreadyLeft: left.alreadyLeft });
+});
+
+router.get("/groups/:groupId/messages", async (req, res) => {
+  const sessionUserId = req.session.user?.id;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const groupId = normalizeGroupId(req.params.groupId);
+  if (!groupId) {
+    res.status(400).json({ message: "Invalid group ID." });
+    return;
+  }
+
+  const group = getGroupById(groupId);
+  if (!group) {
+    res.status(404).json({ message: "Group not found." });
+    return;
+  }
+  if (!isGroupMember(groupId, sessionUserId)) {
+    res.status(403).json({ message: "Join the group before chatting." });
+    return;
+  }
+
+  res.json({ messages: listGroupMessages(groupId) });
 });
 
 router.post("/threads", async (req, res) => {

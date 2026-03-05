@@ -1,6 +1,13 @@
 import type { Server as HTTPServer } from "http";
 import { Server } from "socket.io";
 import { PrismaClient } from "@prisma/client";
+import {
+  appendGroupMessage,
+  getGroupById,
+  isGroupMember,
+  listGroupMemberIds,
+  normalizeGroupId,
+} from "../groupStore";
 
 import{sessionMiddleware} from '../session';
 const prisma=new PrismaClient();
@@ -72,6 +79,13 @@ export function initSocket(server: HTTPServer) {
             }
             return thread
         }
+        const ensureGroupId=(raw:unknown):string|null=>{
+            const candidate =
+                typeof raw === "object" && raw !== null && "groupId" in raw
+                    ? (raw as { groupId?: unknown }).groupId
+                    : raw
+            return normalizeGroupId(candidate)
+        }
         const handleJoinThread=async(threadIdRaw:unknown)=>{
             const threadId=ensureThreadValid(threadIdRaw)
             if(!threadId){
@@ -86,8 +100,26 @@ export function initSocket(server: HTTPServer) {
             socket.join(`thread:${threadId}`)
             console.log(`User ${sessionUser.id} joined thread ${threadId}`)
         }
+        const handleJoinGroup=(groupIdRaw:unknown)=>{
+            const groupId=ensureGroupId(groupIdRaw)
+            if(!groupId){
+                emitChatError("Invalid group ID")
+                return
+            }
+            if(!getGroupById(groupId)){
+                emitChatError("Group not found")
+                return
+            }
+            if(!isGroupMember(groupId,sessionUser.id)){
+                emitChatError("Join this group first")
+                return
+            }
+            socket.join(`group:${groupId}`)
+            console.log(`User ${sessionUser.id} joined group ${groupId}`)
+        }
         socket.on("thread:join",handleJoinThread)
         socket.on("Thread:join",handleJoinThread)
+        socket.on("group:join",handleJoinGroup)
 
         socket.on("message:send",async(data:unknown)=>{
             const payload = (typeof data === "object" && data !== null) ? data as { threadId?: unknown; content?: unknown; body?: unknown } : {}
@@ -140,7 +172,45 @@ export function initSocket(server: HTTPServer) {
             io.to(`thread:${validThreadId}`).emit("message:new", messagePayload)
             io.to(`user:${thread.AID}`).emit("inbox:new", messagePayload)
             io.to(`user:${thread.BID}`).emit("inbox:new", messagePayload)
-            
+             
+        })
+
+        socket.on("group:message:send",(data:unknown)=>{
+            const payload =
+                typeof data === "object" && data !== null
+                    ? data as { groupId?: unknown; content?: unknown; body?: unknown }
+                    : {}
+            const groupId=ensureGroupId(payload.groupId)
+            if(!groupId){
+                emitChatError("Invalid group ID")
+                return
+            }
+            if(!getGroupById(groupId)){
+                emitChatError("Group not found")
+                return
+            }
+            if(!isGroupMember(groupId,sessionUser.id)){
+                emitChatError("Join this group first")
+                return
+            }
+
+            const content =
+                typeof payload.content === "string"
+                    ? payload.content
+                    : typeof payload.body === "string"
+                        ? payload.body
+                        : ""
+            if(content.trim()===""){
+                emitChatError("Content cannot be empty")
+                return
+            }
+
+            const message = appendGroupMessage(groupId, sessionUser, content.trim())
+            socket.join(`group:${groupId}`)
+            const memberIds = listGroupMemberIds(groupId)
+            memberIds.forEach((memberId) => {
+                io.to(`user:${memberId}`).emit("group:message:new", message)
+            })
         })
     }
 )

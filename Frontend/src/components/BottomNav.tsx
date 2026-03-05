@@ -15,6 +15,14 @@ const BottomNav = () => {
           Conversations
         </NavLink>
         <NavLink
+          to="/groups"
+          className={({ isActive }) =>
+            `bottom-nav-link ${isActive ? "active" : ""}`
+          }
+        >
+          Groups
+        </NavLink>
+        <NavLink
           to="/profile"
           className={({ isActive }) =>
             `bottom-nav-link ${isActive ? "active" : ""}`

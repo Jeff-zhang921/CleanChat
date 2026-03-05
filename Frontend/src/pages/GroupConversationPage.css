@@ -1,0 +1,69 @@
+@import "./ConversationPage.css";
+
+.groups-page .group-card {
+  grid-template-columns: auto 1fr auto;
+  cursor: default;
+}
+
+.groups-page .group-card.joined {
+  cursor: pointer;
+}
+
+.groups-page .group-action {
+  border: 1px solid #d8dde9;
+  border-radius: 0.75rem;
+  padding: 0.42rem 0.72rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: #ffffff;
+  color: #202737;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.groups-page .group-action-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.groups-page .group-action.join {
+  border-color: #2f6fed;
+  background: #2f6fed;
+  color: #ffffff;
+}
+
+.groups-page .group-action.open {
+  border-color: #bcc6dc;
+  background: #eef3ff;
+  color: #1f3c7a;
+}
+
+.groups-page .group-action.leave {
+  border-color: #e9bfc2;
+  background: #fff5f6;
+  color: #8f2630;
+}
+
+.groups-page .group-action:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+@media (max-width: 700px) {
+  .groups-page .group-card {
+    grid-template-columns: auto 1fr;
+    row-gap: 0.6rem;
+  }
+
+  .groups-page .group-action {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .groups-page .group-action-row {
+    grid-column: 1 / -1;
+  }
+}
