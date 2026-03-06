@@ -22,6 +22,7 @@ Passwordless real-time chat with clean IDs, profiles, direct messages, and group
 ### Phone
 
 <img alt="demos" src="Docs/cleans.gif">
+
 **[Open CleanChat](https://cleanchat.pages.dev)**
 
 ## Table Of Contents
