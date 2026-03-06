@@ -3,6 +3,8 @@ import { PrismaClient } from "@prisma/client";
 import multer from "multer";
 import { UTApi, UTFile } from "uploadthing/server";
 import {
+  createGroup,
+  deleteGroup,
   getGroupById,
   joinGroup,
   leaveGroup,
@@ -23,6 +25,10 @@ const upload = multer({
 
 const ensureAuth = (sessionUserId: number | undefined): sessionUserId is number =>
   typeof sessionUserId === "number" && Number.isInteger(sessionUserId) && sessionUserId > 0;
+
+const GROUP_NAME_MIN_LENGTH = 2;
+const GROUP_NAME_MAX_LENGTH = 48;
+const GROUP_DESCRIPTION_MAX_LENGTH = 180;
 
 router.post("/upload-image",(req, res, next) => {
     upload.single("image")(req, res, (error: unknown) => {
@@ -151,6 +157,33 @@ router.get("/groups", async (req, res) => {
   res.json({ groups: listGroupsForUser(sessionUserId) });
 });
 
+router.post("/groups", async (req, res) => {
+  const sessionUserId = req.session.user?.id;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const name = typeof req.body?.name === "string" ? req.body.name.trim().replace(/\s+/g, " ") : "";
+  const description = typeof req.body?.description === "string" ? req.body.description.trim() : "";
+
+  if (name.length < GROUP_NAME_MIN_LENGTH || name.length > GROUP_NAME_MAX_LENGTH) {
+    res.status(400).json({
+      message: `Group name must be ${GROUP_NAME_MIN_LENGTH}-${GROUP_NAME_MAX_LENGTH} characters.`,
+    });
+    return;
+  }
+  if (description.length > GROUP_DESCRIPTION_MAX_LENGTH) {
+    res.status(400).json({
+      message: `Description must be at most ${GROUP_DESCRIPTION_MAX_LENGTH} characters.`,
+    });
+    return;
+  }
+
+  const group = createGroup(sessionUserId, name, description);
+  res.status(201).json({ group });
+});
+
 router.post("/groups/:groupId/join", async (req, res) => {
   const sessionUserId = req.session.user?.id;
   if (!ensureAuth(sessionUserId)) {
@@ -193,6 +226,32 @@ router.post("/groups/:groupId/leave", async (req, res) => {
   }
 
   res.status(200).json({ group: left.summary, alreadyLeft: left.alreadyLeft });
+});
+
+router.delete("/groups/:groupId", async (req, res) => {
+  const sessionUserId = req.session.user?.id;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const groupId = normalizeGroupId(req.params.groupId);
+  if (!groupId) {
+    res.status(400).json({ message: "Invalid group ID." });
+    return;
+  }
+
+  const deleted = deleteGroup(groupId, sessionUserId);
+  if (!deleted.deleted) {
+    if (deleted.reason === "forbidden") {
+      res.status(403).json({ message: "Only the group creator can delete this group." });
+      return;
+    }
+    res.status(404).json({ message: "Group not found." });
+    return;
+  }
+
+  res.status(200).json({ message: "Group deleted." });
 });
 
 router.get("/groups/:groupId/messages", async (req, res) => {

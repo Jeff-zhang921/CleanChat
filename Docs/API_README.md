@@ -14,6 +14,10 @@ All authenticated endpoints require session cookie (`credentials: "include"`).
 
 Send verification code to email.
 
+Response status:
+
+- `202 Accepted` (email dispatch queued)
+
 Request body:
 
 ```json
@@ -26,7 +30,7 @@ Success response:
 
 ```json
 {
-  "message": "Verification code sent"
+  "message": "Verification code is being sent"
 }
 ```
 
@@ -184,6 +188,156 @@ Success response:
 
 ## Chat APIs
 
+### GET `/chat/groups`
+
+Get all group summaries for current user.
+
+Success response:
+
+```json
+{
+  "groups": [
+    {
+      "id": "frontend-lab",
+      "name": "Frontend Lab",
+      "description": "UI ideas, React tricks, and CSS polishing.",
+      "avatarUrl": "https://api.dicebear.com/9.x/shapes/svg?seed=FrontendLab",
+      "creatorId": null,
+      "createdAt": "2026-03-06T00:00:00.000Z",
+      "joined": true,
+      "isOwner": false,
+      "memberCount": 4,
+      "lastMessagePreview": "No messages yet.",
+      "lastMessageAt": null
+    }
+  ]
+}
+```
+
+### POST `/chat/groups`
+
+Create a new group and auto-join as creator.
+
+Request body:
+
+```json
+{
+  "name": "Project Phoenix",
+  "description": "Sprint planning and updates"
+}
+```
+
+Rules:
+
+- `name`: 2-48 characters
+- `description`: max 180 characters (optional)
+
+Success response:
+
+```json
+{
+  "group": {
+    "id": "project-phoenix",
+    "name": "Project Phoenix",
+    "description": "Sprint planning and updates",
+    "avatarUrl": "https://api.dicebear.com/9.x/shapes/svg?seed=project-phoenix",
+    "creatorId": 7,
+    "createdAt": "2026-03-06T09:10:00.000Z",
+    "joined": true,
+    "isOwner": true,
+    "memberCount": 1,
+    "lastMessagePreview": "No messages yet.",
+    "lastMessageAt": null
+  }
+}
+```
+
+### POST `/chat/groups/:groupId/join`
+
+Join one group.
+
+Success response:
+
+```json
+{
+  "group": {
+    "id": "frontend-lab",
+    "name": "Frontend Lab",
+    "description": "UI ideas, React tricks, and CSS polishing.",
+    "avatarUrl": "https://api.dicebear.com/9.x/shapes/svg?seed=FrontendLab",
+    "creatorId": null,
+    "createdAt": "2026-03-06T00:00:00.000Z",
+    "joined": true,
+    "isOwner": false,
+    "memberCount": 5,
+    "lastMessagePreview": "No messages yet.",
+    "lastMessageAt": null
+  }
+}
+```
+
+### POST `/chat/groups/:groupId/leave`
+
+Leave one group.
+
+Success response:
+
+```json
+{
+  "group": {
+    "id": "frontend-lab",
+    "name": "Frontend Lab",
+    "description": "UI ideas, React tricks, and CSS polishing.",
+    "avatarUrl": "https://api.dicebear.com/9.x/shapes/svg?seed=FrontendLab",
+    "creatorId": null,
+    "createdAt": "2026-03-06T00:00:00.000Z",
+    "joined": false,
+    "isOwner": false,
+    "memberCount": 4,
+    "lastMessagePreview": "No messages yet.",
+    "lastMessageAt": null
+  },
+  "alreadyLeft": false
+}
+```
+
+### DELETE `/chat/groups/:groupId`
+
+Delete one group.
+
+Permissions:
+
+- Only creator can delete the group.
+
+Success response:
+
+```json
+{
+  "message": "Group deleted."
+}
+```
+
+### GET `/chat/groups/:groupId/messages`
+
+Get group message history (ascending by time). User must be a member.
+
+Success response:
+
+```json
+{
+  "messages": [
+    {
+      "id": 101,
+      "groupId": "project-phoenix",
+      "senderId": 7,
+      "senderName": "Jeff",
+      "body": "Welcome to the group",
+      "createdAt": "2026-03-06T09:12:00.000Z"
+    }
+  ]
+}
+```
+
 ### GET `/chat/users/search?cleanId=<query>`
 
 Search users by `cleanId` (case-insensitive, partial match, excludes self).
@@ -324,7 +478,7 @@ Request:
 
 - Content-Type: `multipart/form-data`
 - Field name: `image`
-- Max size: 8 MB
+- Max size: 15 MB
 
 Success response:
 
@@ -353,10 +507,13 @@ Client -> Server:
 - `thread:join` (payload: `threadId` or `{ threadId }`)
 - `Thread:join` (legacy alias)
 - `message:send` (payload: `{ threadId, content }` or `{ threadId, body }`)
+- `group:join` (payload: `groupId` or `{ groupId }`)
+- `group:message:send` (payload: `{ groupId, content }` or `{ groupId, body }`)
 
 Server -> Client:
 
 - `message:new` (new message broadcast in thread room)
+- `group:message:new` (new message broadcast to current group members)
 - `chat:error`
 - `message:error`
 - `thread:error`
@@ -367,6 +524,7 @@ Server -> Client:
 - `401` unauthorized / not authenticated
 - `403` forbidden (thread not owned by user)
 - `404` not found (user/thread missing)
+- `400` bad request (invalid input, invalid group ID)
 - `409` conflict (`cleanId` already taken)
 - `429` too many attempts or active code exists
 - `500` internal server error

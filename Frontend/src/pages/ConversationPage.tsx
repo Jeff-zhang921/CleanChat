@@ -50,21 +50,47 @@ type ThreadResponse = {
 };
 
 type ConversationItem = {
-  threadId: number;
-  userId: number;
+  id: string;
+  chatType: "direct" | "group";
+  threadId?: number;
+  groupId?: string;
+  userId?: number;
   name: string;
-  email: string;
+  email?: string;
   cleanId: string;
   avatarUrl: string;
   role: string;
   preview: string;
   time: string;
+  sortAt?: string | null;
+  subline: string;
 };
 
 type RealtimeMessage = {
   id: number;
   threadId: number;
   senderId: number;
+  body: string;
+  createdAt: string;
+};
+
+type GroupSummary = {
+  id: string;
+  name: string;
+  description: string;
+  avatarUrl: string;
+  joined: boolean;
+  isOwner: boolean;
+  memberCount: number;
+  lastMessagePreview: string;
+  lastMessageAt: string | null;
+};
+
+type GroupRealtimeMessage = {
+  id: number;
+  groupId: string;
+  senderId: number;
+  senderName: string;
   body: string;
   createdAt: string;
 };
@@ -150,6 +176,7 @@ const ConversationPage = () => {
 
   const [me, setMe] = useState<SessionUser | null>(null);
   const [threads, setThreads] = useState<ThreadResponse[]>([]);
+  const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [status, setStatus] = useState("Loading...");
   const [notificationPermission, setNotificationPermission] = useState(getNotificationPermission());
   const [notificationStatus, setNotificationStatus] = useState("");
@@ -160,6 +187,7 @@ const ConversationPage = () => {
   const socketRef = useRef<Socket | null>(null);
   const meRef = useRef<SessionUser | null>(null);
   const threadsRef = useRef<ThreadResponse[]>([]);
+  const groupsRef = useRef<GroupSummary[]>([]);
 
   useEffect(() => {
     const syncPermission = () => {
@@ -211,6 +239,10 @@ const ConversationPage = () => {
     threadsRef.current = threads;
   }, [threads]);
 
+  useEffect(() => {
+    groupsRef.current = groups;
+  }, [groups]);
+
   const refreshThreads = async () => {
     const threadsResponse = await fetch(`${BACKEND_URL}/chat/threads`, {
       credentials: "include",
@@ -223,6 +255,23 @@ const ConversationPage = () => {
 
     const data = await threadsResponse.json().catch(() => []);
     setThreads(sortThreadsByLatestActivity(Array.isArray(data) ? data : []));
+    setStatus("");
+    return true;
+  };
+
+  const refreshGroups = async () => {
+    const groupsResponse = await fetch(`${BACKEND_URL}/chat/groups`, {
+      credentials: "include",
+    });
+    if (!groupsResponse.ok) {
+      const data = await groupsResponse.json().catch(() => ({}));
+      setStatus(data.message || "Failed to load groups.");
+      return false;
+    }
+
+    const data = await groupsResponse.json().catch(() => ({}));
+    const incomingGroups = Array.isArray(data.groups) ? data.groups : [];
+    setGroups(incomingGroups);
     setStatus("");
     return true;
   };
@@ -250,6 +299,7 @@ const ConversationPage = () => {
 
         if (isMounted) {
           await refreshThreads();
+          await refreshGroups();
         }
       } catch {
         if (isMounted) setStatus("Failed to load conversations.");
@@ -309,7 +359,35 @@ const ConversationPage = () => {
       showMessageNotification(senderName, getNotificationBody(message.body), `thread-${message.threadId}`);
     };
 
+    const handleIncomingGroupMessage = (message: GroupRealtimeMessage) => {
+      setGroups((prev) => {
+        const groupExists = prev.some((item) => item.id === message.groupId && item.joined);
+        if (!groupExists) {
+          void refreshGroups();
+          return prev;
+        }
+
+        return prev.map((item) => {
+          if (item.id !== message.groupId) return item;
+          return {
+            ...item,
+            lastMessagePreview: message.body,
+            lastMessageAt: message.createdAt,
+          };
+        });
+      });
+
+      const currentUser = meRef.current;
+      if (!currentUser || message.senderId === currentUser.id) return;
+
+      const targetGroup = groupsRef.current.find((item) => item.id === message.groupId);
+      const groupName = targetGroup?.name ?? "Group";
+      const senderName = message.senderName || "Someone";
+      showMessageNotification(groupName, `${senderName}: ${getNotificationBody(message.body)}`, `group-${message.groupId}`);
+    };
+
     socket.on("inbox:new", handleIncomingMessage);
+    socket.on("group:message:new", handleIncomingGroupMessage);
     socket.on("connect_error", () => {
       setNotificationStatus("Realtime connection lost. Trying to reconnect...");
     });
@@ -319,6 +397,7 @@ const ConversationPage = () => {
 
     return () => {
       socket.off("inbox:new", handleIncomingMessage);
+      socket.off("group:message:new", handleIncomingGroupMessage);
       socket.disconnect();
       socketRef.current = null;
     };
@@ -382,12 +461,15 @@ const ConversationPage = () => {
   const conversations = useMemo<ConversationItem[]>(() => {
     if (!me) return [];
 
-    return threads.map((item) => {
+    const directItems = threads.map((item) => {
       const isA = item.AID === me.id;
       const other = isA ? item.UserB : item.UserA;
       const latestMessage = item.Messages?.[0] ?? null;
       const displayName = other.name || other.cleanId || other.email;
+      const lastActivityTime = latestMessage?.createdAt || item.lastMessageAt || item.updatedAt;
       return {
+        id: `direct-${item.id}`,
+        chatType: "direct" as const,
         threadId: item.id,
         userId: other.id,
         name: displayName,
@@ -396,15 +478,44 @@ const ConversationPage = () => {
         avatarUrl: getAvatarUrl(other.avatar),
         role: "Direct",
         preview: getConversationPreview(latestMessage?.body),
-        time: formatTime(latestMessage?.createdAt || item.lastMessageAt || item.updatedAt),
+        time: formatTime(lastActivityTime),
+        sortAt: lastActivityTime,
+        subline: `@${other.cleanId}`,
       };
     });
-  }, [threads, me]);
+
+    const joinedGroupItems = groups
+      .filter((group) => group.joined)
+      .map((group) => ({
+        id: `group-${group.id}`,
+        chatType: "group" as const,
+        groupId: group.id,
+        name: group.name,
+        cleanId: group.id,
+        avatarUrl: group.avatarUrl,
+        role: "Group",
+        preview: getConversationPreview(group.lastMessagePreview),
+        time: formatTime(group.lastMessageAt || undefined),
+        sortAt: group.lastMessageAt,
+        subline: `${group.memberCount} members`,
+      }));
+
+    return [...directItems, ...joinedGroupItems].sort((a, b) => {
+      const aTime = toTimestamp(a.sortAt);
+      const bTime = toTimestamp(b.sortAt);
+      return bTime - aTime;
+    });
+  }, [threads, groups, me]);
 
   const filteredConversations = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     if (!query) return conversations;
-    return conversations.filter((item) => item.cleanId.toLowerCase().includes(query));
+    return conversations.filter(
+      (item) =>
+        item.cleanId.toLowerCase().includes(query) ||
+        item.name.toLowerCase().includes(query) ||
+        item.subline.toLowerCase().includes(query)
+    );
   }, [conversations, searchTerm]);
 
   const handleEnableNotifications = async () => {
@@ -434,6 +545,12 @@ const ConversationPage = () => {
 
   const handleOpenThread = (threadId: number, other: string, avatarUrl?: string) => {
     navigate("/chat", { state: { threadId, other, avatarUrl } });
+  };
+
+  const handleOpenGroup = (groupId: string, groupName: string, avatarUrl: string) => {
+    navigate("/chat", {
+      state: { chatType: "group", groupId, other: groupName, avatarUrl },
+    });
   };
 
   const handleOpenUser = async (user: UserSummary) => {
@@ -563,7 +680,9 @@ const ConversationPage = () => {
           </>
         )}
 
-        {!status && !hasQuery && conversations.length === 0 && <div className="status-text">No conversations yet.</div>}
+        {!status && !hasQuery && conversations.length === 0 && (
+          <div className="status-text">No conversations or joined groups yet.</div>
+        )}
 
         {!status && !hasQuery && conversations.length > 0 && filteredConversations.length === 0 && (
           <div className="status-text">No conversations match "{searchTerm.trim()}".</div>
@@ -573,13 +692,27 @@ const ConversationPage = () => {
           <section className="conversations-list">
             {filteredConversations.map((item) => (
               <article
-                key={item.threadId}
+                key={item.id}
                 className="conversation-card"
-                onClick={() => handleOpenThread(item.threadId, item.cleanId || item.email, item.avatarUrl)}
+                onClick={() => {
+                  if (item.chatType === "group" && item.groupId) {
+                    handleOpenGroup(item.groupId, item.name, item.avatarUrl);
+                    return;
+                  }
+                  if (item.threadId) {
+                    handleOpenThread(item.threadId, item.cleanId || item.email || item.name, item.avatarUrl);
+                  }
+                }}
                 role="button"
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
-                    handleOpenThread(item.threadId, item.cleanId || item.email, item.avatarUrl);
+                    if (item.chatType === "group" && item.groupId) {
+                      handleOpenGroup(item.groupId, item.name, item.avatarUrl);
+                      return;
+                    }
+                    if (item.threadId) {
+                      handleOpenThread(item.threadId, item.cleanId || item.email || item.name, item.avatarUrl);
+                    }
                   }
                 }}
               >
@@ -593,7 +726,7 @@ const ConversationPage = () => {
                     <span className="time">{item.time}</span>
                   </div>
                   <p className="preview">{item.preview}</p>
-                  <p className="conversation-subline">@{item.cleanId}</p>
+                  <p className="conversation-subline">{item.subline}</p>
                 </div>
               </article>
             ))}

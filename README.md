@@ -1,6 +1,6 @@
 # CleanChat: Passwordless Real-Time Messaging
 
-Passwordless real-time chat with clean IDs, profiles, and cross-device conversations.
+Passwordless real-time chat with clean IDs, profiles, direct messages, and group conversations.
 
 <p>
   <img alt="React" src="https://img.shields.io/badge/Frontend-React%2018-61DAFB?logo=react&logoColor=white" />
@@ -45,6 +45,7 @@ Users sign in with email code, create identity (`cleanId`, nickname, avatar), an
 | Passwordless Auth | Email-code login (`/auth/email/start`, `/auth/email/verify`) |
 | Identity Setup | `cleanId`, nickname, avatar selection, profile edit/delete |
 | Conversation UX | Search users by `cleanId`, preview last message, open chat quickly |
+| Group Chat | Create groups, join/leave groups, creator-only delete group |
 | Real-Time Messaging | Socket.IO room-based messaging and live updates |
 | Media Support | Optional image upload via UploadThing token |
 | Mobile Ready | PWA installable on phone + Cloudflare same-origin proxy |
@@ -55,7 +56,8 @@ Users sign in with email code, create identity (`cleanId`, nickname, avatar), an
 2. User verifies code at `/verify`.
 3. New users finish onboarding at `/basic-info`.
 4. User opens `/conversations` and can search people by `cleanId`.
-5. User opens `/chat` to message in real time.
+5. User opens `/groups` to create, join, or leave group chats.
+6. User opens `/chat` to message in real time (direct or group).
 
 ## Stack And Hosting
 
@@ -225,6 +227,7 @@ Recommended frontend build variables:
 | `public.User does not exist` | Run `npm run db:generate` and `npm run db:push` |
 | `EADDRINUSE` port conflict | Stop previous process using port `4000` |
 | Uploaded image disappears | Confirm `UPLOADTHING_TOKEN` is set on backend deployment |
+| Group list resets after backend restart | Current group system is in-memory (`Backend/src/groupStore.ts`), not persisted in DB |
 | Android notifications not showing | Verify browser notification permission and PWA install state |
 
 ## Project Structure
@@ -242,6 +245,7 @@ CleanChat/
         chat.ts
       socket/
         index.ts               # Socket.IO server logic
+      groupStore.ts            # In-memory group chat store + membership
       avatar.ts                # Avatar enum -> DiceBear URL mapping
       session.ts               # Session configuration
   Frontend/
@@ -263,6 +267,7 @@ CleanChat/
         verify.tsx
         basicInfo.tsx
         ConversationPage.tsx
+        GroupConversationPage.tsx
         chatPage.tsx
         profile.tsx
   Docs/

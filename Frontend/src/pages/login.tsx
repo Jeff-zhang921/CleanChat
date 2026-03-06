@@ -74,21 +74,21 @@ const LoginPage = () => {
         <section className="auth-brand">
           <p className="auth-kicker">Secure Messaging</p>
           <h1 className="auth-logo">CleanChat</h1>
-          <p className="auth-tagline">Private conversations start with one email.</p>
+          <p className="auth-tagline">Direct and group conversations start with one email.</p>
           <div className="auth-chip-row">
             <span className="auth-chip">Email code login</span>
-            <span className="auth-chip">No password needed</span>
+            <span className="auth-chip">Group chat ready</span>
           </div>
           <section className="auth-intro" aria-label="CleanChat introduction">
             <h2>Built for focused conversations</h2>
             <p>
-              CleanChat keeps messaging simple: quick access, clean interfaces, and real-time chat that
-              works well on both desktop and mobile.
+              CleanChat keeps messaging simple: fast sign-in, direct and group messaging, and real-time chat
+              that works well on desktop and mobile.
             </p>
             <ul className="auth-intro-list">
               <li>Email verification sign-in with no password setup</li>
               <li>CleanID-based search to find and start chats quickly</li>
-              <li>Profile personalization with nickname and avatar</li>
+              <li>Create groups, join/leave groups, and owner-managed deletion</li>
             </ul>
           </section>
         </section>
