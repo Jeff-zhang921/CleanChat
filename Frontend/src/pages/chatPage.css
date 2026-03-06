@@ -309,6 +309,37 @@ If the element only has .status-pill, it stays gray. As soon as your JavaScript 
   color: rgba(255, 255, 255, 0.7);
 }
 
+.chat-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.chat-row.them .chat-meta-row {
+  justify-content: flex-start;
+}
+
+.chat-delete-button {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.chat-delete-button:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.chat-delete-button:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
 
 @media (min-width: 1200px) {
   .chat-shell {

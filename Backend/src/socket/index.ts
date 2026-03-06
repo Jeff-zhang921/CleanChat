@@ -2,11 +2,12 @@ import type { Server as HTTPServer } from "http";
 import { Server } from "socket.io";
 import { PrismaClient } from "@prisma/client";
 import {
-  appendGroupMessage,
-  getGroupById,
-  isGroupMember,
-  listGroupMemberIds,
-  normalizeGroupId,
+    appendGroupMessage,
+    deleteGroupMessage,
+    getGroupById,
+    isGroupMember,
+    listGroupMemberIds,
+    normalizeGroupId,
 } from "../groupStore";
 
 import{sessionMiddleware} from '../session';
@@ -85,6 +86,18 @@ export function initSocket(server: HTTPServer) {
                     ? (raw as { groupId?: unknown }).groupId
                     : raw
             return normalizeGroupId(candidate)
+        }
+        const ensureMessageId=(raw:unknown):number|null=>{
+            const candidate =
+                typeof raw === "object" && raw !== null && "messageId" in raw
+                    ? (raw as { messageId?: unknown }).messageId
+                    : raw
+            const parsedId = typeof candidate === "number" ? candidate : Number(candidate)
+            if(!Number.isInteger(parsedId)||isNaN(parsedId)||parsedId<=0){
+                console.warn("Invalid message id:", raw)
+                return null
+            }
+            return parsedId
         }
         const handleJoinThread=async(threadIdRaw:unknown)=>{
             const threadId=ensureThreadValid(threadIdRaw)
@@ -174,6 +187,91 @@ export function initSocket(server: HTTPServer) {
             io.to(`user:${thread.BID}`).emit("inbox:new", messagePayload)
              
         })
+        socket.on(
+            "message:delete",
+            async (
+                data:unknown,
+                callback?: (result: { ok: boolean; message?: string }) => void
+            )=>{
+                const reply = (ok: boolean, message?: string) => {
+                    if (typeof callback === "function") {
+                        callback({ ok, message })
+                    }
+                }
+                try{
+                    const payload =
+                        typeof data === "object" && data !== null
+                            ? data as { threadId?: unknown; messageId?: unknown }
+                            : {}
+                    const validThreadId=ensureThreadValid(payload.threadId)
+                    if(!validThreadId){
+                        const errorMessage = "Invalid thread ID"
+                        emitChatError(errorMessage)
+                        reply(false, errorMessage)
+                        return
+                    }
+                    const messageId = ensureMessageId(payload.messageId)
+                    if(!messageId){
+                        const errorMessage = "Invalid message ID"
+                        emitChatError(errorMessage)
+                        reply(false, errorMessage)
+                        return
+                    }
+
+                    const thread=await ensureMemberShip(validThreadId,sessionUser.id)
+                    if(!thread){
+                        const errorMessage = "Thread not found or access denied"
+                        emitChatError(errorMessage)
+                        reply(false, errorMessage)
+                        return
+                    }
+
+                    const targetMessage = await prisma.chatMessage.findUnique({
+                        where: { id: messageId },
+                        select: { id: true, threadId: true, senderId: true },
+                    })
+                    if(!targetMessage || targetMessage.threadId !== validThreadId){
+                        const errorMessage = "Message not found"
+                        emitChatError(errorMessage)
+                        reply(false, errorMessage)
+                        return
+                    }
+                    if(targetMessage.senderId !== sessionUser.id){
+                        const errorMessage = "You can only delete your own messages."
+                        emitChatError(errorMessage)
+                        reply(false, errorMessage)
+                        return
+                    }
+
+                    await prisma.chatMessage.delete({
+                        where: { id: targetMessage.id },
+                    })
+                    const latestMessage = await prisma.chatMessage.findFirst({
+                        where: { threadId: validThreadId },
+                        orderBy: { createdAt: "desc" },
+                        select: { createdAt: true },
+                    })
+                    await prisma.chatThread.update({
+                        where: { id: validThreadId },
+                        data: { lastMessageAt: latestMessage?.createdAt ?? null },
+                    })
+
+                    const deletedPayload = {
+                        id: targetMessage.id,
+                        threadId: validThreadId,
+                        deletedBy: sessionUser.id,
+                    }
+                    io.to(`thread:${validThreadId}`).emit("message:deleted", deletedPayload)
+                    io.to(`user:${thread.AID}`).emit("message:deleted", deletedPayload)
+                    io.to(`user:${thread.BID}`).emit("message:deleted", deletedPayload)
+                    reply(true)
+                }catch{
+                    const errorMessage = "Failed to delete message."
+                    emitChatError(errorMessage)
+                    reply(false, errorMessage)
+                }
+            }
+        )
 
         socket.on("group:message:send",(data:unknown)=>{
             const payload =
@@ -208,10 +306,77 @@ export function initSocket(server: HTTPServer) {
             const message = appendGroupMessage(groupId, sessionUser, content.trim())
             socket.join(`group:${groupId}`)
             const memberIds = listGroupMemberIds(groupId)
-            memberIds.forEach((memberId) => {
-                io.to(`user:${memberId}`).emit("group:message:new", message)
-            })
+                memberIds.forEach((memberId) => {
+                    io.to(`user:${memberId}`).emit("group:message:new", message)
+                })
         })
+        socket.on(
+            "group:message:delete",
+            (
+                data:unknown,
+                callback?: (result: { ok: boolean; message?: string }) => void
+            )=>{
+                const reply = (ok: boolean, message?: string) => {
+                    if (typeof callback === "function") {
+                        callback({ ok, message })
+                    }
+                }
+                const payload =
+                    typeof data === "object" && data !== null
+                        ? data as { groupId?: unknown; messageId?: unknown }
+                        : {}
+                const groupId=ensureGroupId(payload.groupId)
+                if(!groupId){
+                    const errorMessage = "Invalid group ID"
+                    emitChatError(errorMessage)
+                    reply(false, errorMessage)
+                    return
+                }
+                if(!getGroupById(groupId)){
+                    const errorMessage = "Group not found"
+                    emitChatError(errorMessage)
+                    reply(false, errorMessage)
+                    return
+                }
+                if(!isGroupMember(groupId,sessionUser.id)){
+                    const errorMessage = "Join this group first"
+                    emitChatError(errorMessage)
+                    reply(false, errorMessage)
+                    return
+                }
+                const messageId = ensureMessageId(payload.messageId)
+                if(!messageId){
+                    const errorMessage = "Invalid message ID"
+                    emitChatError(errorMessage)
+                    reply(false, errorMessage)
+                    return
+                }
+
+                const deleted = deleteGroupMessage(groupId, messageId, sessionUser.id)
+                if(!deleted.deleted){
+                    const errorMessage =
+                        deleted.reason === "forbidden"
+                            ? "You can only delete your own group messages."
+                            : "Message not found"
+                    emitChatError(errorMessage)
+                    reply(false, errorMessage)
+                    return
+                }
+
+                socket.join(`group:${groupId}`)
+                const deletedPayload = {
+                    id: deleted.message.id,
+                    groupId,
+                    deletedBy: sessionUser.id,
+                }
+                io.to(`group:${groupId}`).emit("group:message:deleted", deletedPayload)
+                const memberIds = listGroupMemberIds(groupId)
+                memberIds.forEach((memberId) => {
+                    io.to(`user:${memberId}`).emit("group:message:deleted", deletedPayload)
+                })
+                reply(true)
+            }
+        )
     }
 )
 return io

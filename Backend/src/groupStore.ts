@@ -230,3 +230,24 @@ export const appendGroupMessage = (groupId: string, sender: SessionUser, body: s
 
   return message;
 };
+
+export const deleteGroupMessage = (groupId: string, messageId: number, requestUserId: number) => {
+  const messages = groupMessages.get(groupId);
+  if (!messages) {
+    return { deleted: false as const, reason: "not_found" as const };
+  }
+
+  const targetIndex = messages.findIndex((message) => message.id === messageId);
+  if (targetIndex < 0) {
+    return { deleted: false as const, reason: "not_found" as const };
+  }
+
+  const targetMessage = messages[targetIndex];
+  if (targetMessage.senderId !== requestUserId) {
+    return { deleted: false as const, reason: "forbidden" as const };
+  }
+
+  messages.splice(targetIndex, 1);
+  groupMessages.set(groupId, messages);
+  return { deleted: true as const, message: targetMessage };
+};

@@ -18,6 +18,13 @@ type ChatMessage={
   createdAt:string
 }
 
+type MessageDeletedPayload = {
+  id: number;
+  threadId?: number;
+  groupId?: string;
+  deletedBy: number;
+};
+
 type ChatMode = "direct" | "group";
 
 type ChatLocationState = {
@@ -110,6 +117,7 @@ const ChatPage = () => {
 const [messageBody,setMessageBody]=useState("")
 const [isUploadingImage, setIsUploadingImage] = useState(false);
 const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+const [deletingMessageIds, setDeletingMessageIds] = useState<number[]>([]);
 
 const refocusMessageInput = () => {
   if (typeof window === "undefined") return;
@@ -157,6 +165,7 @@ const loadThreadMessages=async(id:number)=>{
       }
       const data = await res.json();
       setMessages(Array.isArray(data) ? data : []);
+      setDeletingMessageIds([]);
     } catch {
       setStatus("Failed to load messages.");
     }
@@ -176,6 +185,7 @@ const loadGroupMessages = async (id: string) => {
     const data = await response.json().catch(() => ({}));
     const incoming = Array.isArray(data.messages) ? data.messages : [];
     setMessages(incoming);
+    setDeletingMessageIds([]);
   } catch {
     setStatus("Failed to load group messages.");
   }
@@ -238,6 +248,14 @@ socketRef.current=socket
         showMessageNotification(title, formatNotificationBody(msg.body), `thread-${msg.threadId}`);
       }
     });
+  socket.on("message:deleted", (payload: MessageDeletedPayload) => {
+      const activeThreadId = threadIdRef.current;
+      if (typeof payload.threadId === "number" && typeof activeThreadId === "number" && payload.threadId !== activeThreadId) {
+        return;
+      }
+      setMessages((prev) => prev.filter((item) => item.id !== payload.id));
+      setDeletingMessageIds((prev) => prev.filter((id) => id !== payload.id));
+    });
 
     socket.on("group:message:new", (msg: ChatMessage) => {
       setMessages((prev) => [...prev, msg]);
@@ -252,6 +270,14 @@ socketRef.current=socket
         const title = other || "Group message";
         showMessageNotification(title, formatNotificationBody(msg.body), `group-${msg.groupId ?? "room"}`);
       }
+    });
+    socket.on("group:message:deleted", (payload: MessageDeletedPayload) => {
+      const activeGroupId = groupIdRef.current;
+      if (typeof payload.groupId === "string" && typeof activeGroupId === "string" && payload.groupId !== activeGroupId) {
+        return;
+      }
+      setMessages((prev) => prev.filter((item) => item.id !== payload.id));
+      setDeletingMessageIds((prev) => prev.filter((id) => id !== payload.id));
     });
   }
 
@@ -427,6 +453,78 @@ const handleSendMessage=()=>{
   refocusMessageInput();
 }
 
+const handleDeleteMessage = (targetMessage: ChatMessage) => {
+  const currentUser = meRef.current;
+  if (!currentUser || currentUser.id !== targetMessage.senderId) {
+    return;
+  }
+  if (!socketRef.current || !socketRef.current.connected) {
+    setStatus("Socket not connected");
+    return;
+  }
+  if (!window.confirm("Delete this message?")) {
+    return;
+  }
+
+  setDeletingMessageIds((prev) => (prev.includes(targetMessage.id) ? prev : [...prev, targetMessage.id]));
+  const clearDeletingState = () => {
+    setDeletingMessageIds((prev) => prev.filter((id) => id !== targetMessage.id));
+  };
+
+  if (chatModeRef.current === "group") {
+    const activeGroupId = groupIdRef.current;
+    if (!activeGroupId) {
+      setStatus("Join a group first");
+      clearDeletingState();
+      return;
+    }
+
+    socketRef.current.emit(
+      "group:message:delete",
+      {
+        groupId: activeGroupId,
+        messageId: targetMessage.id,
+      },
+      (response?: { ok?: boolean; message?: string }) => {
+        if (!response?.ok) {
+          setStatus(response?.message || "Failed to delete message.");
+          clearDeletingState();
+          return;
+        }
+        setMessages((prev) => prev.filter((item) => item.id !== targetMessage.id));
+        clearDeletingState();
+        setStatus("");
+      }
+    );
+    return;
+  }
+
+  const activeThreadId = threadIdRef.current;
+  if (!activeThreadId) {
+    setStatus("Create or join a thread first");
+    clearDeletingState();
+    return;
+  }
+
+  socketRef.current.emit(
+    "message:delete",
+    {
+      threadId: activeThreadId,
+      messageId: targetMessage.id,
+    },
+    (response?: { ok?: boolean; message?: string }) => {
+      if (!response?.ok) {
+        setStatus(response?.message || "Failed to delete message.");
+        clearDeletingState();
+        return;
+      }
+      setMessages((prev) => prev.filter((item) => item.id !== targetMessage.id));
+      clearDeletingState();
+      setStatus("");
+    }
+  );
+};
+
 
 
 
@@ -578,9 +676,10 @@ useEffect(() => {
             <div>{chatMode === "group" ? "No group messages yet." : "Start a conversation"}</div>
           )}
           
-          {message.map((msg, index) => {
+          {message.map((msg) => {
             const isMe = msg.senderId === me?.id;
             const imageUrl = getImageUrlFromMessage(msg.body);
+            const isDeletingMessage = deletingMessageIds.includes(msg.id);
             //If True: It gives the div the class chat-row me.
             //If False: It gives the div the class chat-row them.
             return (
@@ -606,9 +705,21 @@ useEffect(() => {
                   ) : (
                     <p>{msg.body}</p>
                   )}
-                  <span className="chat-timestamp">
-                    {new Date(msg.createdAt).toLocaleTimeString()}
-                  </span>
+                  <div className="chat-meta-row">
+                    <span className="chat-timestamp">
+                      {new Date(msg.createdAt).toLocaleTimeString()}
+                    </span>
+                    {isMe && (
+                      <button
+                        type="button"
+                        className="chat-delete-button"
+                        onClick={() => handleDeleteMessage(msg)}
+                        disabled={isDeletingMessage}
+                      >
+                        {isDeletingMessage ? "Deleting..." : "Delete"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
