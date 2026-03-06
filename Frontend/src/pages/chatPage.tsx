@@ -606,7 +606,7 @@ const handleUploadImage = async (event: ChangeEvent<HTMLInputElement>) => {
         body: `${IMAGE_MESSAGE_PREFIX}${imageUrl}`,
       });
     }
-    setStatus("Image sent");
+    setStatus("photo sent");
     refocusMessageInput();
   } catch {
     setStatus("Failed to upload image");
