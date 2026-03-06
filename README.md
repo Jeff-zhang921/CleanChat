@@ -2,6 +2,8 @@
 
 Passwordless real-time chat with clean IDs, profiles, direct messages, and group conversations.
 
+**CleanChat is made for the moment when you only need a quick chat, without friend requests, without account friction, and without forcing anyone to install an app.**
+
 <p>
   <img alt="React" src="https://img.shields.io/badge/Frontend-React%2018-61DAFB?logo=react&logoColor=white" />
   <img alt="Node.js" src="https://img.shields.io/badge/Runtime-Node.js-339933?logo=nodedotjs&logoColor=white" />
@@ -37,6 +39,7 @@ Passwordless real-time chat with clean IDs, profiles, direct messages, and group
 
 CleanChat is a full-stack messaging app focused on simple onboarding and reliable real-time chat.
 Users sign in with email code, create identity (`cleanId`, nickname, avatar), and start conversations immediately.
+That focus drives a low-friction onboarding and instant messaging flow.
 
 ## Highlights
 
