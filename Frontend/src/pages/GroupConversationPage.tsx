@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
 import { BACKEND_URL } from "../config";
+import { GROUP_AVATAR_OPTIONS, type GroupAvatarKey } from "../constants/groupAvatars";
 import "./GroupConversationPage.css";
 
 type SessionUser = {
@@ -15,9 +16,13 @@ type GroupSummary = {
   id: string;
   name: string;
   description: string;
+  avatarKey: GroupAvatarKey;
   avatarUrl: string;
   isOwner: boolean;
   joined: boolean;
+  requiresApproval: boolean;
+  joinRequestStatus: "none" | "pending";
+  pendingRequestCount: number;
   memberCount: number;
   lastMessagePreview: string;
   lastMessageAt: string | null;
@@ -38,10 +43,14 @@ const GroupConversationPage = () => {
   const [query, setQuery] = useState("");
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupDescription, setNewGroupDescription] = useState("");
+  const [newGroupAvatarKey, setNewGroupAvatarKey] = useState<GroupAvatarKey>(GROUP_AVATAR_OPTIONS[0].key);
+  const [newGroupRequiresApproval, setNewGroupRequiresApproval] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [workingGroupId, setWorkingGroupId] = useState<string | null>(null);
-  const [workingAction, setWorkingAction] = useState<"join" | "leave" | "delete" | null>(null);
+  const [workingAction, setWorkingAction] = useState<"join" | "leave" | "delete" | "avatar" | null>(null);
   const [pendingDeleteGroup, setPendingDeleteGroup] = useState<GroupSummary | null>(null);
+  const [pendingAvatarGroup, setPendingAvatarGroup] = useState<GroupSummary | null>(null);
+  const [pendingAvatarKey, setPendingAvatarKey] = useState<GroupAvatarKey>(GROUP_AVATAR_OPTIONS[0].key);
 
   const refreshGroups = async () => {
     const response = await fetch(`${BACKEND_URL}/chat/groups`, {
@@ -135,8 +144,12 @@ const GroupConversationPage = () => {
       setGroups((prev) =>
         prev.map((item) => (item.id === group.id ? joinedGroup ?? { ...item, joined: true } : item))
       );
+      if (data.pendingApproval) {
+        setStatus(data.message || "Join request sent. Wait for owner approval.");
+        return;
+      }
       setStatus("");
-      openGroupChat(joinedGroup ?? { ...group, joined: true });
+      openGroupChat(joinedGroup ?? { ...group, joined: true, joinRequestStatus: "none" });
     } catch {
       setStatus("Failed to join group.");
     } finally {
@@ -164,7 +177,12 @@ const GroupConversationPage = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name, description }),
+        body: JSON.stringify({
+          name,
+          description,
+          requiresApproval: newGroupRequiresApproval,
+          avatarKey: newGroupAvatarKey,
+        }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -180,6 +198,8 @@ const GroupConversationPage = () => {
       setGroups((prev) => [createdGroup, ...prev.filter((item) => item.id !== createdGroup.id)]);
       setNewGroupName("");
       setNewGroupDescription("");
+      setNewGroupAvatarKey(GROUP_AVATAR_OPTIONS[0].key);
+      setNewGroupRequiresApproval(false);
       setStatus("");
       openGroupChat(createdGroup);
     } catch {
@@ -226,6 +246,11 @@ const GroupConversationPage = () => {
     setPendingDeleteGroup(group);
   };
 
+  const requestAvatarChange = (group: GroupSummary) => {
+    setPendingAvatarGroup(group);
+    setPendingAvatarKey(group.avatarKey);
+  };
+
   const handleConfirmDeleteGroup = async () => {
     if (!pendingDeleteGroup) return;
     const group = pendingDeleteGroup;
@@ -252,6 +277,46 @@ const GroupConversationPage = () => {
       setWorkingGroupId(null);
       setWorkingAction(null);
       setPendingDeleteGroup(null);
+    }
+  };
+
+  const handleConfirmAvatarChange = async () => {
+    if (!pendingAvatarGroup) return;
+    const group = pendingAvatarGroup;
+
+    setWorkingGroupId(group.id);
+    setWorkingAction("avatar");
+    setStatus(`Updating avatar for ${group.name}...`);
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/chat/groups/${encodeURIComponent(group.id)}/avatar`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ avatarKey: pendingAvatarKey }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatus(data.message || data.error || "Failed to update avatar.");
+        return;
+      }
+      const updatedGroup = data.group as GroupSummary | undefined;
+      const selectedAvatarUrl =
+        GROUP_AVATAR_OPTIONS.find((option) => option.key === pendingAvatarKey)?.url ?? group.avatarUrl;
+      setGroups((prev) =>
+        prev.map((item) =>
+          item.id === group.id
+            ? updatedGroup ?? { ...item, avatarKey: pendingAvatarKey, avatarUrl: selectedAvatarUrl }
+            : item
+        )
+      );
+      setStatus("");
+      setPendingAvatarGroup(null);
+    } catch {
+      setStatus("Failed to update avatar.");
+    } finally {
+      setWorkingGroupId(null);
+      setWorkingAction(null);
     }
   };
 
@@ -304,9 +369,35 @@ const GroupConversationPage = () => {
               maxLength={180}
               disabled={isCreating}
             />
+            <label className="group-create-toggle">
+              <input
+                type="checkbox"
+                checked={newGroupRequiresApproval}
+                onChange={(event) => setNewGroupRequiresApproval(event.target.checked)}
+                disabled={isCreating}
+              />
+              Require verification to join
+            </label>
             <button type="button" className="group-action create" onClick={handleCreateGroup} disabled={isCreating}>
               {isCreating ? "Creating..." : "Create"}
             </button>
+          </div>
+          <div className="group-avatar-picker">
+            <p>Group avatar</p>
+            <div className="group-avatar-options">
+              {GROUP_AVATAR_OPTIONS.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  className={`group-avatar-option ${newGroupAvatarKey === option.key ? "active" : ""}`}
+                  onClick={() => setNewGroupAvatarKey(option.key)}
+                  disabled={isCreating}
+                >
+                  <img src={option.url} alt={`${option.label} avatar`} />
+                  <span>{option.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -318,9 +409,19 @@ const GroupConversationPage = () => {
           <section className="conversations-list">
             {filteredGroups.map((group) => {
               const isWorking = workingGroupId === group.id;
-              const actionLabel = isWorking && workingAction === "join" ? "Joining..." : "Join Group";
+              const isPendingRequest = group.joinRequestStatus === "pending";
+              const actionLabel = isPendingRequest
+                ? "Requested"
+                : isWorking && workingAction === "join"
+                  ? group.requiresApproval
+                    ? "Requesting..."
+                    : "Joining..."
+                  : group.requiresApproval
+                    ? "Request Join"
+                    : "Join Group";
               const leaveLabel = isWorking && workingAction === "leave" ? "Leaving..." : "Leave";
               const deleteLabel = isWorking && workingAction === "delete" ? "Deleting..." : "Delete";
+              const avatarLabel = isWorking && workingAction === "avatar" ? "Saving..." : "Avatar";
               const canOpenByCard = group.joined && !isWorking && !isCreating;
 
               return (
@@ -340,17 +441,23 @@ const GroupConversationPage = () => {
                   <div className="avatar">
                     <img src={group.avatarUrl} alt={`${group.name} avatar`} />
                   </div>
-                  <div className="conversation-body">
-                    <div className="conversation-top">
-                      <h3>{group.name}</h3>
-                      <p className="role">{group.joined ? "Joined" : "Discover"}</p>
-                      <span className="time">{formatTime(group.lastMessageAt)}</span>
+                    <div className="conversation-body">
+                      <div className="conversation-top">
+                        <h3>{group.name}</h3>
+                        <p className="role">
+                          {group.joined ? "Joined" : isPendingRequest ? "Requested" : "Discover"}
+                        </p>
+                        <span className="time">{formatTime(group.lastMessageAt)}</span>
+                      </div>
+                      <p className="preview">{group.lastMessagePreview}</p>
+                      <p className="conversation-subline">
+                        {group.memberCount} members - {group.description} -{" "}
+                        {group.requiresApproval ? "Verification required" : "Open join"}
+                        {group.isOwner && group.pendingRequestCount > 0
+                          ? ` - ${group.pendingRequestCount} pending request(s)`
+                          : ""}
+                      </p>
                     </div>
-                    <p className="preview">{group.lastMessagePreview}</p>
-                    <p className="conversation-subline">
-                      {group.memberCount} members - {group.description}
-                    </p>
-                  </div>
                   {group.joined ? (
                     <div className="group-action-row">
                       <button
@@ -378,6 +485,19 @@ const GroupConversationPage = () => {
                       {group.isOwner && (
                         <button
                           type="button"
+                          className="group-action avatar"
+                          disabled={isWorking || isCreating}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            requestAvatarChange(group);
+                          }}
+                        >
+                          {avatarLabel}
+                        </button>
+                      )}
+                      {group.isOwner && (
+                        <button
+                          type="button"
                           className="group-action delete"
                           disabled={isWorking || isCreating}
                           onClick={(event) => {
@@ -394,7 +514,7 @@ const GroupConversationPage = () => {
                       <button
                         type="button"
                         className="group-action join"
-                        disabled={isWorking || isCreating}
+                        disabled={isWorking || isCreating || isPendingRequest}
                         onClick={(event) => {
                           event.stopPropagation();
                           void handleJoinOrOpen(group);
@@ -402,6 +522,19 @@ const GroupConversationPage = () => {
                       >
                         {actionLabel}
                       </button>
+                      {group.isOwner && (
+                        <button
+                          type="button"
+                          className="group-action avatar"
+                          disabled={isWorking || isCreating}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            requestAvatarChange(group);
+                          }}
+                        >
+                          {avatarLabel}
+                        </button>
+                      )}
                       {group.isOwner && (
                         <button
                           type="button"
@@ -449,6 +582,47 @@ const GroupConversationPage = () => {
                 disabled={workingAction === "delete"}
               >
                 {workingAction === "delete" ? "Deleting..." : "Delete Group"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {pendingAvatarGroup && (
+        <div className="groups-avatar-overlay" role="presentation">
+          <div className="groups-avatar-modal" role="dialog" aria-modal="true" aria-labelledby="group-avatar-title">
+            <h3 id="group-avatar-title">Choose Avatar for "{pendingAvatarGroup.name}"</h3>
+            <div className="groups-avatar-options">
+              {GROUP_AVATAR_OPTIONS.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  className={`groups-avatar-option ${pendingAvatarKey === option.key ? "active" : ""}`}
+                  onClick={() => setPendingAvatarKey(option.key)}
+                  disabled={workingAction === "avatar"}
+                >
+                  <img src={option.url} alt={`${option.label} avatar`} />
+                  <span>{option.label}</span>
+                </button>
+              ))}
+            </div>
+            <div className="groups-delete-actions">
+              <button
+                type="button"
+                className="group-action cancel"
+                onClick={() => setPendingAvatarGroup(null)}
+                disabled={workingAction === "avatar"}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="group-action create"
+                onClick={() => {
+                  void handleConfirmAvatarChange();
+                }}
+                disabled={workingAction === "avatar"}
+              >
+                {workingAction === "avatar" ? "Saving..." : "Save Avatar"}
               </button>
             </div>
           </div>

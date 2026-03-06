@@ -26,6 +26,29 @@ type ProfileUser = {
   avatar: AvatarKey;
 };
 
+type OwnedGroupSummary = {
+  id: string;
+  name: string;
+  description: string;
+  avatarUrl: string;
+  isOwner: boolean;
+  joined: boolean;
+  requiresApproval: boolean;
+  joinRequestStatus: "none" | "pending";
+  pendingRequestCount: number;
+  memberCount: number;
+  lastMessagePreview: string;
+  lastMessageAt: string | null;
+};
+
+type GroupJoinRequest = {
+  userId: number;
+  requestedAt: string;
+  name: string | null;
+  email: string;
+  cleanId: string;
+};
+
 const AVATAR_OPTIONS: { key: AvatarKey; label: string; url: string }[] = [
   { key: "AVATAR_LEO", label: "Leo", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo" },
   { key: "AVATAR_SOPHIE", label: "Sophie", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sophie" },
@@ -58,6 +81,14 @@ const ProfilePage = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteConfirming, setIsDeleteConfirming] = useState(false);
+  const [showGroupAccess, setShowGroupAccess] = useState(false);
+  const [ownedGroups, setOwnedGroups] = useState<OwnedGroupSummary[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [joinRequests, setJoinRequests] = useState<GroupJoinRequest[]>([]);
+  const [isLoadingGroupAccess, setIsLoadingGroupAccess] = useState(false);
+  const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(false);
+  const [updatingGroupId, setUpdatingGroupId] = useState<string | null>(null);
+  const [processingJoinRequestKey, setProcessingJoinRequestKey] = useState<string | null>(null);
 
   const normalizedCleanId = useMemo(() => cleanId.trim().toLowerCase(), [cleanId]);
 
@@ -268,6 +299,149 @@ const ProfilePage = () => {
     }
   };
 
+  const refreshOwnedGroups = async () => {
+    setIsLoadingGroupAccess(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/chat/groups`, {
+        credentials: "include",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatus(data.message || data.error || "Failed to load your groups.");
+        return;
+      }
+
+      const groups = Array.isArray(data.groups) ? (data.groups as OwnedGroupSummary[]) : [];
+      const owned = groups.filter((group) => group.isOwner);
+      setOwnedGroups(owned);
+      if (selectedGroupId && !owned.some((group) => group.id === selectedGroupId)) {
+        setSelectedGroupId(null);
+        setJoinRequests([]);
+      }
+      if (owned.length === 0) {
+        setJoinRequests([]);
+      }
+    } catch {
+      setStatus("Failed to load your groups.");
+    } finally {
+      setIsLoadingGroupAccess(false);
+    }
+  };
+
+  const handleToggleGroupAccess = async () => {
+    if (showGroupAccess) {
+      setShowGroupAccess(false);
+      setSelectedGroupId(null);
+      setJoinRequests([]);
+      return;
+    }
+    setShowGroupAccess(true);
+    setStatus("");
+    await refreshOwnedGroups();
+  };
+
+  const handleUpdateJoinPolicy = async (group: OwnedGroupSummary, requiresApproval: boolean) => {
+    setUpdatingGroupId(group.id);
+    setStatus("Updating group verification setting...");
+    try {
+      const response = await fetch(`${BACKEND_URL}/chat/groups/${encodeURIComponent(group.id)}/settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ requiresApproval }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatus(data.message || data.error || "Failed to update group setting.");
+        return;
+      }
+
+      const updatedGroup = data.group as OwnedGroupSummary | undefined;
+      setOwnedGroups((prev) =>
+        prev.map((item) =>
+          item.id === group.id ? updatedGroup ?? { ...item, requiresApproval, pendingRequestCount: 0 } : item
+        )
+      );
+      if (!requiresApproval) {
+        setSelectedGroupId(null);
+        setJoinRequests([]);
+      }
+      setStatus("");
+    } catch {
+      setStatus("Failed to update group setting.");
+    } finally {
+      setUpdatingGroupId(null);
+    }
+  };
+
+  const handleLoadJoinRequests = async (groupId: string) => {
+    if (selectedGroupId === groupId) {
+      setSelectedGroupId(null);
+      setJoinRequests([]);
+      return;
+    }
+
+    setSelectedGroupId(groupId);
+    setJoinRequests([]);
+    setIsLoadingJoinRequests(true);
+    setStatus("Loading join requests...");
+    try {
+      const response = await fetch(`${BACKEND_URL}/chat/groups/${encodeURIComponent(groupId)}/join-requests`, {
+        credentials: "include",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatus(data.message || data.error || "Failed to load join requests.");
+        return;
+      }
+
+      const requests = Array.isArray(data.requests) ? (data.requests as GroupJoinRequest[]) : [];
+      setJoinRequests(requests);
+      const updatedGroup = data.group as OwnedGroupSummary | undefined;
+      if (updatedGroup) {
+        setOwnedGroups((prev) => prev.map((item) => (item.id === groupId ? updatedGroup : item)));
+      }
+      setStatus("");
+    } catch {
+      setStatus("Failed to load join requests.");
+    } finally {
+      setIsLoadingJoinRequests(false);
+    }
+  };
+
+  const handleResolveJoinRequest = async (groupId: string, userId: number, action: "approve" | "reject") => {
+    const key = `${groupId}-${userId}-${action}`;
+    setProcessingJoinRequestKey(key);
+    setStatus(action === "approve" ? "Approving request..." : "Rejecting request...");
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/chat/groups/${encodeURIComponent(groupId)}/join-requests/${userId}/${action}`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatus(data.message || data.error || "Failed to update join request.");
+        return;
+      }
+
+      setJoinRequests((prev) => prev.filter((request) => request.userId !== userId));
+      const updatedGroup = data.group as OwnedGroupSummary | undefined;
+      if (updatedGroup) {
+        setOwnedGroups((prev) => prev.map((item) => (item.id === groupId ? updatedGroup : item)));
+      } else {
+        await refreshOwnedGroups();
+      }
+      setStatus("");
+    } catch {
+      setStatus("Failed to update join request.");
+    } finally {
+      setProcessingJoinRequestKey(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="profile-shell">
@@ -291,6 +465,7 @@ const ProfilePage = () => {
   const activeAvatar = isEditing ? avatar : user.avatar;
   const activeName = isEditing ? nickname : user.name;
   const activeCleanId = isEditing ? cleanId : user.cleanId;
+  const selectedOwnedGroup = ownedGroups.find((group) => group.id === selectedGroupId) ?? null;
 
   return (
     <div className="profile-shell">
@@ -324,9 +499,26 @@ const ProfilePage = () => {
         </section>
 
         {!isEditing && (
-          <button type="button" className="profile-primary-btn" onClick={startEdit}>
-            Edit Profile
-          </button>
+          <div className="profile-top-actions">
+            <button type="button" className="profile-action-row" onClick={startEdit}>
+              <span className="profile-action-row-title">Edit Profile</span>
+              <span className="profile-action-row-arrow" aria-hidden="true">
+                &gt;
+              </span>
+            </button>
+            <button
+              type="button"
+              className="profile-action-row"
+              onClick={() => void handleToggleGroupAccess()}
+            >
+              <span className="profile-action-row-title">
+                {showGroupAccess ? "Hide Group Access" : "Manage Group Access"}
+              </span>
+              <span className="profile-action-row-arrow" aria-hidden="true">
+                &gt;
+              </span>
+            </button>
+          </div>
         )}
 
         {isEditing && (
@@ -407,6 +599,112 @@ const ProfilePage = () => {
           <p className="profile-status" role="status">
             {status}
           </p>
+        )}
+
+        {!isEditing && showGroupAccess && (
+          <section className="profile-group-access">
+            <h3>Group Join Verification</h3>
+            <p className="profile-hint">
+              Choose whether your groups need verification before others can join, and approve/reject requests.
+            </p>
+
+            {isLoadingGroupAccess && <p className="profile-loading">Loading your groups...</p>}
+            {!isLoadingGroupAccess && ownedGroups.length === 0 && (
+              <p className="profile-hint">You have not created any groups yet.</p>
+            )}
+
+            {!isLoadingGroupAccess && ownedGroups.length > 0 && (
+              <div className="profile-owned-groups">
+                {ownedGroups.map((group) => {
+                  const isUpdatingGroup = updatingGroupId === group.id;
+                  const isRequestPanelOpen = selectedGroupId === group.id;
+                  return (
+                    <article key={group.id} className="profile-owned-group">
+                      <div className="profile-owned-group-main">
+                        <h4>{group.name}</h4>
+                        <p>
+                          {group.memberCount} members - {group.pendingRequestCount} pending request(s)
+                        </p>
+                      </div>
+                      <div className="profile-owned-group-actions">
+                        <label className="profile-verify-toggle">
+                          <input
+                            type="checkbox"
+                            checked={group.requiresApproval}
+                            disabled={isUpdatingGroup}
+                            onChange={(event) => {
+                              void handleUpdateJoinPolicy(group, event.target.checked);
+                            }}
+                          />
+                          <span>{group.requiresApproval ? "Verification ON" : "Verification OFF"}</span>
+                        </label>
+                        <button
+                          type="button"
+                          className="profile-secondary-btn"
+                          disabled={isUpdatingGroup}
+                          onClick={() => {
+                            void handleLoadJoinRequests(group.id);
+                          }}
+                        >
+                          {isRequestPanelOpen
+                            ? "Hide Requests"
+                            : `Review Requests (${group.pendingRequestCount})`}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+
+            {selectedOwnedGroup && (
+              <section className="profile-join-requests-panel">
+                <h4>{selectedOwnedGroup.name} - Join Requests</h4>
+                {isLoadingJoinRequests && <p className="profile-loading">Loading requests...</p>}
+                {!isLoadingJoinRequests && joinRequests.length === 0 && (
+                  <p className="profile-hint">No pending requests for this group.</p>
+                )}
+                {!isLoadingJoinRequests && joinRequests.length > 0 && (
+                  <ul className="profile-join-request-list">
+                    {joinRequests.map((request) => {
+                      const approveKey = `${selectedOwnedGroup.id}-${request.userId}-approve`;
+                      const rejectKey = `${selectedOwnedGroup.id}-${request.userId}-reject`;
+                      return (
+                        <li key={request.userId} className="profile-join-request-item">
+                          <div className="profile-join-request-meta">
+                            <strong>@{request.cleanId}</strong>
+                            <span>{request.name || request.email}</span>
+                          </div>
+                          <div className="profile-join-request-actions">
+                            <button
+                              type="button"
+                              className="profile-primary-btn"
+                              disabled={processingJoinRequestKey === approveKey}
+                              onClick={() => {
+                                void handleResolveJoinRequest(selectedOwnedGroup.id, request.userId, "approve");
+                              }}
+                            >
+                              {processingJoinRequestKey === approveKey ? "Approving..." : "Approve"}
+                            </button>
+                            <button
+                              type="button"
+                              className="profile-secondary-btn"
+                              disabled={processingJoinRequestKey === rejectKey}
+                              onClick={() => {
+                                void handleResolveJoinRequest(selectedOwnedGroup.id, request.userId, "reject");
+                              }}
+                            >
+                              {processingJoinRequestKey === rejectKey ? "Rejecting..." : "Reject"}
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
+            )}
+          </section>
         )}
 
         <section className="profile-danger-wrap">

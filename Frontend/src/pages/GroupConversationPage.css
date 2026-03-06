@@ -23,7 +23,7 @@
 
 .groups-page .group-create-grid {
   display: grid;
-  grid-template-columns: 1.2fr 1.6fr auto;
+  grid-template-columns: 1.2fr 1.6fr auto auto;
   gap: 0.45rem;
   align-items: center;
 }
@@ -34,6 +34,67 @@
   padding: 0.5rem 0.7rem;
   font: inherit;
   min-width: 0;
+}
+
+.groups-page .group-avatar-picker {
+  margin-top: 0.6rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.groups-page .group-avatar-picker p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #2a3348;
+  font-weight: 700;
+}
+
+.groups-page .group-avatar-options {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.groups-page .group-avatar-option {
+  border: 1px solid #d8dde9;
+  border-radius: 0.72rem;
+  background: #ffffff;
+  color: #2d3548;
+  padding: 0.35rem;
+  display: grid;
+  justify-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.groups-page .group-avatar-option img {
+  width: 2rem;
+  height: 2rem;
+}
+
+.groups-page .group-avatar-option.active {
+  border-color: #2f6fed;
+  box-shadow: 0 0 0 2px rgba(47, 111, 237, 0.2);
+  background: #eef4ff;
+}
+
+.groups-page .group-create-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #d8dde9;
+  border-radius: 0.7rem;
+  background: #f8fbff;
+  font-size: 0.78rem;
+  color: #2b3346;
+  white-space: nowrap;
+}
+
+.groups-page .group-create-toggle input {
+  margin: 0;
 }
 
 .groups-page .group-action {
@@ -53,7 +114,7 @@
 .groups-page .group-action-row {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.6rem;
 }
 
 .groups-page .group-action.join {
@@ -66,6 +127,13 @@
   border-color: #bcc6dc;
   background: #eef3ff;
   color: #1f3c7a;
+}
+
+.groups-page .group-action.avatar {
+  border-color: #86a6df;
+  background: #f3f7ff;
+  color: #1f4a92;
+  padding:0%
 }
 
 .groups-page .group-action.leave {
@@ -94,6 +162,64 @@
   place-items: center;
   padding: 1rem;
   z-index: 60;
+}
+
+.groups-avatar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 11, 19, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  z-index: 61;
+}
+
+.groups-avatar-modal {
+  width: min(100%, 34rem);
+  border-radius: 1rem;
+  border: 1px solid #d6deef;
+  background: #ffffff;
+  box-shadow: 0 14px 42px rgba(12, 17, 31, 0.25);
+  padding: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.groups-avatar-modal h3 {
+  margin: 0;
+  color: #1f2a40;
+  font-size: 1.02rem;
+}
+
+.groups-avatar-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.groups-avatar-option {
+  border: 1px solid #d5ddeb;
+  border-radius: 0.78rem;
+  background: #f8fbff;
+  color: #26334d;
+  padding: 0.55rem;
+  display: grid;
+  justify-items: center;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.groups-avatar-option img {
+  width: 2.4rem;
+  height: 2.4rem;
+}
+
+.groups-avatar-option.active {
+  border-color: #2f6fed;
+  box-shadow: 0 0 0 2px rgba(47, 111, 237, 0.2);
+  background: #eaf1ff;
 }
 
 .groups-delete-modal {
@@ -140,6 +266,14 @@
 @media (max-width: 700px) {
   .groups-page .group-create-grid {
     grid-template-columns: 1fr;
+  }
+
+  .groups-page .group-avatar-options {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .groups-avatar-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .groups-page .group-card {

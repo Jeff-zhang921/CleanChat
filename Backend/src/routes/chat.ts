@@ -3,14 +3,21 @@ import { PrismaClient } from "@prisma/client";
 import multer from "multer";
 import { UTApi, UTFile } from "uploadthing/server";
 import {
+  approveGroupJoinRequest,
   createGroup,
   deleteGroup,
+  GROUP_AVATAR_KEYS,
   getGroupById,
+  isValidGroupAvatarKey,
+  listGroupJoinRequests,
   joinGroup,
   leaveGroup,
   listGroupMessages,
   listGroupsForUser,
   normalizeGroupId,
+  rejectGroupJoinRequest,
+  updateGroupAvatar,
+  updateGroupJoinPolicy,
   isGroupMember,
 } from "../groupStore";
 
@@ -29,6 +36,14 @@ const ensureAuth = (sessionUserId: number | undefined): sessionUserId is number 
 const GROUP_NAME_MIN_LENGTH = 2;
 const GROUP_NAME_MAX_LENGTH = 48;
 const GROUP_DESCRIPTION_MAX_LENGTH = 180;
+
+const parsePositiveInt = (raw: unknown): number | null => {
+  const parsed = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isInteger(parsed) || Number.isNaN(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+};
 
 router.post("/upload-image",(req, res, next) => {
     upload.single("image")(req, res, (error: unknown) => {
@@ -166,6 +181,15 @@ router.post("/groups", async (req, res) => {
 
   const name = typeof req.body?.name === "string" ? req.body.name.trim().replace(/\s+/g, " ") : "";
   const description = typeof req.body?.description === "string" ? req.body.description.trim() : "";
+  const requiresApproval = req.body?.requiresApproval === true;
+  const rawAvatarKey = req.body?.avatarKey;
+  const avatarKeyProvided = typeof rawAvatarKey === "string";
+  if (avatarKeyProvided && !isValidGroupAvatarKey(rawAvatarKey)) {
+    res.status(400).json({
+      message: `avatarKey must be one of: ${GROUP_AVATAR_KEYS.join(", ")}`,
+    });
+    return;
+  }
 
   if (name.length < GROUP_NAME_MIN_LENGTH || name.length > GROUP_NAME_MAX_LENGTH) {
     res.status(400).json({
@@ -180,7 +204,13 @@ router.post("/groups", async (req, res) => {
     return;
   }
 
-  const group = createGroup(sessionUserId, name, description);
+  const group = createGroup(
+    sessionUserId,
+    name,
+    description,
+    requiresApproval,
+    avatarKeyProvided && isValidGroupAvatarKey(rawAvatarKey) ? rawAvatarKey : undefined
+  );
   res.status(201).json({ group });
 });
 
@@ -203,7 +233,23 @@ router.post("/groups/:groupId/join", async (req, res) => {
     return;
   }
 
-  res.status(joined.alreadyJoined ? 200 : 201).json({ group: joined.summary });
+  if (joined.pendingApproval) {
+    res.status(joined.alreadyRequested ? 200 : 202).json({
+      group: joined.summary,
+      pendingApproval: true,
+      alreadyRequested: joined.alreadyRequested,
+      message: joined.alreadyRequested
+        ? "Join request already sent. Please wait for owner approval."
+        : "Join request sent. Wait for owner approval.",
+    });
+    return;
+  }
+
+  res.status(joined.alreadyJoined ? 200 : 201).json({
+    group: joined.summary,
+    pendingApproval: false,
+    alreadyRequested: false,
+  });
 });
 
 router.post("/groups/:groupId/leave", async (req, res) => {
@@ -226,6 +272,191 @@ router.post("/groups/:groupId/leave", async (req, res) => {
   }
 
   res.status(200).json({ group: left.summary, alreadyLeft: left.alreadyLeft });
+});
+
+router.patch("/groups/:groupId/settings", async (req, res) => {
+  const sessionUserId = req.session.user?.id;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const groupId = normalizeGroupId(req.params.groupId);
+  if (!groupId) {
+    res.status(400).json({ message: "Invalid group ID." });
+    return;
+  }
+
+  if (typeof req.body?.requiresApproval !== "boolean") {
+    res.status(400).json({ message: "requiresApproval must be a boolean." });
+    return;
+  }
+
+  const updated = updateGroupJoinPolicy(groupId, sessionUserId, req.body.requiresApproval);
+  if (!updated.updated) {
+    if (updated.reason === "forbidden") {
+      res.status(403).json({ message: "Only the group creator can update this setting." });
+      return;
+    }
+    res.status(404).json({ message: "Group not found." });
+    return;
+  }
+
+  res.status(200).json({ group: updated.summary });
+});
+
+router.patch("/groups/:groupId/avatar", async (req, res) => {
+  const sessionUserId = req.session.user?.id;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const groupId = normalizeGroupId(req.params.groupId);
+  if (!groupId) {
+    res.status(400).json({ message: "Invalid group ID." });
+    return;
+  }
+
+  const avatarKey = req.body?.avatarKey;
+  if (!isValidGroupAvatarKey(avatarKey)) {
+    res.status(400).json({
+      message: `avatarKey must be one of: ${GROUP_AVATAR_KEYS.join(", ")}`,
+    });
+    return;
+  }
+
+  const updated = updateGroupAvatar(groupId, sessionUserId, avatarKey);
+  if (!updated.updated) {
+    if (updated.reason === "forbidden") {
+      res.status(403).json({ message: "Only the group creator can update group avatar." });
+      return;
+    }
+    res.status(404).json({ message: "Group not found." });
+    return;
+  }
+
+  res.status(200).json({ group: updated.summary });
+});
+
+router.get("/groups/:groupId/join-requests", async (req, res) => {
+  const sessionUserId = req.session.user?.id;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const groupId = normalizeGroupId(req.params.groupId);
+  if (!groupId) {
+    res.status(400).json({ message: "Invalid group ID." });
+    return;
+  }
+
+  const requestList = listGroupJoinRequests(groupId, sessionUserId);
+  if (!requestList.ok) {
+    if (requestList.reason === "forbidden") {
+      res.status(403).json({ message: "Only the group creator can review join requests." });
+      return;
+    }
+    res.status(404).json({ message: "Group not found." });
+    return;
+  }
+
+  const requestedUserIds = requestList.requests.map((item) => item.userId);
+  const users =
+    requestedUserIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: requestedUserIds } },
+          select: { id: true, name: true, email: true, cleanId: true },
+        })
+      : [];
+  const userMap = new Map(users.map((user) => [user.id, user]));
+
+  const requests = requestList.requests
+    .map((request) => {
+      const user = userMap.get(request.userId);
+      if (!user) return null;
+      return {
+        userId: request.userId,
+        requestedAt: request.requestedAt,
+        name: user.name,
+        email: user.email,
+        cleanId: user.cleanId,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
+
+  res.status(200).json({ group: requestList.summary, requests });
+});
+
+router.post("/groups/:groupId/join-requests/:userId/approve", async (req, res) => {
+  const sessionUserId = req.session.user?.id;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const groupId = normalizeGroupId(req.params.groupId);
+  if (!groupId) {
+    res.status(400).json({ message: "Invalid group ID." });
+    return;
+  }
+  const targetUserId = parsePositiveInt(req.params.userId);
+  if (!targetUserId) {
+    res.status(400).json({ message: "Invalid user ID." });
+    return;
+  }
+
+  const approved = approveGroupJoinRequest(groupId, sessionUserId, targetUserId);
+  if (!approved.approved) {
+    if (approved.reason === "forbidden") {
+      res.status(403).json({ message: "Only the group creator can approve join requests." });
+      return;
+    }
+    if (approved.reason === "request_not_found") {
+      res.status(404).json({ message: "Join request not found." });
+      return;
+    }
+    res.status(404).json({ message: "Group not found." });
+    return;
+  }
+
+  res.status(200).json({ group: approved.summary });
+});
+
+router.post("/groups/:groupId/join-requests/:userId/reject", async (req, res) => {
+  const sessionUserId = req.session.user?.id;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const groupId = normalizeGroupId(req.params.groupId);
+  if (!groupId) {
+    res.status(400).json({ message: "Invalid group ID." });
+    return;
+  }
+  const targetUserId = parsePositiveInt(req.params.userId);
+  if (!targetUserId) {
+    res.status(400).json({ message: "Invalid user ID." });
+    return;
+  }
+
+  const rejected = rejectGroupJoinRequest(groupId, sessionUserId, targetUserId);
+  if (!rejected.rejected) {
+    if (rejected.reason === "forbidden") {
+      res.status(403).json({ message: "Only the group creator can reject join requests." });
+      return;
+    }
+    if (rejected.reason === "request_not_found") {
+      res.status(404).json({ message: "Join request not found." });
+      return;
+    }
+    res.status(404).json({ message: "Group not found." });
+    return;
+  }
+
+  res.status(200).json({ group: rejected.summary });
 });
 
 router.delete("/groups/:groupId", async (req, res) => {
