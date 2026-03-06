@@ -3,7 +3,7 @@
 Passwordless real-time chat with clean IDs, profiles, direct messages, and group conversations.
 
 **CleanChat is made for the moment when you only need a quick chat, without friend requests, without account friction, and without forcing anyone to install an app.**
-
+<img alt="demo" src="doc/clean.gif"/>
 <p>
   <img alt="React" src="https://img.shields.io/badge/Frontend-React%2018-61DAFB?logo=react&logoColor=white" />
   <img alt="Node.js" src="https://img.shields.io/badge/Runtime-Node.js-339933?logo=nodedotjs&logoColor=white" />
