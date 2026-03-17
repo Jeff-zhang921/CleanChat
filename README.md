@@ -219,8 +219,7 @@ To keep auth/session stable on mobile browsers, this project proxies backend req
 Recommended Cloudflare environment variable:
 
 - `KOYEB_ORIGIN=https://your-koyeb-service.koyeb.app`
-- If not set, the proxy currently falls back to:
-  `https://clinical-ursulina-cleanchan-eb6e1ee6.koyeb.app`
+- `KOYEB_ORIGIN` is required; if missing or invalid, the proxy returns a JSON error response.
 
 Recommended frontend build variables:
 
