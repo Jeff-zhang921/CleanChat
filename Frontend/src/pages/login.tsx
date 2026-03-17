@@ -4,6 +4,20 @@ import { BACKEND_URL } from "../config";
 import "./login.css";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PENDING_EMAIL_KEY = "cleanchat:pending-email";
+
+const setPendingEmail = (email: string) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (email) {
+    window.sessionStorage.setItem(PENDING_EMAIL_KEY, email);
+    return;
+  }
+
+  window.sessionStorage.removeItem(PENDING_EMAIL_KEY);
+};
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -46,6 +60,7 @@ const LoginPage = () => {
 
       if (!response.ok) {
         if (response.status === 429) {
+          setPendingEmail(normalizedEmail);
           navigate("/verify", { state: { email: normalizedEmail } });
           return;
         }
@@ -59,6 +74,7 @@ const LoginPage = () => {
       }
 
       setStatus("");
+      setPendingEmail(normalizedEmail);
       navigate("/verify", { state: { email: normalizedEmail } });
     } catch {
       setStatus("Unable to connect to server.");

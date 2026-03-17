@@ -1,21 +1,54 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { BACKEND_URL } from "../config";
 import "./login.css";
 
 const CODE_LENGTH = 6;
+const PENDING_EMAIL_KEY = "cleanchat:pending-email";
 
 type VerifyLocationState = {
   email?: string;
 } | null;
 
+const getPendingEmail = () => {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  return window.sessionStorage.getItem(PENDING_EMAIL_KEY)?.trim().toLowerCase() || "";
+};
+
+const setPendingEmail = (email: string) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (email) {
+    window.sessionStorage.setItem(PENDING_EMAIL_KEY, email);
+    return;
+  }
+
+  window.sessionStorage.removeItem(PENDING_EMAIL_KEY);
+};
+
 const VerifyPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const emailFromState = ((location.state as VerifyLocationState)?.email || "").trim().toLowerCase();
+  const [storedEmail, setStoredEmail] = useState(() => getPendingEmail());
+
+  useEffect(() => {
+    if (!emailFromState || emailFromState === storedEmail) {
+      return;
+    }
+
+    setPendingEmail(emailFromState);
+    setStoredEmail(emailFromState);
+  }, [emailFromState, storedEmail]);
+
   const email = useMemo(
-    () =>
-      ((location.state as VerifyLocationState)?.email || "").trim().toLowerCase(),
-    [location.state]
+    () => emailFromState || storedEmail,
+    [emailFromState, storedEmail]
   );
   const [code, setCode] = useState("");
   const [status, setStatus] = useState("");
@@ -59,6 +92,8 @@ const VerifyPage = () => {
       }
 
       setStatus("");
+      setPendingEmail("");
+      setStoredEmail("");
       navigate(data.isNewUser ? "/basic-info" : "/conversations");
     } catch {
       setStatus("Unable to connect to server.");
