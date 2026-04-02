@@ -1,5 +1,6 @@
 import { NextFunction,Request,Response,Router } from "express";
 import { Avatar, PrismaClient } from "@prisma/client";
+import { DEFAULT_AVATAR, buildAvatarAccess, getAvatarUnlockError } from "../avatar";
 import { buildCleanIdTrustSnapshots, fallbackCleanIdTrustSnapshot, type CleanIdTrustSnapshot } from "../cleanIdTrust";
 import { buildCleanIdShortClaim, validateRequestedCleanId } from "../cleanIdClaim";
 const router = Router();    
@@ -25,10 +26,15 @@ const buildProfilePayload = <T extends { id: number; cleanId: string }>(
   trustSnapshots: Map<number, CleanIdTrustSnapshot>
 ) => {
   const trust = trustSnapshots.get(user.id) ?? fallbackCleanIdTrustSnapshot;
+  const currentAvatar =
+    "avatar" in user && typeof user.avatar === "string"
+      ? (user.avatar as Avatar)
+      : DEFAULT_AVATAR;
   return {
     ...user,
     trust,
     shortIdClaim: buildCleanIdShortClaim(user.cleanId, trust),
+    avatarAccess: buildAvatarAccess(trust, currentAvatar),
   };
 };
 
@@ -87,6 +93,20 @@ router.patch("/me",requireProfileSession,async (req,res)=>{
 
   if (Object.keys(updates).length === 0) {
     return res.status(400).json({ error: "Invalid name or avatar" })
+  }
+
+  const currentAvatar =
+    typeof sessionUser.avatar === "string" && Object.values(Avatar).includes(sessionUser.avatar as Avatar)
+      ? (sessionUser.avatar as Avatar)
+      : DEFAULT_AVATAR
+
+  if (avatar !== null && avatar !== currentAvatar) {
+    const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [sessionUser.id])
+    const activeTrust = trustSnapshots.get(sessionUser.id) ?? fallbackCleanIdTrustSnapshot
+    const unlockError = getAvatarUnlockError(avatar, activeTrust, currentAvatar)
+    if (unlockError) {
+      return res.status(403).json({ error: unlockError })
+    }
   }
 
   try {

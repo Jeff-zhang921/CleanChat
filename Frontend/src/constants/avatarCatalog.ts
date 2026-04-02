@@ -1,10 +1,24 @@
-import { Avatar } from "@prisma/client";
-import type { CleanIdTrustSnapshot } from "./cleanIdTrust";
+import {
+  FALLBACK_CLEAN_ID_TRUST,
+  type CleanIdTrustSnapshot,
+} from "../utils/cleanIdTrust";
+
+export type AvatarKey =
+  | "AVATAR_LEO"
+  | "AVATAR_SOPHIE"
+  | "AVATAR_MAX"
+  | "AVATAR_BELLA"
+  | "AVATAR_CHARLIE"
+  | "AVATAR_AVERY"
+  | "AVATAR_RILEY"
+  | "AVATAR_JORDAN"
+  | "AVATAR_SKYLER"
+  | "AVATAR_MORGAN";
 
 export type AvatarTier = "starter" | "active" | "trusted";
 
-type AvatarCatalogEntry = {
-  key: Avatar;
+export type AvatarOption = {
+  key: AvatarKey;
   label: string;
   family: string;
   tier: AvatarTier;
@@ -19,7 +33,7 @@ export type AvatarTierAccess = {
 
 export type AvatarAccess = {
   currentTier: AvatarTier;
-  availableKeys: Avatar[];
+  availableKeys: AvatarKey[];
   tiers: Record<AvatarTier, AvatarTierAccess>;
 };
 
@@ -56,87 +70,114 @@ const buildMarbleAvatarDataUri = (seed: string, colors: [string, string, string,
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 };
 
-export const AVATAR_CATALOG: Record<Avatar, AvatarCatalogEntry> = {
-  [Avatar.AVATAR_LEO]: {
-    key: Avatar.AVATAR_LEO,
+export const DEFAULT_AVATAR_KEY: AvatarKey = "AVATAR_LEO";
+
+export const AVATAR_TIER_META: Record<
+  AvatarTier,
+  {
+    eyebrow: string;
+    title: string;
+    description: string;
+  }
+> = {
+  starter: {
+    eyebrow: "Starter",
+    title: "DiceBear Shapes",
+    description: "Clean geometric marks for new CleanIDs. Open from day one.",
+  },
+  active: {
+    eyebrow: "Active",
+    title: "Boring Avatars Marble",
+    description: "Gradient marble portraits that unlock once your cadence feels lived in.",
+  },
+  trusted: {
+    eyebrow: "Trusted",
+    title: "Waifu.pics Aesthetics",
+    description: "Cinematic anime crops that become a recognizable signature for trusted IDs.",
+  },
+};
+
+export const AVATAR_TIER_ORDER: AvatarTier[] = ["starter", "active", "trusted"];
+
+export const AVATAR_OPTIONS: AvatarOption[] = [
+  {
+    key: "AVATAR_LEO",
     label: "Drift",
     family: "DiceBear Shapes",
     tier: "starter",
     url: "https://api.dicebear.com/9.x/shapes/svg?seed=Drift",
   },
-  [Avatar.AVATAR_SOPHIE]: {
-    key: Avatar.AVATAR_SOPHIE,
+  {
+    key: "AVATAR_SOPHIE",
     label: "Halo",
     family: "DiceBear Shapes",
     tier: "starter",
     url: "https://api.dicebear.com/9.x/shapes/svg?seed=Halo",
   },
-  [Avatar.AVATAR_MAX]: {
-    key: Avatar.AVATAR_MAX,
+  {
+    key: "AVATAR_MAX",
     label: "Moss",
     family: "DiceBear Shapes",
     tier: "starter",
     url: "https://api.dicebear.com/9.x/shapes/svg?seed=Moss",
   },
-  [Avatar.AVATAR_BELLA]: {
-    key: Avatar.AVATAR_BELLA,
+  {
+    key: "AVATAR_BELLA",
     label: "Echo",
     family: "DiceBear Shapes",
     tier: "starter",
     url: "https://api.dicebear.com/9.x/shapes/svg?seed=Echo",
   },
-  [Avatar.AVATAR_CHARLIE]: {
-    key: Avatar.AVATAR_CHARLIE,
+  {
+    key: "AVATAR_CHARLIE",
     label: "Vale",
     family: "Boring Avatars Marble",
     tier: "active",
     url: buildMarbleAvatarDataUri("Vale", ["#0B132B", "#1C2541", "#3A506B", "#5BC0BE"]),
   },
-  [Avatar.AVATAR_AVERY]: {
-    key: Avatar.AVATAR_AVERY,
+  {
+    key: "AVATAR_AVERY",
     label: "Luma",
     family: "Boring Avatars Marble",
     tier: "active",
     url: buildMarbleAvatarDataUri("Luma", ["#2F4858", "#33658A", "#86BBD8", "#F6AE2D"]),
   },
-  [Avatar.AVATAR_RILEY]: {
-    key: Avatar.AVATAR_RILEY,
+  {
+    key: "AVATAR_RILEY",
     label: "Nova",
     family: "Boring Avatars Marble",
     tier: "active",
     url: buildMarbleAvatarDataUri("Nova", ["#264653", "#2A9D8F", "#E9C46A", "#F4A261"]),
   },
-  [Avatar.AVATAR_JORDAN]: {
-    key: Avatar.AVATAR_JORDAN,
+  {
+    key: "AVATAR_JORDAN",
     label: "Aster",
     family: "Waifu.pics Aesthetics",
     tier: "trusted",
     url: "https://i.waifu.pics/P817hp4.jpg",
   },
-  [Avatar.AVATAR_SKYLER]: {
-    key: Avatar.AVATAR_SKYLER,
+  {
+    key: "AVATAR_SKYLER",
     label: "Noir",
     family: "Waifu.pics Aesthetics",
     tier: "trusted",
     url: "https://i.waifu.pics/Lcq0Tx8.jpg",
   },
-  [Avatar.AVATAR_MORGAN]: {
-    key: Avatar.AVATAR_MORGAN,
+  {
+    key: "AVATAR_MORGAN",
     label: "Velvet",
     family: "Waifu.pics Aesthetics",
     tier: "trusted",
     url: "https://i.waifu.pics/Tj6Wzwo.png",
   },
-};
-
-export const DEFAULT_AVATAR = Avatar.AVATAR_LEO;
+];
 
 const ACTIVE_UNLOCK_HINT =
-  "Marble avatars unlock after a full day of healthy activity or a steady reply pattern.";
+  "Unlock Marble after 24 hours of healthy activity or a steady reply pattern.";
 const TRUSTED_UNLOCK_HINT =
-  "Aesthetics avatars unlock once your Trust Score reaches the Steady band.";
+  "Unlock Aesthetics once your Trust Score reaches the Steady band.";
 
-const getAvatarTierAccess = (
+const getTierAccess = (
   tier: AvatarTier,
   trust: CleanIdTrustSnapshot
 ): AvatarTierAccess => {
@@ -165,61 +206,49 @@ const getAvatarTierAccess = (
     unlocked,
     title: "Trusted",
     hint: unlocked
-      ? "Aesthetics are open. Your identity signal is steady enough to hold a cinematic mark."
+      ? "Aesthetics are open. Your Trust Score is already in the steady range."
       : TRUSTED_UNLOCK_HINT,
   };
 };
 
-export function getAvatarTier(avatar: Avatar): AvatarTier {
-  return AVATAR_CATALOG[avatar]?.tier ?? AVATAR_CATALOG[DEFAULT_AVATAR].tier;
-}
+export const getAvatarOption = (avatar: AvatarKey) =>
+  AVATAR_OPTIONS.find((option) => option.key === avatar) ??
+  AVATAR_OPTIONS.find((option) => option.key === DEFAULT_AVATAR_KEY)!;
 
-export function avatarUrl(avatar: Avatar): string {
-  return AVATAR_CATALOG[avatar]?.url ?? AVATAR_CATALOG[DEFAULT_AVATAR].url;
-}
+export const getAvatarUrl = (avatar?: AvatarKey | null) =>
+  getAvatarOption(avatar ?? DEFAULT_AVATAR_KEY).url;
 
-export function buildAvatarAccess(
-  trust: CleanIdTrustSnapshot,
-  currentAvatar: Avatar = DEFAULT_AVATAR
-): AvatarAccess {
+export const getAvatarOptionsByTier = (tier: AvatarTier) =>
+  AVATAR_OPTIONS.filter((option) => option.tier === tier);
+
+export const buildDerivedAvatarAccess = ({
+  trust = FALLBACK_CLEAN_ID_TRUST,
+  currentAvatar,
+}: {
+  trust?: CleanIdTrustSnapshot | null;
+  currentAvatar?: AvatarKey | null;
+}): AvatarAccess => {
+  const activeTrust = trust ?? FALLBACK_CLEAN_ID_TRUST;
+  const current = currentAvatar ?? DEFAULT_AVATAR_KEY;
   const tiers: Record<AvatarTier, AvatarTierAccess> = {
-    starter: getAvatarTierAccess("starter", trust),
-    active: getAvatarTierAccess("active", trust),
-    trusted: getAvatarTierAccess("trusted", trust),
+    starter: getTierAccess("starter", activeTrust),
+    active: getTierAccess("active", activeTrust),
+    trusted: getTierAccess("trusted", activeTrust),
   };
 
-  const availableKeys = Object.values(Avatar).filter((avatar) => {
-    if (avatar === currentAvatar) {
+  const availableKeys = AVATAR_OPTIONS.filter((option) => {
+    if (option.key === current) {
       return true;
     }
-    return tiers[getAvatarTier(avatar)].unlocked;
-  });
+    return tiers[option.tier].unlocked;
+  }).map((option) => option.key);
 
   return {
-    currentTier: getAvatarTier(currentAvatar),
+    currentTier: getAvatarOption(current).tier,
     availableKeys,
     tiers,
   };
-}
+};
 
-export function canUseAvatar(
-  avatar: Avatar,
-  trust: CleanIdTrustSnapshot,
-  currentAvatar: Avatar = DEFAULT_AVATAR
-): boolean {
-  const access = buildAvatarAccess(trust, currentAvatar);
-  return access.availableKeys.includes(avatar);
-}
-
-export function getAvatarUnlockError(
-  avatar: Avatar,
-  trust: CleanIdTrustSnapshot,
-  currentAvatar: Avatar = DEFAULT_AVATAR
-): string | null {
-  if (canUseAvatar(avatar, trust, currentAvatar)) {
-    return null;
-  }
-
-  const tier = getAvatarTier(avatar);
-  return buildAvatarAccess(trust, currentAvatar).tiers[tier].hint;
-}
+export const isAvatarUnlocked = (avatar: AvatarKey, access: AvatarAccess) =>
+  access.availableKeys.includes(avatar);

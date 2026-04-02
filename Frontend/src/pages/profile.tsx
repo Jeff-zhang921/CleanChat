@@ -1,6 +1,17 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
+import {
+  AVATAR_TIER_META,
+  AVATAR_TIER_ORDER,
+  buildDerivedAvatarAccess,
+  getAvatarOption,
+  getAvatarOptionsByTier,
+  getAvatarUrl,
+  isAvatarUnlocked,
+  type AvatarAccess,
+  type AvatarKey,
+} from "../constants/avatarCatalog";
 import { BACKEND_URL } from "../config";
 import {
   buildDerivedShortIdClaim,
@@ -20,18 +31,6 @@ import {
 import { getNotificationPermission, requestNotificationPermission } from "../utils/notifications";
 import "./profile.css";
 
-type AvatarKey =
-  | "AVATAR_LEO"
-  | "AVATAR_SOPHIE"
-  | "AVATAR_MAX"
-  | "AVATAR_BELLA"
-  | "AVATAR_CHARLIE"
-  | "AVATAR_AVERY"
-  | "AVATAR_RILEY"
-  | "AVATAR_JORDAN"
-  | "AVATAR_SKYLER"
-  | "AVATAR_MORGAN";
-
 type ProfileUser = {
   id: number;
   email: string;
@@ -40,6 +39,7 @@ type ProfileUser = {
   avatar: AvatarKey;
   trust: CleanIdTrustSnapshot;
   shortIdClaim: CleanIdShortClaim;
+  avatarAccess?: AvatarAccess;
 };
 
 type OwnedGroupSummary = {
@@ -65,24 +65,6 @@ type GroupJoinRequest = {
   cleanId: string;
 };
 
-const AVATAR_OPTIONS: { key: AvatarKey; label: string; url: string }[] = [
-  { key: "AVATAR_LEO", label: "Leo", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo" },
-  { key: "AVATAR_SOPHIE", label: "Sophie", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sophie" },
-  { key: "AVATAR_MAX", label: "Max", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Max" },
-  { key: "AVATAR_BELLA", label: "Bella", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Bella" },
-  { key: "AVATAR_CHARLIE", label: "Charlie", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie" },
-  { key: "AVATAR_AVERY", label: "Avery", url: "https://api.dicebear.com/9.x/adventurer/svg?seed=Avery" },
-  { key: "AVATAR_RILEY", label: "Riley", url: "https://api.dicebear.com/9.x/lorelei/svg?seed=Riley" },
-  { key: "AVATAR_JORDAN", label: "Jordan", url: "https://api.dicebear.com/9.x/adventurer/svg?seed=Jordan" },
-  { key: "AVATAR_SKYLER", label: "Skyler", url: "https://api.dicebear.com/9.x/lorelei/svg?seed=Skyler" },
-  { key: "AVATAR_MORGAN", label: "Morgan", url: "https://api.dicebear.com/9.x/adventurer/svg?seed=Morgan" },
-];
-
-const avatarUrl = (avatar: AvatarKey) => {
-  const option = AVATAR_OPTIONS.find((item) => item.key === avatar);
-  return option?.url ?? "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo";
-};
-
 const isIOSDevice = () =>
   typeof navigator !== "undefined" && /iPad|iPhone|iPod/i.test(navigator.userAgent);
 
@@ -104,6 +86,12 @@ const hydrateProfileUser = (user: ProfileUser): ProfileUser => ({
       trustScore: user.trust?.score ?? 0,
     }) ??
     FALLBACK_SHORT_ID_CLAIM,
+  avatarAccess:
+    user.avatarAccess ??
+    buildDerivedAvatarAccess({
+      trust: user.trust,
+      currentAvatar: user.avatar,
+    }),
 });
 
 const ProfilePage = () => {
@@ -562,6 +550,24 @@ const ProfilePage = () => {
   const activeCleanId = user ? (isEditing ? cleanId : user.cleanId) : "";
   const selectedOwnedGroup = ownedGroups.find((group) => group.id === selectedGroupId) ?? null;
   const activeTrust = user?.trust ?? FALLBACK_CLEAN_ID_TRUST;
+  const avatarAccess =
+    user?.avatarAccess ??
+    buildDerivedAvatarAccess({
+      trust: activeTrust,
+      currentAvatar: user?.avatar,
+    });
+  const avatarSections = AVATAR_TIER_ORDER.map((tier) => ({
+    tier,
+    meta: AVATAR_TIER_META[tier],
+    access: avatarAccess.tiers[tier],
+    options: getAvatarOptionsByTier(tier).map((item) => ({
+      ...item,
+      unlocked: isAvatarUnlocked(item.key, avatarAccess),
+      isSelected: avatar === item.key,
+      isCurrent: user?.avatar === item.key,
+    })),
+  }));
+  const activeAvatarOption = getAvatarOption(activeAvatar);
   const activeShortIdClaim = user?.shortIdClaim ?? FALLBACK_SHORT_ID_CLAIM;
   const shortClaimTierLabel = getShortClaimTierLabel(activeShortIdClaim);
   const shortClaimRangeLabel = getShortClaimRangeLabel(activeShortIdClaim);
@@ -635,7 +641,7 @@ const ProfilePage = () => {
             <section className={`profile-summary profile-summary-band-${activeTrust.band}`}>
               <img
                 className="profile-avatar-main"
-                src={avatarUrl(activeAvatar)}
+                src={getAvatarUrl(activeAvatar)}
                 alt={`${activeName || "User"} avatar`}
               />
               <div className="profile-summary-text">
@@ -646,6 +652,7 @@ const ProfilePage = () => {
                     {activeShortIdClaim.isCurrentShort ? "Short ID held" : activeShortIdClaim.pill}
                   </span>
                 </div>
+                <p className="profile-avatar-family">{activeAvatarOption.family}</p>
                 <span>{user.email}</span>
               </div>
               <div className="profile-summary-signal">
@@ -825,26 +832,63 @@ const ProfilePage = () => {
             {isEditing && (
               <form className="profile-form" onSubmit={handleSave}>
                 <fieldset className="profile-avatars">
-                  <legend>Avatar</legend>
-                  <div className="profile-avatar-grid">
-                    {AVATAR_OPTIONS.map((item) => (
-                      <label
-                        key={item.key}
-                        className={`profile-avatar-option ${avatar === item.key ? "active" : ""}`}
+                  <legend>Avatar Library</legend>
+                  <div className="profile-avatar-head">
+                    <p className="profile-hint">
+                      CleanIDs start with Shapes, then unlock Marble and Aesthetics as identity signal settles.
+                    </p>
+                    <span className="profile-avatar-current-pill">
+                      {AVATAR_TIER_META[avatarAccess.currentTier].title}
+                    </span>
+                  </div>
+                  <div className="profile-avatar-sections">
+                    {avatarSections.map((section) => (
+                      <section
+                        key={section.tier}
+                        className={`profile-avatar-tier profile-avatar-tier-${section.tier} ${section.access.unlocked ? "open" : "locked"}`}
                       >
-                        <input
-                          type="radio"
-                          name="avatar"
-                          value={item.key}
-                          checked={avatar === item.key}
-                          onChange={() => setAvatar(item.key)}
-                        />
-                        <img
-                          src={item.url}
-                          alt={item.label}
-                        />
-                        <span>{item.label}</span>
-                      </label>
+                        <div className="profile-avatar-tier-head">
+                          <div>
+                            <p className="profile-settings-eyebrow">{section.meta.eyebrow}</p>
+                            <h4>{section.meta.title}</h4>
+                            <p className="profile-hint">
+                              {section.access.unlocked ? section.meta.description : section.access.hint}
+                            </p>
+                          </div>
+                          <span
+                            className={`profile-avatar-tier-pill ${section.access.unlocked ? "open" : "locked"}`}
+                          >
+                            {section.access.unlocked ? "Open" : section.access.title}
+                          </span>
+                        </div>
+                        <div className="profile-avatar-grid">
+                          {section.options.map((item) => (
+                            <label
+                              key={item.key}
+                              className={`profile-avatar-option ${item.isSelected ? "active" : ""} ${item.unlocked ? "" : "locked"} ${item.isCurrent ? "current" : ""}`}
+                            >
+                              <input
+                                type="radio"
+                                name="avatar"
+                                value={item.key}
+                                checked={avatar === item.key}
+                                onChange={() => setAvatar(item.key)}
+                                disabled={!item.unlocked}
+                              />
+                              <img src={item.url} alt={item.label} />
+                              <span>{item.label}</span>
+                              <small>{item.family}</small>
+                              <em>
+                                {item.unlocked
+                                  ? item.isCurrent
+                                    ? "Current mark"
+                                    : "Available now"
+                                  : "Locked for now"}
+                              </em>
+                            </label>
+                          ))}
+                        </div>
+                      </section>
                     ))}
                   </div>
                 </fieldset>

@@ -1,21 +1,17 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  AVATAR_TIER_META,
+  buildDerivedAvatarAccess,
+  getAvatarOptionsByTier,
+  type AvatarAccess,
+  type AvatarKey,
+} from "../constants/avatarCatalog";
 import { BACKEND_URL } from "../config";
+import { type CleanIdTrustSnapshot } from "../utils/cleanIdTrust";
 import "./basicInfo.css";
 
 const CLEAN_ID_REGEX = /^[a-z0-9_]{5,20}$/;
-
-type AvatarKey =
-  | "AVATAR_LEO"
-  | "AVATAR_SOPHIE"
-  | "AVATAR_MAX"
-  | "AVATAR_BELLA"
-  | "AVATAR_CHARLIE"
-  | "AVATAR_AVERY"
-  | "AVATAR_RILEY"
-  | "AVATAR_JORDAN"
-  | "AVATAR_SKYLER"
-  | "AVATAR_MORGAN";
 
 type ProfileUser = {
   id: number;
@@ -23,20 +19,9 @@ type ProfileUser = {
   name: string;
   cleanId: string;
   avatar: AvatarKey;
+  trust?: CleanIdTrustSnapshot;
+  avatarAccess?: AvatarAccess;
 };
-
-const AVATAR_OPTIONS: { key: AvatarKey; label: string; url: string }[] = [
-  { key: "AVATAR_LEO", label: "Leo", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo" },
-  { key: "AVATAR_SOPHIE", label: "Sophie", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sophie" },
-  { key: "AVATAR_MAX", label: "Max", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Max" },
-  { key: "AVATAR_BELLA", label: "Bella", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Bella" },
-  { key: "AVATAR_CHARLIE", label: "Charlie", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie" },
-  { key: "AVATAR_AVERY", label: "Avery", url: "https://api.dicebear.com/9.x/adventurer/svg?seed=Avery" },
-  { key: "AVATAR_RILEY", label: "Riley", url: "https://api.dicebear.com/9.x/lorelei/svg?seed=Riley" },
-  { key: "AVATAR_JORDAN", label: "Jordan", url: "https://api.dicebear.com/9.x/adventurer/svg?seed=Jordan" },
-  { key: "AVATAR_SKYLER", label: "Skyler", url: "https://api.dicebear.com/9.x/lorelei/svg?seed=Skyler" },
-  { key: "AVATAR_MORGAN", label: "Morgan", url: "https://api.dicebear.com/9.x/adventurer/svg?seed=Morgan" },
-];
 
 const BasicInfoPage = () => {
   const navigate = useNavigate();
@@ -47,11 +32,21 @@ const BasicInfoPage = () => {
   const [avatar, setAvatar] = useState<AvatarKey>("AVATAR_LEO");
   const [status, setStatus] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [user, setUser] = useState<ProfileUser | null>(null);
 
   const normalizedCleanId = useMemo(
     () => cleanId.trim().toLowerCase(),
     [cleanId]
   );
+  const avatarAccess =
+    user?.avatarAccess ??
+    buildDerivedAvatarAccess({
+      trust: user?.trust,
+      currentAvatar: user?.avatar,
+    });
+  const starterAvatars = getAvatarOptionsByTier("starter");
+  const activePreviewAvatars = getAvatarOptionsByTier("active").slice(0, 3);
+  const trustedPreviewAvatars = getAvatarOptionsByTier("trusted").slice(0, 3);
 
   useEffect(() => {
     let isMounted = true;
@@ -71,6 +66,7 @@ const BasicInfoPage = () => {
         const user = data.user;
         if (!isMounted || !user) return;
 
+        setUser(user);
         setEmail(user.email ?? "");
         setNickname(user.name ?? "");
         setCleanId(user.cleanId ?? "");
@@ -203,9 +199,13 @@ const BasicInfoPage = () => {
 
         <form className="basic-form" onSubmit={handleSubmit}>
           <fieldset className="basic-avatars">
-            <legend>Choose avatar</legend>
+            <legend>Choose a starter avatar</legend>
+            <p className="basic-hint">
+              New CleanIDs begin with {AVATAR_TIER_META.starter.title}. More expressive sets unlock as your
+              communication history settles.
+            </p>
             <div className="basic-avatar-grid">
-              {AVATAR_OPTIONS.map((item) => (
+              {starterAvatars.map((item) => (
                 <label
                   key={item.key}
                   className={`basic-avatar-option ${avatar === item.key ? "active" : ""}`}
@@ -226,6 +226,48 @@ const BasicInfoPage = () => {
               ))}
             </div>
           </fieldset>
+
+          <section className="basic-avatar-roadmap" aria-label="Avatar roadmap">
+            <article className="basic-avatar-roadmap-card">
+              <div className="basic-avatar-roadmap-head">
+                <div>
+                  <p className="basic-step">Unlock Next</p>
+                  <h2>{AVATAR_TIER_META.active.title}</h2>
+                </div>
+                <span className={`basic-roadmap-pill ${avatarAccess.tiers.active.unlocked ? "open" : ""}`}>
+                  {avatarAccess.tiers.active.unlocked ? "Open" : "Locked"}
+                </span>
+              </div>
+              <div className="basic-avatar-preview-row">
+                {activePreviewAvatars.map((item) => (
+                  <div key={item.key} className="basic-avatar-preview">
+                    <img src={item.url} alt="" />
+                  </div>
+                ))}
+              </div>
+              <p className="basic-hint">{avatarAccess.tiers.active.hint}</p>
+            </article>
+
+            <article className="basic-avatar-roadmap-card trusted">
+              <div className="basic-avatar-roadmap-head">
+                <div>
+                  <p className="basic-step">Identity Mark</p>
+                  <h2>{AVATAR_TIER_META.trusted.title}</h2>
+                </div>
+                <span className={`basic-roadmap-pill ${avatarAccess.tiers.trusted.unlocked ? "open" : ""}`}>
+                  {avatarAccess.tiers.trusted.unlocked ? "Open" : "Locked"}
+                </span>
+              </div>
+              <div className="basic-avatar-preview-row">
+                {trustedPreviewAvatars.map((item) => (
+                  <div key={item.key} className="basic-avatar-preview trusted">
+                    <img src={item.url} alt="" />
+                  </div>
+                ))}
+              </div>
+              <p className="basic-hint">{avatarAccess.tiers.trusted.hint}</p>
+            </article>
+          </section>
 
           <label className="basic-label" htmlFor="nickname">
             Nickname

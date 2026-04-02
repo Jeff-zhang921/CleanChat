@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { io, type Socket } from "socket.io-client";
 import BottomNav from "../components/BottomNav";
+import { DEFAULT_AVATAR_KEY, getAvatarUrl, type AvatarKey } from "../constants/avatarCatalog";
 import { BACKEND_URL, SOCKET_URL } from "../config";
 import {
   FALLBACK_CLEAN_ID_TRUST,
@@ -10,18 +11,6 @@ import {
 } from "../utils/cleanIdTrust";
 import { showMessageNotification } from "../utils/notifications";
 import "./ConversationPage.css";
-
-type AvatarKey =
-  | "AVATAR_LEO"
-  | "AVATAR_SOPHIE"
-  | "AVATAR_MAX"
-  | "AVATAR_BELLA"
-  | "AVATAR_CHARLIE"
-  | "AVATAR_AVERY"
-  | "AVATAR_RILEY"
-  | "AVATAR_JORDAN"
-  | "AVATAR_SKYLER"
-  | "AVATAR_MORGAN";
 
 type UserSummary = {
   id: number;
@@ -105,23 +94,7 @@ const IMAGE_EXTENSION_REGEX =
   /\.(?:png|jpe?g|gif|webp|bmp|svg|heic|heif|avif)(?:\?.*)?$/i;
 const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
 
-const AVATAR_URLS: Record<AvatarKey, string> = {
-  AVATAR_LEO: "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo",
-  AVATAR_SOPHIE: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sophie",
-  AVATAR_MAX: "https://api.dicebear.com/7.x/avataaars/svg?seed=Max",
-  AVATAR_BELLA: "https://api.dicebear.com/7.x/avataaars/svg?seed=Bella",
-  AVATAR_CHARLIE: "https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie",
-  AVATAR_AVERY: "https://api.dicebear.com/9.x/adventurer/svg?seed=Avery",
-  AVATAR_RILEY: "https://api.dicebear.com/9.x/lorelei/svg?seed=Riley",
-  AVATAR_JORDAN: "https://api.dicebear.com/9.x/adventurer/svg?seed=Jordan",
-  AVATAR_SKYLER: "https://api.dicebear.com/9.x/lorelei/svg?seed=Skyler",
-  AVATAR_MORGAN: "https://api.dicebear.com/9.x/adventurer/svg?seed=Morgan",
-};
-
-const getAvatarUrl = (avatar?: AvatarKey) => {
-  if (!avatar) return AVATAR_URLS.AVATAR_LEO;
-  return AVATAR_URLS[avatar] ?? AVATAR_URLS.AVATAR_LEO;
-};
+const resolveAvatarUrl = (avatar?: AvatarKey) => getAvatarUrl(avatar ?? DEFAULT_AVATAR_KEY);
 
 const formatTime = (time?: string) => {
   if (!time) return "New";
@@ -442,7 +415,7 @@ const ConversationPage = () => {
         name: displayName,
         email: other.email,
         cleanId: other.cleanId,
-        avatarUrl: getAvatarUrl(other.avatar),
+        avatarUrl: resolveAvatarUrl(other.avatar),
         role: "Direct",
         preview: getConversationPreview(latestMessage?.body),
         time: formatTime(lastActivityTime),
@@ -499,7 +472,7 @@ const ConversationPage = () => {
   const handleOpenUser = async (user: UserSummary) => {
     const existingThreadId = threadByUserId.get(user.id);
     if (existingThreadId) {
-      handleOpenThread(existingThreadId, user.cleanId || user.email, getAvatarUrl(user.avatar));
+      handleOpenThread(existingThreadId, user.cleanId || user.email, resolveAvatarUrl(user.avatar));
       return;
     }
 
@@ -529,7 +502,7 @@ const ConversationPage = () => {
       }
 
       setSearchStatus("");
-      handleOpenThread(threadId, user.cleanId || user.email, getAvatarUrl(user.avatar));
+      handleOpenThread(threadId, user.cleanId || user.email, resolveAvatarUrl(user.avatar));
     } catch {
       setSearchStatus("Failed to create conversation.");
     } finally {
@@ -670,7 +643,7 @@ const ConversationPage = () => {
                     }}
                   >
                     <div className="avatar">
-                      <img src={getAvatarUrl(user.avatar)} alt={`${user.cleanId} avatar`} />
+                      <img src={resolveAvatarUrl(user.avatar)} alt={`${user.cleanId} avatar`} />
                     </div>
                     <div className="conversation-body">
                       <div className="conversation-top">

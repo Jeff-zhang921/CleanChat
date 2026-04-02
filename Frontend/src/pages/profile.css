@@ -187,11 +187,20 @@
   background: rgba(236, 236, 232, 0.88);
 }
 
-.profile-summary-text span {
+.profile-summary-text > span {
   margin-top: 0.2rem;
   display: block;
   font-size: 0.9rem;
   color: var(--muted);
+}
+
+.profile-avatar-family {
+  margin: 0.28rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
 }
 
 .profile-summary-signal {
@@ -268,14 +277,100 @@
 
 .profile-avatars legend {
   padding: 0;
-  margin-bottom: 0.55rem;
-  font-size: 0.9rem;
-  font-weight: 600;
+  margin-bottom: 0.45rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.profile-avatar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.profile-avatar-current-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.9rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(24, 34, 24, 0.08);
+  background: rgba(255, 255, 255, 0.82);
+  color: #243224;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.profile-avatar-sections {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.profile-avatar-tier {
+  border: 1px solid rgba(24, 34, 24, 0.08);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 0.82rem;
+  display: grid;
+  gap: 0.72rem;
+}
+
+.profile-avatar-tier-starter {
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.96), rgba(246, 249, 245, 0.9));
+}
+
+.profile-avatar-tier-active {
+  background: linear-gradient(140deg, rgba(246, 252, 255, 0.96), rgba(240, 247, 246, 0.9));
+}
+
+.profile-avatar-tier-trusted {
+  background: linear-gradient(140deg, rgba(255, 250, 252, 0.98), rgba(244, 240, 246, 0.92));
+}
+
+.profile-avatar-tier.locked {
+  opacity: 0.92;
+}
+
+.profile-avatar-tier-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.profile-avatar-tier-head h4 {
+  margin: 0.18rem 0 0;
+  font-size: 1rem;
+}
+
+.profile-avatar-tier-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.85rem;
+  padding: 0.25rem 0.68rem;
+  border-radius: 999px;
+  border: 1px solid rgba(24, 34, 24, 0.08);
+  background: rgba(255, 255, 255, 0.84);
+  color: #627062;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.profile-avatar-tier-pill.open {
+  color: #14543b;
+  border-color: rgba(20, 84, 59, 0.18);
+  background: rgba(214, 250, 232, 0.78);
 }
 
 .profile-avatar-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.55rem;
 }
 
@@ -291,6 +386,10 @@
   transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
 }
 
+.profile-avatar-option.current {
+  border-style: solid;
+}
+
 .profile-avatar-option:hover {
   border-color: #b8c4de;
 }
@@ -299,6 +398,16 @@
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
   transform: translateY(-1px);
+}
+
+.profile-avatar-option.locked {
+  cursor: not-allowed;
+  background: rgba(250, 249, 246, 0.92);
+}
+
+.profile-avatar-option.locked:hover {
+  border-color: var(--line);
+  transform: none;
 }
 
 .profile-avatar-option input {
@@ -310,12 +419,36 @@
 .profile-avatar-option img {
   width: 3rem;
   height: 3rem;
+  border-radius: 0.82rem;
+  object-fit: cover;
 }
 
 .profile-avatar-option span {
   font-size: 0.78rem;
   font-weight: 600;
   color: #2f3b54;
+}
+
+.profile-avatar-option small {
+  font-size: 0.68rem;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--muted);
+}
+
+.profile-avatar-option em {
+  margin: 0;
+  font-style: normal;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  text-align: center;
+  color: #6e756d;
+}
+
+.profile-avatar-option.locked img,
+.profile-avatar-option.locked span,
+.profile-avatar-option.locked small {
+  filter: saturate(0.78);
 }
 
 .profile-label {
@@ -1183,6 +1316,12 @@
     align-items: flex-start;
   }
 
+  .profile-avatar-head,
+  .profile-avatar-tier-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .profile-actions {
     flex-direction: column-reverse;
     align-items: stretch;
@@ -1215,6 +1354,10 @@
   .profile-danger-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .profile-avatar-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .profile-join-request-item {
