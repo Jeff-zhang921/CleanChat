@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
 import { BACKEND_URL } from "../config";
@@ -35,12 +35,22 @@ const formatTime = (time?: string | null) => {
   return date.toLocaleDateString();
 };
 
+const SearchGlyph = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path
+      d="M10.75 4.75a6 6 0 1 0 0 12a6 6 0 0 0 0-12Zm0-2a8 8 0 1 1 4.95 14.28l4.01 4.01a1 1 0 1 1-1.42 1.41l-4-4A8 8 0 0 1 10.75 2.75Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
 const GroupConversationPage = () => {
   const navigate = useNavigate();
   const [me, setMe] = useState<SessionUser | null>(null);
   const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [status, setStatus] = useState("Loading groups...");
   const [query, setQuery] = useState("");
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupDescription, setNewGroupDescription] = useState("");
   const [newGroupAvatarKey, setNewGroupAvatarKey] = useState<GroupAvatarKey>(GROUP_AVATAR_OPTIONS[0].key);
@@ -51,6 +61,16 @@ const GroupConversationPage = () => {
   const [pendingDeleteGroup, setPendingDeleteGroup] = useState<GroupSummary | null>(null);
   const [pendingAvatarGroup, setPendingAvatarGroup] = useState<GroupSummary | null>(null);
   const [pendingAvatarKey, setPendingAvatarKey] = useState<GroupAvatarKey>(GROUP_AVATAR_OPTIONS[0].key);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!isSearchExpanded) return;
+    const frame = window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isSearchExpanded]);
 
   const refreshGroups = async () => {
     const response = await fetch(`${BACKEND_URL}/chat/groups`, {
@@ -120,6 +140,7 @@ const GroupConversationPage = () => {
         groupId: group.id,
         other: group.name,
         avatarUrl: group.avatarUrl,
+        fromPath: "/groups",
       },
     });
   };
@@ -329,6 +350,15 @@ const GroupConversationPage = () => {
   };
 
   const heroName = me?.name || me?.cleanId || me?.email || "CleanChat";
+  const hasQuery = query.trim().length > 0;
+  const isSearchOpen = isSearchExpanded || hasQuery;
+  const openSearch = () => {
+    setIsSearchExpanded(true);
+  };
+  const closeSearch = () => {
+    setQuery("");
+    setIsSearchExpanded(false);
+  };
 
   return (
     <div className="conversations-page groups-page">
@@ -343,16 +373,55 @@ const GroupConversationPage = () => {
           </div>
         </header>
 
-        <div className="conversations-toolbar">
-          <div className="search-field">
-            <label htmlFor="group-search">Search groups</label>
-            <input
-              id="group-search"
-              type="text"
-              placeholder="Search by group name"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
+        <div className={`conversations-toolbar ${isSearchOpen ? "search-open" : ""}`}>
+          {!isSearchOpen && (
+            <button
+              type="button"
+              className="search-launcher"
+              aria-label="Open group search"
+              onClick={openSearch}
+            >
+              <SearchGlyph />
+            </button>
+          )}
+          <div className={`search-shell ${isSearchOpen ? "expanded" : ""}`}>
+            <div className="search-field">
+              <label className="sr-only" htmlFor="group-search">
+                Search groups
+              </label>
+              <div className="search-input-wrap">
+                <span className="search-icon">
+                  <SearchGlyph />
+                </span>
+                <input
+                  ref={searchInputRef}
+                  id="group-search"
+                  type="text"
+                  placeholder="Search by group name"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  onFocus={openSearch}
+                  onBlur={() => {
+                    if (!query.trim()) {
+                      setIsSearchExpanded(false);
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      closeSearch();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="search-dismiss"
+                  aria-label="Close group search"
+                  onClick={closeSearch}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

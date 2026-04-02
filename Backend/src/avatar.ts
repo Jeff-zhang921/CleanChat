@@ -3,14 +3,6 @@ import type { CleanIdTrustSnapshot } from "./cleanIdTrust";
 
 export type AvatarTier = "starter" | "active" | "trusted";
 
-type AvatarCatalogEntry = {
-  key: Avatar;
-  label: string;
-  family: string;
-  tier: AvatarTier;
-  url: string;
-};
-
 export type AvatarTierAccess = {
   unlocked: boolean;
   title: string;
@@ -27,114 +19,104 @@ const ACTIVE_UNLOCK_RECENT_MESSAGES = 8;
 const ACTIVE_UNLOCK_TOTAL_MESSAGES = 12;
 const TRUSTED_UNLOCK_SCORE = 64;
 
-const buildMarbleAvatarDataUri = (seed: string, colors: [string, string, string, string]) => {
-  const [base, wash, accent, glow] = colors;
-  const initial = seed.trim().charAt(0).toUpperCase() || "M";
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" fill="none">
-      <defs>
-        <linearGradient id="bg" x1="18" y1="14" x2="142" y2="146" gradientUnits="userSpaceOnUse">
-          <stop stop-color="${base}"/>
-          <stop offset="1" stop-color="${wash}"/>
-        </linearGradient>
-        <filter id="blur" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="14"/>
-        </filter>
-      </defs>
-      <rect width="160" height="160" rx="34" fill="url(#bg)"/>
-      <g filter="url(#blur)" opacity="0.95">
-        <circle cx="52" cy="52" r="34" fill="${accent}"/>
-        <circle cx="118" cy="68" r="30" fill="${glow}"/>
-        <circle cx="88" cy="114" r="36" fill="${wash}"/>
-      </g>
-      <path d="M24 98C47 74 74 77 96 90C118 103 132 127 146 122" stroke="rgba(255,255,255,0.58)" stroke-width="10" stroke-linecap="round"/>
-      <path d="M18 58C38 42 58 40 78 48C98 56 116 74 142 74" stroke="rgba(255,255,255,0.34)" stroke-width="8" stroke-linecap="round"/>
-      <circle cx="80" cy="80" r="58" stroke="rgba(255,255,255,0.26)" stroke-width="1.5"/>
-      <text x="80" y="92" text-anchor="middle" font-size="42" font-family="Arial, sans-serif" font-weight="700" fill="rgba(255,255,255,0.78)">${initial}</text>
-    </svg>
-  `.trim();
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-};
+const STARTER_AVATARS = [
+  Avatar.AVATAR_LEO,
+  Avatar.AVATAR_SOPHIE,
+  Avatar.AVATAR_MAX,
+  Avatar.AVATAR_BELLA,
+  Avatar.AVATAR_CHARLIE,
+  Avatar.AVATAR_ALMA,
+  Avatar.AVATAR_THEO,
+  Avatar.AVATAR_IONA,
+  Avatar.AVATAR_LARK,
+  Avatar.AVATAR_MINA,
+  Avatar.AVATAR_CEDAR,
+  Avatar.AVATAR_ORIEL,
+  Avatar.AVATAR_LINA,
+  Avatar.AVATAR_REMY,
+  Avatar.AVATAR_NOOR,
+] as const;
 
-export const AVATAR_CATALOG: Record<Avatar, AvatarCatalogEntry> = {
-  [Avatar.AVATAR_LEO]: {
-    key: Avatar.AVATAR_LEO,
-    label: "Drift",
-    family: "DiceBear Shapes",
-    tier: "starter",
-    url: "https://api.dicebear.com/9.x/shapes/svg?seed=Drift",
-  },
-  [Avatar.AVATAR_SOPHIE]: {
-    key: Avatar.AVATAR_SOPHIE,
-    label: "Halo",
-    family: "DiceBear Shapes",
-    tier: "starter",
-    url: "https://api.dicebear.com/9.x/shapes/svg?seed=Halo",
-  },
-  [Avatar.AVATAR_MAX]: {
-    key: Avatar.AVATAR_MAX,
-    label: "Moss",
-    family: "DiceBear Shapes",
-    tier: "starter",
-    url: "https://api.dicebear.com/9.x/shapes/svg?seed=Moss",
-  },
-  [Avatar.AVATAR_BELLA]: {
-    key: Avatar.AVATAR_BELLA,
-    label: "Echo",
-    family: "DiceBear Shapes",
-    tier: "starter",
-    url: "https://api.dicebear.com/9.x/shapes/svg?seed=Echo",
-  },
-  [Avatar.AVATAR_CHARLIE]: {
-    key: Avatar.AVATAR_CHARLIE,
-    label: "Vale",
-    family: "Boring Avatars Marble",
-    tier: "active",
-    url: buildMarbleAvatarDataUri("Vale", ["#0B132B", "#1C2541", "#3A506B", "#5BC0BE"]),
-  },
-  [Avatar.AVATAR_AVERY]: {
-    key: Avatar.AVATAR_AVERY,
-    label: "Luma",
-    family: "Boring Avatars Marble",
-    tier: "active",
-    url: buildMarbleAvatarDataUri("Luma", ["#2F4858", "#33658A", "#86BBD8", "#F6AE2D"]),
-  },
-  [Avatar.AVATAR_RILEY]: {
-    key: Avatar.AVATAR_RILEY,
-    label: "Nova",
-    family: "Boring Avatars Marble",
-    tier: "active",
-    url: buildMarbleAvatarDataUri("Nova", ["#264653", "#2A9D8F", "#E9C46A", "#F4A261"]),
-  },
-  [Avatar.AVATAR_JORDAN]: {
-    key: Avatar.AVATAR_JORDAN,
-    label: "Aster",
-    family: "Waifu.pics Aesthetics",
-    tier: "trusted",
-    url: "https://i.waifu.pics/P817hp4.jpg",
-  },
-  [Avatar.AVATAR_SKYLER]: {
-    key: Avatar.AVATAR_SKYLER,
-    label: "Noir",
-    family: "Waifu.pics Aesthetics",
-    tier: "trusted",
-    url: "https://i.waifu.pics/Lcq0Tx8.jpg",
-  },
-  [Avatar.AVATAR_MORGAN]: {
-    key: Avatar.AVATAR_MORGAN,
-    label: "Velvet",
-    family: "Waifu.pics Aesthetics",
-    tier: "trusted",
-    url: "https://i.waifu.pics/Tj6Wzwo.png",
-  },
+const ACTIVE_AVATARS = [
+  Avatar.AVATAR_AVERY,
+  Avatar.AVATAR_RILEY,
+  Avatar.AVATAR_JORDAN,
+  Avatar.AVATAR_SKYLER,
+  Avatar.AVATAR_MORGAN,
+  Avatar.AVATAR_MIRO,
+  Avatar.AVATAR_ELIO,
+  Avatar.AVATAR_TAVI,
+  Avatar.AVATAR_BRIAR,
+  Avatar.AVATAR_SENA,
+] as const;
+
+const TRUSTED_AVATARS = [
+  Avatar.AVATAR_AIRI,
+  Avatar.AVATAR_REN,
+  Avatar.AVATAR_NAMI,
+  Avatar.AVATAR_KIKO,
+  Avatar.AVATAR_YUTA,
+  Avatar.AVATAR_HINA,
+  Avatar.AVATAR_AOBA,
+  Avatar.AVATAR_MEI,
+  Avatar.AVATAR_SORA,
+  Avatar.AVATAR_KAEDE,
+  Avatar.AVATAR_YORI,
+  Avatar.AVATAR_MIO,
+  Avatar.AVATAR_AKARI,
+  Avatar.AVATAR_RIN,
+  Avatar.AVATAR_HARU,
+] as const;
+
+const AVATAR_TIER_MAP: Record<Avatar, AvatarTier> = {
+  [Avatar.AVATAR_LEO]: "starter",
+  [Avatar.AVATAR_SOPHIE]: "starter",
+  [Avatar.AVATAR_MAX]: "starter",
+  [Avatar.AVATAR_BELLA]: "starter",
+  [Avatar.AVATAR_CHARLIE]: "starter",
+  [Avatar.AVATAR_ALMA]: "starter",
+  [Avatar.AVATAR_THEO]: "starter",
+  [Avatar.AVATAR_IONA]: "starter",
+  [Avatar.AVATAR_LARK]: "starter",
+  [Avatar.AVATAR_MINA]: "starter",
+  [Avatar.AVATAR_CEDAR]: "starter",
+  [Avatar.AVATAR_ORIEL]: "starter",
+  [Avatar.AVATAR_LINA]: "starter",
+  [Avatar.AVATAR_REMY]: "starter",
+  [Avatar.AVATAR_NOOR]: "starter",
+  [Avatar.AVATAR_AVERY]: "active",
+  [Avatar.AVATAR_RILEY]: "active",
+  [Avatar.AVATAR_JORDAN]: "active",
+  [Avatar.AVATAR_SKYLER]: "active",
+  [Avatar.AVATAR_MORGAN]: "active",
+  [Avatar.AVATAR_MIRO]: "active",
+  [Avatar.AVATAR_ELIO]: "active",
+  [Avatar.AVATAR_TAVI]: "active",
+  [Avatar.AVATAR_BRIAR]: "active",
+  [Avatar.AVATAR_SENA]: "active",
+  [Avatar.AVATAR_AIRI]: "trusted",
+  [Avatar.AVATAR_REN]: "trusted",
+  [Avatar.AVATAR_NAMI]: "trusted",
+  [Avatar.AVATAR_KIKO]: "trusted",
+  [Avatar.AVATAR_YUTA]: "trusted",
+  [Avatar.AVATAR_HINA]: "trusted",
+  [Avatar.AVATAR_AOBA]: "trusted",
+  [Avatar.AVATAR_MEI]: "trusted",
+  [Avatar.AVATAR_SORA]: "trusted",
+  [Avatar.AVATAR_KAEDE]: "trusted",
+  [Avatar.AVATAR_YORI]: "trusted",
+  [Avatar.AVATAR_MIO]: "trusted",
+  [Avatar.AVATAR_AKARI]: "trusted",
+  [Avatar.AVATAR_RIN]: "trusted",
+  [Avatar.AVATAR_HARU]: "trusted",
 };
 
 export const DEFAULT_AVATAR = Avatar.AVATAR_LEO;
 
 const ACTIVE_UNLOCK_HINT =
-  "Marble avatars unlock after a full day of healthy activity or a steady reply pattern.";
+  "Studio Portraits unlock after 24 hours of healthy activity or a steady reply pattern.";
 const TRUSTED_UNLOCK_HINT =
-  "Aesthetics avatars unlock once your Trust Score reaches the Steady band.";
+  "Anime Characters unlock once your Trust Score reaches the steady band.";
 
 const getAvatarTierAccess = (
   tier: AvatarTier,
@@ -144,7 +126,7 @@ const getAvatarTierAccess = (
     return {
       unlocked: true,
       title: "Starter",
-      hint: "Shapes are open from day one so every CleanID starts clean.",
+      hint: "Cartoon Characters are open from day one so every CleanID starts with a calm human portrait.",
     };
   }
 
@@ -156,7 +138,9 @@ const getAvatarTierAccess = (
     return {
       unlocked,
       title: "Active",
-      hint: unlocked ? "Marble is open. Your activity already reads steady enough." : ACTIVE_UNLOCK_HINT,
+      hint: unlocked
+        ? "Studio Portraits are open. Your cadence already feels steady enough."
+        : ACTIVE_UNLOCK_HINT,
     };
   }
 
@@ -165,17 +149,13 @@ const getAvatarTierAccess = (
     unlocked,
     title: "Trusted",
     hint: unlocked
-      ? "Aesthetics are open. Your identity signal is steady enough to hold a cinematic mark."
+      ? "Anime Characters are open. This set stays calm, human, fully clothed, and non-suggestive."
       : TRUSTED_UNLOCK_HINT,
   };
 };
 
 export function getAvatarTier(avatar: Avatar): AvatarTier {
-  return AVATAR_CATALOG[avatar]?.tier ?? AVATAR_CATALOG[DEFAULT_AVATAR].tier;
-}
-
-export function avatarUrl(avatar: Avatar): string {
-  return AVATAR_CATALOG[avatar]?.url ?? AVATAR_CATALOG[DEFAULT_AVATAR].url;
+  return AVATAR_TIER_MAP[avatar] ?? AVATAR_TIER_MAP[DEFAULT_AVATAR];
 }
 
 export function buildAvatarAccess(
@@ -223,3 +203,9 @@ export function getAvatarUnlockError(
   const tier = getAvatarTier(avatar);
   return buildAvatarAccess(trust, currentAvatar).tiers[tier].hint;
 }
+
+export const AVATAR_COUNTS = {
+  starter: STARTER_AVATARS.length,
+  active: ACTIVE_AVATARS.length,
+  trusted: TRUSTED_AVATARS.length,
+} as const;

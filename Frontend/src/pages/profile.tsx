@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
 import {
   AVATAR_TIER_META,
@@ -9,38 +9,22 @@ import {
   getAvatarOptionsByTier,
   getAvatarUrl,
   isAvatarUnlocked,
-  type AvatarAccess,
   type AvatarKey,
 } from "../constants/avatarCatalog";
 import { BACKEND_URL } from "../config";
 import {
-  buildDerivedShortIdClaim,
-  CLEAN_ID_REGEX,
   FALLBACK_SHORT_ID_CLAIM,
-  type CleanIdShortClaim,
   getShortClaimRangeLabel,
   getShortClaimTierLabel,
   validateShortClaimInput,
 } from "../utils/cleanIdClaim";
 import {
   FALLBACK_CLEAN_ID_TRUST,
-  type CleanIdTrustSnapshot,
-  getTrustMetricLabel,
   getTrustToneLabel,
 } from "../utils/cleanIdTrust";
 import { getNotificationPermission, requestNotificationPermission } from "../utils/notifications";
+import { hydrateProfileUser, type ProfileRouteState, type ProfileUser } from "../utils/profileUser";
 import "./profile.css";
-
-type ProfileUser = {
-  id: number;
-  email: string;
-  name: string;
-  cleanId: string;
-  avatar: AvatarKey;
-  trust: CleanIdTrustSnapshot;
-  shortIdClaim: CleanIdShortClaim;
-  avatarAccess?: AvatarAccess;
-};
 
 type OwnedGroupSummary = {
   id: string;
@@ -77,27 +61,13 @@ const isStandalonePwa = () => {
   return mediaStandalone || navigatorStandalone;
 };
 
-const hydrateProfileUser = (user: ProfileUser): ProfileUser => ({
-  ...user,
-  shortIdClaim:
-    user.shortIdClaim ??
-    buildDerivedShortIdClaim({
-      cleanId: user.cleanId ?? "",
-      trustScore: user.trust?.score ?? 0,
-    }) ??
-    FALLBACK_SHORT_ID_CLAIM,
-  avatarAccess:
-    user.avatarAccess ??
-    buildDerivedAvatarAccess({
-      trust: user.trust,
-      currentAvatar: user.avatar,
-    }),
-});
-
 const ProfilePage = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<ProfileUser | null>(null);
+  const location = useLocation();
+  const routeState = (location.state as ProfileRouteState | null) ?? null;
+  const seededUser = routeState?.user ? hydrateProfileUser(routeState.user) : null;
+  const [loading, setLoading] = useState(!seededUser);
+  const [user, setUser] = useState<ProfileUser | null>(seededUser);
 
   const [isEditing, setIsEditing] = useState(false);
   const [nickname, setNickname] = useState("");
@@ -148,7 +118,7 @@ const ProfilePage = () => {
       }
     };
 
-    loadProfile();
+    void loadProfile();
     return () => {
       isMounted = false;
     };
@@ -204,10 +174,15 @@ const ProfilePage = () => {
   };
 
   const startEdit = () => {
-    resetFormToUser();
+    if (!user) return;
     setStatus("");
     setIsDeleteConfirming(false);
-    setIsEditing(true);
+    navigate("/profile/edit", {
+      state: {
+        user,
+        spatialTransition: "push",
+      } satisfies ProfileRouteState,
+    });
   };
 
   const cancelEdit = () => {
@@ -545,6 +520,16 @@ const ProfilePage = () => {
     }
   };
 
+  const handleOpenPurity = () => {
+    if (!user) return;
+    navigate("/profile/purity", {
+      state: {
+        user,
+        spatialTransition: "push",
+      } satisfies ProfileRouteState,
+    });
+  };
+
   const activeAvatar = user ? (isEditing ? avatar : user.avatar) : "AVATAR_LEO";
   const activeName = user ? (isEditing ? nickname : user.name) : "";
   const activeCleanId = user ? (isEditing ? cleanId : user.cleanId) : "";
@@ -571,6 +556,20 @@ const ProfilePage = () => {
   const activeShortIdClaim = user?.shortIdClaim ?? FALLBACK_SHORT_ID_CLAIM;
   const shortClaimTierLabel = getShortClaimTierLabel(activeShortIdClaim);
   const shortClaimRangeLabel = getShortClaimRangeLabel(activeShortIdClaim);
+  const purityMaterialLabel =
+    activeTrust.band === "clear"
+      ? "Crystal depth"
+      : activeTrust.band === "steady"
+        ? "Frosted glass"
+        : activeTrust.band === "fragile"
+          ? "Soft matte"
+          : "Matte paper";
+  const purityActionLabel =
+    activeTrust.band === "clear"
+      ? "Open crystal ledger"
+      : activeTrust.band === "steady"
+        ? "Open purity field"
+        : "Inspect signal surface";
   const activeCleanIdLength = activeCleanId.trim().length;
   const cleanIdIntent =
     activeCleanIdLength > 0 && activeCleanIdLength <= 2
@@ -586,33 +585,6 @@ const ProfilePage = () => {
           claim: activeShortIdClaim,
         })
       : null;
-  const trustMetrics = [
-    {
-      label: "Score",
-      value: `${activeTrust.score}`,
-    },
-    {
-      label: "Account age",
-      value: `${activeTrust.metrics.accountAgeDays}d`,
-    },
-    {
-      label: "Stable threads",
-      value: `${activeTrust.metrics.sustainedThreads}`,
-    },
-    {
-      label: "Recent replies",
-      value: `${activeTrust.metrics.recentMessages}`,
-    },
-    {
-      label: "Sent",
-      value: `${activeTrust.metrics.sentMessages}`,
-    },
-    {
-      label: "Penalties",
-      value: activeTrust.metrics.moderationPenalties === 0 ? "None" : `${activeTrust.metrics.moderationPenalties}`,
-    },
-  ];
-  const trustMeterWidth = `${Math.max(activeTrust.score, 6)}%`;
 
   return (
     <div className="profile-shell">
@@ -638,67 +610,46 @@ const ProfilePage = () => {
               </button>
             </header>
 
-            <section className={`profile-summary profile-summary-band-${activeTrust.band}`}>
-              <img
-                className="profile-avatar-main"
-                src={getAvatarUrl(activeAvatar)}
-                alt={`${activeName || "User"} avatar`}
-              />
-              <div className="profile-summary-text">
-                <h2>{activeName}</h2>
-                <div className="profile-summary-id-row">
-                  <p className={`profile-cleanid profile-cleanid-${activeTrust.band}`}>@{activeCleanId}</p>
-                  <span className={`profile-short-claim-badge profile-short-claim-badge-${activeShortIdClaim.tier}`}>
-                    {activeShortIdClaim.isCurrentShort ? "Short ID held" : activeShortIdClaim.pill}
-                  </span>
+            <section className={`profile-entry-card profile-entry-card-${activeTrust.band}`}>
+              <div className="profile-entry-identity">
+                <img
+                  className="profile-avatar-main"
+                  src={getAvatarUrl(activeAvatar)}
+                  alt={`${activeName || "User"} avatar`}
+                />
+                <div className="profile-summary-text profile-entry-copy">
+                  <p className="profile-entry-kicker">Identity</p>
+                  <h2>{activeName}</h2>
+                  <div className="profile-summary-id-row">
+                    <p className={`profile-cleanid profile-cleanid-${activeTrust.band}`}>@{activeCleanId}</p>
+                    <span className={`profile-short-claim-badge profile-short-claim-badge-${activeShortIdClaim.tier}`}>
+                      {activeShortIdClaim.isCurrentShort ? "Short ID held" : activeShortIdClaim.pill}
+                    </span>
+                  </div>
+                  <p className="profile-avatar-family">{activeAvatarOption.family}</p>
+                  <span>{user.email}</span>
                 </div>
-                <p className="profile-avatar-family">{activeAvatarOption.family}</p>
-                <span>{user.email}</span>
               </div>
-              <div className="profile-summary-signal">
-                <span className={`profile-trust-pill profile-trust-pill-${activeTrust.band}`}>
-                  {getTrustToneLabel(activeTrust)}
+              <button
+                type="button"
+                className={`profile-aura-button profile-aura-button-${activeTrust.band}`}
+                onClick={handleOpenPurity}
+                disabled={isEditing}
+              >
+                <span className="profile-aura-label">Purity</span>
+                <strong>{activeTrust.title}</strong>
+                <span className="profile-aura-score">
+                  {getTrustToneLabel(activeTrust)} · {activeTrust.score} signal
                 </span>
-                <div className={`profile-summary-orb profile-summary-orb-${activeTrust.band}`}>
-                  <strong>{activeTrust.score}</strong>
-                  <span>signal</span>
-                </div>
-                <p>{activeTrust.title}</p>
-              </div>
+                <span className="profile-aura-texture">{purityMaterialLabel}</span>
+                <span className="profile-aura-hint">{purityActionLabel}</span>
+              </button>
             </section>
 
-            <section className={`profile-trust-card profile-trust-card-${activeTrust.band}`}>
-              <div className="profile-trust-head">
-                <div>
-                  <p className="profile-settings-eyebrow">CleanID</p>
-                  <h3>Identity purity</h3>
-                </div>
-                <div className="profile-trust-score-wrap">
-                  <span className={`profile-trust-pill profile-trust-pill-${activeTrust.band}`}>
-                    {getTrustToneLabel(activeTrust)}
-                  </span>
-                  <strong>{activeTrust.score}</strong>
-                </div>
-              </div>
-              <div className="profile-trust-meter" aria-hidden="true">
-                <div
-                  className={`profile-trust-meter-fill profile-trust-meter-fill-${activeTrust.band}`}
-                  style={{ width: trustMeterWidth }}
-                />
-                <span
-                  className={`profile-trust-meter-dot profile-trust-meter-dot-${activeTrust.band}`}
-                  style={{ left: `calc(${trustMeterWidth} - 0.4rem)` }}
-                />
-              </div>
-              <div className="profile-trust-mark-row">
-                <span className={`profile-trust-mark profile-trust-mark-${activeTrust.band}`}>
-                  @{activeCleanId}
-                </span>
-                <span className="profile-trust-caption">{getTrustMetricLabel(activeTrust)}</span>
-              </div>
-              <p className="profile-trust-summary">{activeTrust.summary}</p>
-              <p className="profile-hint">{activeTrust.detail}</p>
-              <section className={`profile-short-claim-card profile-short-claim-card-${activeShortIdClaim.tier}`}>
+            {!isEditing && (
+              <section
+                className={`profile-short-claim-card profile-short-claim-card-${activeShortIdClaim.tier} profile-short-claim-standalone`}
+              >
                 <div className="profile-short-claim-head">
                   <div>
                     <p className="profile-settings-eyebrow">Short ID Claim</p>
@@ -713,7 +664,11 @@ const ProfilePage = () => {
                     @{activeCleanId}
                   </span>
                   <div className="profile-short-claim-hero-copy">
-                    <strong>{activeShortIdClaim.isCurrentShort ? `${cleanIdIntent} handle occupied` : `${shortClaimRangeLabel} claim window`}</strong>
+                    <strong>
+                      {activeShortIdClaim.isCurrentShort
+                        ? `${cleanIdIntent} handle occupied`
+                        : `${shortClaimRangeLabel} claim window`}
+                    </strong>
                     <span>{activeShortIdClaim.detail}</span>
                   </div>
                 </div>
@@ -740,40 +695,15 @@ const ProfilePage = () => {
                   ))}
                 </div>
               </section>
-              <div className="profile-trust-metrics">
-                {trustMetrics.map((metric) => (
-                  <div key={metric.label} className="profile-trust-metric">
-                    <span>{metric.label}</span>
-                    <strong>{metric.value}</strong>
-                  </div>
-                ))}
-              </div>
-              <div className="profile-trust-ledger">
-                <div className="profile-trust-ledger-item">
-                  <span>Signal texture</span>
-                  <strong>{activeTrust.band === "clear" ? "Crisp" : activeTrust.band === "steady" ? "Stable" : activeTrust.band === "fragile" ? "Soft" : "Diffuse"}</strong>
-                </div>
-                <div className="profile-trust-ledger-item">
-                  <span>What sharpens it</span>
-                  <strong>
-                    {activeTrust.metrics.sustainedThreads > 1
-                      ? "Longer threads"
-                      : activeTrust.metrics.recentMessages > 4
-                        ? "Steady replies"
-                        : "Healthy cadence"}
-                  </strong>
-                </div>
-              </div>
-              <p className="profile-trust-footnote">
-                This read is based on conversation consistency today. Block and report penalties can plug into
-                the same surface later without turning it into a level system.
-              </p>
-            </section>
+            )}
 
             {!isEditing && (
               <div className="profile-top-actions">
                 <button type="button" className="profile-action-row" onClick={startEdit}>
-                  <span className="profile-action-row-title">Edit Profile</span>
+                  <span className="profile-action-row-copy">
+                    <span className="profile-action-row-title">Edit Profile</span>
+                    <span className="profile-action-row-note">Open the dedicated identity workspace</span>
+                  </span>
                   <span className="profile-action-row-arrow" aria-hidden="true">
                     &gt;
                   </span>
@@ -783,8 +713,13 @@ const ProfilePage = () => {
                   className="profile-action-row"
                   onClick={() => void handleToggleGroupAccess()}
                 >
-                  <span className="profile-action-row-title">
-                    {showGroupAccess ? "Hide Group Access" : "Manage Group Access"}
+                  <span className="profile-action-row-copy">
+                    <span className="profile-action-row-title">
+                      {showGroupAccess ? "Hide Group Access" : "Manage Group Access"}
+                    </span>
+                    <span className="profile-action-row-note">
+                      Review owned groups and pending join requests
+                    </span>
                   </span>
                   <span className="profile-action-row-arrow" aria-hidden="true">
                     &gt;
@@ -835,7 +770,8 @@ const ProfilePage = () => {
                   <legend>Avatar Library</legend>
                   <div className="profile-avatar-head">
                     <p className="profile-hint">
-                      CleanIDs start with Shapes, then unlock Marble and Aesthetics as identity signal settles.
+                      CleanIDs now start with calm cartoon portraits, then unlock richer studio portraits and safe
+                      anime characters as trust settles.
                     </p>
                     <span className="profile-avatar-current-pill">
                       {AVATAR_TIER_META[avatarAccess.currentTier].title}
@@ -877,7 +813,6 @@ const ProfilePage = () => {
                               />
                               <img src={item.url} alt={item.label} />
                               <span>{item.label}</span>
-                              <small>{item.family}</small>
                               <em>
                                 {item.unlocked
                                   ? item.isCurrent

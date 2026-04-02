@@ -1,7 +1,9 @@
-import { type CSSProperties, type ChangeEvent, useEffect, useRef, useState } from "react";
+import { forwardRef, type CSSProperties, type ChangeEvent, useEffect, useRef, useState } from "react";
+import { Virtuoso, type ListProps, type ScrollerProps, type VirtuosoHandle } from "react-virtuoso";
 import { useLocation, useNavigate } from "react-router-dom";
 import { io, type Socket } from "socket.io-client";
 import { BACKEND_URL, SOCKET_URL } from "../config";
+import { useViewportOverscan } from "../hooks/useViewportOverscan";
 import { getNotificationPermission, showMessageNotification } from "../utils/notifications";
 import "./chatPage.css";
 
@@ -31,6 +33,7 @@ type ChatLocationState = {
   threadId?: number;
   groupId?: string;
   chatType?: ChatMode;
+  fromPath?: "/conversations" | "/groups";
 };
 
 const IMAGE_MESSAGE_PREFIX = "IMG::";
@@ -39,6 +42,7 @@ const IMAGE_URL_REGEX =
 const IMAGE_EXTENSION_REGEX =
   /\.(?:png|jpe?g|gif|webp|bmp|svg|heic|heif|avif)(?:\?.*)?$/i;
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+const CONVERSATIONS_RETURN_KEY = "cleanchat:conversations-return";
 
 const isHttpUrl = (value: string) => /^https?:\/\/\S+$/i.test(value);
 
@@ -61,9 +65,22 @@ const getImageUrlFromMessage = (body: string) => {
 const formatNotificationBody = (body: string) =>
   getImageUrlFromMessage(body) ? "sent a photo" : body;
 
+const ChatVirtuosoScroller = forwardRef<HTMLDivElement, ScrollerProps>((props, ref) => (
+  <div {...props} ref={ref} className="chat-virtuoso-scroller" />
+));
+
+ChatVirtuosoScroller.displayName = "ChatVirtuosoScroller";
+
+const ChatVirtuosoList = forwardRef<HTMLDivElement, ListProps>((props, ref) => (
+  <div {...props} ref={ref} className="chat-virtuoso-list" />
+));
+
+ChatVirtuosoList.displayName = "ChatVirtuosoList";
+
 const ChatPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const messageOverscan = useViewportOverscan();
   const locationState = (location.state as ChatLocationState | null) ?? null;
   const initialChatMode: ChatMode =
     locationState?.chatType === "group" || typeof locationState?.groupId === "string"
@@ -71,9 +88,10 @@ const ChatPage = () => {
       : "direct";
   const other = locationState?.other ?? "";
   const avatarUrl = locationState?.avatarUrl ?? "";
+  const fromPath = locationState?.fromPath === "/groups" ? "/groups" : "/conversations";
 
   const socketRef = useRef<Socket | null>(null);
-  const messageListRef = useRef<HTMLDivElement | null>(null);
+  const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const messageInputRef = useRef<HTMLInputElement | null>(null);
   const threadIdRef = useRef<number | null>(null);
   const groupIdRef = useRef<string | null>(
@@ -106,6 +124,7 @@ const ChatPage = () => {
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [isComposerFocused, setIsComposerFocused] = useState(false);
   const [isSendPulseVisible, setIsSendPulseVisible] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useState(true);
 
   const refocusMessageInput = () => {
     if (typeof window === "undefined") return;
@@ -347,18 +366,6 @@ const ChatPage = () => {
       socketRef.current.emit("group:join", { groupId });
     }
   }, [groupId, chatMode]);
-
-  useEffect(() => {
-    if (!messageListRef.current) return;
-    const previousCount = previousMessageCountRef.current;
-    const nextCount = message.length;
-    messageListRef.current.scrollTo({
-      top: messageListRef.current.scrollHeight,
-      behavior:
-        historyHydratedRef.current && previousCount > 0 && nextCount > previousCount ? "smooth" : "auto",
-    });
-    previousMessageCountRef.current = nextCount;
-  }, [message]);
 
   const createThreadForHostId = async (rawHostId: number) => {
     setChatMode("direct");
@@ -660,11 +667,65 @@ const ChatPage = () => {
     : status || (isConnected ? "Connected" : "Not connected");
   const statusTone = isHistoryLoading || isUploadingImage ? "busy" : isConnected ? "online" : "";
   const chatKicker = chatMode === "group" ? "Group thread" : "Private line";
+  const backLabel = fromPath === "/groups" ? "Groups" : "Chats";
+  const messageViewportIncrease = {
+    top: messageOverscan,
+    bottom: messageOverscan,
+  } as const;
+  const messageOverscanWindow = {
+    main: messageOverscan,
+    reverse: messageOverscan,
+  } as const;
+  const shouldShowDate = (chatMode === "direct" && threadId) || (chatMode === "group" && groupId);
+  const chatDateLabel = new Date().toLocaleString();
   const historySkeletonRows = [
     { key: "skeleton-a", side: "them" as const, width: "68%" },
     { key: "skeleton-b", side: "me" as const, width: "54%" },
     { key: "skeleton-c", side: "them" as const, width: "61%" },
   ];
+
+  useEffect(() => {
+    if (showHistorySkeleton || message.length === 0) {
+      previousMessageCountRef.current = message.length;
+      return;
+    }
+
+    const previousCount = previousMessageCountRef.current;
+    if (previousCount === 0) {
+      window.requestAnimationFrame(() => {
+        virtuosoRef.current?.scrollToIndex({
+          index: message.length - 1,
+          align: "end",
+          behavior: "auto",
+        });
+      });
+    }
+
+    previousMessageCountRef.current = message.length;
+  }, [message.length, showHistorySkeleton]);
+
+  const handleMessageMediaLoad = () => {
+    if (isAtBottom) {
+      virtuosoRef.current?.autoscrollToBottom();
+    }
+  };
+
+  const handleBack = () => {
+    if (typeof window !== "undefined") {
+      try {
+        if (fromPath === "/conversations") {
+          window.sessionStorage.setItem(CONVERSATIONS_RETURN_KEY, "1");
+        }
+      } catch {
+        // Ignore session storage failures and still navigate back.
+      }
+      if (window.history.length > 1) {
+        navigate(-1);
+        return;
+      }
+    }
+    navigate(fromPath, { replace: true });
+  };
 
   return (
     <div
@@ -672,9 +733,9 @@ const ChatPage = () => {
     >
       <main className="chat-panel">
         <div className="chat-bar">
-          <button type="button" className="back-button" aria-label="Go back" onClick={() => navigate(-1)}>
+          <button type="button" className="back-button" aria-label="Go back" onClick={handleBack}>
             <span className="back-button-icon" aria-hidden="true" />
-            <span className="back-button-copy">{chatMode === "group" ? "Groups" : "Chats"}</span>
+            <span className="back-button-copy">{backLabel}</span>
           </button>
           <span className="avatar">
             {avatarUrl ? <img src={avatarUrl} alt={`${chatLabel} avatar`} /> : avatarFallback}
@@ -685,7 +746,7 @@ const ChatPage = () => {
           </div>
         </div>
 
-        <div className={`chat-body ${showHistorySkeleton ? "loading" : "ready"}`} ref={messageListRef}>
+        <div className={`chat-body ${showHistorySkeleton ? "loading" : "ready"}`}>
           {showHistorySkeleton && (
             <div className="chat-history-skeleton" aria-hidden="true">
               <div className="chat-date chat-date-skeleton" />
@@ -706,56 +767,77 @@ const ChatPage = () => {
             </div>
           )}
 
-          {!showHistorySkeleton && ((chatMode === "direct" && threadId) || (chatMode === "group" && groupId)) && (
-            <div className="chat-date">{new Date().toLocaleString()}</div>
-          )}
-
           {!showHistorySkeleton && message.length === 0 && (
             <div className="chat-empty">{chatMode === "group" ? "No group messages yet." : "Start a conversation"}</div>
           )}
 
-          {message.map((msg, index) => {
-            const isMe = msg.senderId === me?.id;
-            const imageUrl = getImageUrlFromMessage(msg.body);
-            const isDeletingMessage = deletingMessageIds.includes(msg.id);
-            return (
-              <div
-                key={msg.id}
-                className={`chat-row ${isMe ? "me" : "them"}`}
-                style={{ ["--chat-index" as string]: Math.min(index, 7) } as CSSProperties}
-              >
-                <div className={`chat-bubble ${isMe ? "bubble-me" : "bubble-them"}`}>
-                  {chatMode === "group" && !isMe && msg.senderName && (
-                    <p className="group-sender">{msg.senderName}</p>
-                  )}
-                  {imageUrl ? (
-                    <button
-                      type="button"
-                      className="chat-image-button"
-                      onClick={() => handleOpenImagePreview(imageUrl)}
-                    >
-                      <img className="chat-image" src={imageUrl} alt="Shared image" />
-                    </button>
-                  ) : (
-                    <p>{msg.body}</p>
-                  )}
-                  <div className="chat-meta-row">
-                    <span className="chat-timestamp">{new Date(msg.createdAt).toLocaleTimeString()}</span>
-                    {isMe && (
-                      <button
-                        type="button"
-                        className="chat-delete-button"
-                        onClick={() => handleDeleteMessage(msg)}
-                        disabled={isDeletingMessage}
-                      >
-                        {isDeletingMessage ? "Deleting..." : "Delete"}
-                      </button>
-                    )}
+          {!showHistorySkeleton && message.length > 0 && (
+            <Virtuoso
+              ref={virtuosoRef}
+              className="chat-virtuoso"
+              data={message}
+              alignToBottom
+              atBottomStateChange={setIsAtBottom}
+              followOutput={(atBottom) => (atBottom ? "smooth" : false)}
+              computeItemKey={(_index, msg) => msg.id}
+              defaultItemHeight={92}
+              increaseViewportBy={messageViewportIncrease}
+              overscan={messageOverscanWindow}
+              minOverscanItemCount={{ top: 14, bottom: 14 }}
+              skipAnimationFrameInResizeObserver
+              components={{
+                Scroller: ChatVirtuosoScroller,
+                List: ChatVirtuosoList,
+                Header: shouldShowDate ? () => <div className="chat-date">{chatDateLabel}</div> : undefined,
+              }}
+              itemContent={(_index, msg) => {
+                const isMe = msg.senderId === me?.id;
+                const imageUrl = getImageUrlFromMessage(msg.body);
+                const isDeletingMessage = deletingMessageIds.includes(msg.id);
+
+                return (
+                  <div className="chat-virtuoso-item">
+                    <div className={`chat-row ${isMe ? "me" : "them"}`}>
+                      <div className={`chat-bubble ${isMe ? "bubble-me" : "bubble-them"}`}>
+                        {chatMode === "group" && !isMe && msg.senderName && (
+                          <p className="group-sender">{msg.senderName}</p>
+                        )}
+                        {imageUrl ? (
+                          <button
+                            type="button"
+                            className="chat-image-button"
+                            onClick={() => handleOpenImagePreview(imageUrl)}
+                          >
+                            <img
+                              className="chat-image"
+                              src={imageUrl}
+                              alt="Shared image"
+                              onLoad={handleMessageMediaLoad}
+                            />
+                          </button>
+                        ) : (
+                          <p>{msg.body}</p>
+                        )}
+                        <div className="chat-meta-row">
+                          <span className="chat-timestamp">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                          {isMe && (
+                            <button
+                              type="button"
+                              className="chat-delete-button"
+                              onClick={() => handleDeleteMessage(msg)}
+                              disabled={isDeletingMessage}
+                            >
+                              {isDeletingMessage ? "Deleting..." : "Delete"}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            );
-          })}
+                );
+              }}
+            />
+          )}
         </div>
 
         <footer className="chat-footer">

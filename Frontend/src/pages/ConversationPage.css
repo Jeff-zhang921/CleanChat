@@ -10,21 +10,26 @@
   --accent: #1f8a5b;
   --accent-soft: rgba(31, 138, 91, 0.16);
   min-height: 100svh;
+  min-height: 100dvh;
+  padding-bottom: var(--bottom-nav-height, calc(74px + env(safe-area-inset-bottom, 0px)));
   background: transparent;
   color: var(--ink);
   font-family: "Manrope", sans-serif;
   overflow-x: clip;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .conversations-shell {
   width: min(100%, 68rem);
   margin: 0 auto;
   padding: clamp(1rem, 2.5vw, 2rem);
-  padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 1rem;
   box-sizing: border-box;
+  flex: 1;
 }
 
 .conversations-hero {
@@ -76,6 +81,9 @@
     linear-gradient(140deg, rgba(255, 252, 248, 0.92), rgba(245, 249, 242, 0.82));
   display: grid;
   gap: 0.55rem;
+  will-change: transform, opacity;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .conversations-signal-strip-clear {
@@ -188,6 +196,8 @@
   box-shadow: 0 14px 28px rgba(15, 21, 36, 0.1);
   cursor: pointer;
   transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  will-change: transform, opacity;
+  transform: translateZ(0);
 }
 
 .search-launcher:hover {
@@ -239,6 +249,8 @@
     var(--panel);
   padding: 0.52rem 0.58rem 0.52rem 0.82rem;
   box-shadow: 0 14px 28px rgba(15, 21, 36, 0.08);
+  will-change: transform, opacity;
+  transform: translateZ(0);
 }
 
 .search-icon {
@@ -314,6 +326,15 @@
   gap: 0.75rem;
 }
 
+.conversations-list-shell,
+.conversations-virtuoso {
+  min-width: 0;
+}
+
+.conversations-virtual-item {
+  padding-bottom: 0.75rem;
+}
+
 .conversation-card {
   width: 100%;
   border: 1px solid var(--line);
@@ -329,17 +350,10 @@
   box-shadow: 0 14px 28px rgba(15, 21, 36, 0.08);
   transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
   box-sizing: border-box;
-  animation: conversation-card-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  contain: layout paint style;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
-
-.conversations-list > *:nth-child(1) { animation-delay: 40ms; }
-.conversations-list > *:nth-child(2) { animation-delay: 70ms; }
-.conversations-list > *:nth-child(3) { animation-delay: 100ms; }
-.conversations-list > *:nth-child(4) { animation-delay: 130ms; }
-.conversations-list > *:nth-child(5) { animation-delay: 160ms; }
-.conversations-list > *:nth-child(6) { animation-delay: 190ms; }
-.conversations-list > *:nth-child(7) { animation-delay: 220ms; }
-.conversations-list > *:nth-child(8) { animation-delay: 250ms; }
 
 button.conversation-card {
   appearance: none;
@@ -519,6 +533,116 @@ button.conversation-card {
   background: rgba(236, 236, 232, 0.88);
 }
 
+.conversations-list-loading {
+  pointer-events: none;
+}
+
+.conversation-card-skeleton {
+  overflow: hidden;
+  cursor: default;
+  animation: conversation-card-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.conversation-card-skeleton:hover {
+  border-color: var(--line);
+  box-shadow: 0 14px 28px rgba(15, 21, 36, 0.08);
+  transform: none;
+}
+
+.avatar-skeleton {
+  display: grid;
+  place-items: center;
+  background: rgba(252, 249, 244, 0.92);
+}
+
+.avatar-skeleton-core {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.conversation-title-skeleton {
+  width: min(100%, 10rem);
+  height: 1rem;
+  border-radius: 999px;
+}
+
+.role-skeleton,
+.conversation-cleanid-skeleton,
+.conversation-trust-chip-skeleton {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.64);
+  color: transparent;
+}
+
+.role-skeleton {
+  min-width: 4.6rem;
+  justify-content: center;
+}
+
+.role-skeleton-core {
+  width: 100%;
+  height: 0.72rem;
+  border-radius: 999px;
+}
+
+.time-skeleton {
+  width: 4rem;
+  height: 0.76rem;
+  margin-left: auto;
+  border-radius: 999px;
+}
+
+.conversation-preview-skeleton {
+  display: grid;
+  gap: 0.38rem;
+}
+
+.preview-skeleton-line {
+  height: 0.84rem;
+  border-radius: 999px;
+}
+
+.preview-skeleton-line-short {
+  height: 0.78rem;
+}
+
+.conversation-cleanid-skeleton {
+  padding-right: 0.42rem;
+}
+
+.conversation-cleanid-skeleton-group {
+  min-width: 6rem;
+}
+
+.cleanid-skeleton-core {
+  display: block;
+  height: 0.76rem;
+  border-radius: 999px;
+}
+
+.conversation-trust-chip-skeleton {
+  min-width: 4.3rem;
+  justify-content: center;
+}
+
+.trust-skeleton-core {
+  width: 100%;
+  height: 0.68rem;
+  border-radius: 999px;
+}
+
+.skeleton-surface {
+  position: relative;
+  overflow: hidden;
+  display: block;
+  background:
+    linear-gradient(112deg, rgba(255, 255, 255, 0.3) 8%, rgba(255, 255, 255, 0.72) 18%, rgba(255, 255, 255, 0.34) 33%),
+    rgba(236, 232, 224, 0.82);
+  background-size: 220% 100%;
+  animation: conversation-skeleton-shimmer 1.8s linear infinite;
+}
+
 .status-text {
   border: 1px solid var(--line);
   border-radius: 0.9rem;
@@ -611,11 +735,20 @@ button.conversation-card {
   }
 }
 
+@keyframes conversation-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -20% 0;
+  }
+}
+
 @media (max-width: 760px) {
   .conversations-shell {
     gap: 0.85rem;
     padding: 0.78rem;
-    padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
   }
 
   .conversations-hero,

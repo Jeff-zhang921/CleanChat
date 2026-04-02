@@ -45,8 +45,8 @@ const BasicInfoPage = () => {
       currentAvatar: user?.avatar,
     });
   const starterAvatars = getAvatarOptionsByTier("starter");
-  const activePreviewAvatars = getAvatarOptionsByTier("active").slice(0, 3);
-  const trustedPreviewAvatars = getAvatarOptionsByTier("trusted").slice(0, 3);
+  const activePreviewAvatars = getAvatarOptionsByTier("active").slice(0, 4);
+  const trustedPreviewAvatars = getAvatarOptionsByTier("trusted").slice(0, 4);
 
   useEffect(() => {
     let isMounted = true;
@@ -199,10 +199,10 @@ const BasicInfoPage = () => {
 
         <form className="basic-form" onSubmit={handleSubmit}>
           <fieldset className="basic-avatars">
-            <legend>Choose a starter avatar</legend>
+            <legend>Choose a calm cartoon portrait</legend>
             <p className="basic-hint">
-              New CleanIDs begin with {AVATAR_TIER_META.starter.title}. More expressive sets unlock as your
-              communication history settles.
+              New CleanIDs begin with {AVATAR_TIER_META.starter.title}: quiet hand-drawn people, low-saturation
+              palettes, and no blocky mascots.
             </p>
             <div className="basic-avatar-grid">
               {starterAvatars.map((item) => (

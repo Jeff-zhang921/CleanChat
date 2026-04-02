@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Virtuoso } from "react-virtuoso";
 import { io, type Socket } from "socket.io-client";
 import BottomNav from "../components/BottomNav";
 import { DEFAULT_AVATAR_KEY, getAvatarUrl, type AvatarKey } from "../constants/avatarCatalog";
 import { BACKEND_URL, SOCKET_URL } from "../config";
+import { useViewportOverscan } from "../hooks/useViewportOverscan";
 import {
   FALLBACK_CLEAN_ID_TRUST,
   type CleanIdTrustSnapshot,
@@ -87,12 +89,123 @@ type GroupRealtimeMessage = {
   createdAt: string;
 };
 
+type ConversationsCache = {
+  me: SessionUser | null;
+  threads: ThreadResponse[];
+  groups: GroupSummary[];
+  savedAt: number;
+};
+
+type ConversationSkeletonCard = {
+  id: string;
+  chatType: "direct" | "group";
+  role: string;
+  hasTrust: boolean;
+  nameWidth: string;
+  previewWidth: string;
+  previewSecondaryWidth: string;
+  sublineWidth: string;
+};
+
 const IMAGE_MESSAGE_PREFIX = "IMG::";
 const IMAGE_URL_REGEX =
   /^https:\/\/(?:utfs\.io|(?:[a-z0-9-]+\.)?ufs\.sh|[^/\s]*uploadthing\.com)\//i;
 const IMAGE_EXTENSION_REGEX =
   /\.(?:png|jpe?g|gif|webp|bmp|svg|heic|heif|avif)(?:\?.*)?$/i;
 const HTTP_URL_REGEX = /^https?:\/\/\S+$/i;
+const CONVERSATIONS_CACHE_KEY = "cleanchat:conversations-cache";
+const CONVERSATIONS_RETURN_KEY = "cleanchat:conversations-return";
+const CONVERSATION_SKELETON_MIN_MS = 320;
+const CONVERSATION_RETURN_SKELETON_MIN_MS = 520;
+const FALLBACK_SKELETON_CARDS: ConversationSkeletonCard[] = [
+  {
+    id: "skeleton-direct-a",
+    chatType: "direct",
+    role: "Direct",
+    hasTrust: true,
+    nameWidth: "8.4rem",
+    previewWidth: "84%",
+    previewSecondaryWidth: "56%",
+    sublineWidth: "7.3rem",
+  },
+  {
+    id: "skeleton-group-a",
+    chatType: "group",
+    role: "Group",
+    hasTrust: false,
+    nameWidth: "7.1rem",
+    previewWidth: "78%",
+    previewSecondaryWidth: "48%",
+    sublineWidth: "5.4rem",
+  },
+  {
+    id: "skeleton-direct-b",
+    chatType: "direct",
+    role: "Direct",
+    hasTrust: true,
+    nameWidth: "7.8rem",
+    previewWidth: "88%",
+    previewSecondaryWidth: "60%",
+    sublineWidth: "6.8rem",
+  },
+  {
+    id: "skeleton-direct-c",
+    chatType: "direct",
+    role: "Direct",
+    hasTrust: true,
+    nameWidth: "6.6rem",
+    previewWidth: "74%",
+    previewSecondaryWidth: "52%",
+    sublineWidth: "7.6rem",
+  },
+];
+
+const readConversationsCache = (): ConversationsCache | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(CONVERSATIONS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<ConversationsCache> | null;
+    if (!parsed || !Array.isArray(parsed.threads) || !Array.isArray(parsed.groups)) {
+      return null;
+    }
+    return {
+      me: parsed.me ?? null,
+      threads: parsed.threads,
+      groups: parsed.groups,
+      savedAt: typeof parsed.savedAt === "number" ? parsed.savedAt : Date.now(),
+    };
+  } catch {
+    return null;
+  }
+};
+
+const writeConversationsCache = (payload: ConversationsCache) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(CONVERSATIONS_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    // Ignore storage failures and keep the live view working.
+  }
+};
+
+const hasConversationReturnIntent = () => {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.sessionStorage.getItem(CONVERSATIONS_RETURN_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+
+const clearConversationReturnIntent = () => {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(CONVERSATIONS_RETURN_KEY);
+  } catch {
+    // Ignore storage failures and fall back to the live view.
+  }
+};
 
 const resolveAvatarUrl = (avatar?: AvatarKey) => getAvatarUrl(avatar ?? DEFAULT_AVATAR_KEY);
 
@@ -146,11 +259,18 @@ const SearchGlyph = () => (
 
 const ConversationPage = () => {
   const navigate = useNavigate();
+  const listOverscan = useViewportOverscan();
+  const initialCacheRef = useRef<ConversationsCache | null>(readConversationsCache());
+  const shouldShowReturnSkeletonRef = useRef(hasConversationReturnIntent());
+  const initialCache = initialCacheRef.current;
 
-  const [me, setMe] = useState<SessionUser | null>(null);
-  const [threads, setThreads] = useState<ThreadResponse[]>([]);
-  const [groups, setGroups] = useState<GroupSummary[]>([]);
-  const [status, setStatus] = useState("Loading...");
+  const [me, setMe] = useState<SessionUser | null>(() => initialCache?.me ?? null);
+  const [threads, setThreads] = useState<ThreadResponse[]>(() => initialCache?.threads ?? []);
+  const [groups, setGroups] = useState<GroupSummary[]>(() => initialCache?.groups ?? []);
+  const [status, setStatus] = useState("");
+  const [isInitialLoading, setIsInitialLoading] = useState(
+    () => !initialCache || shouldShowReturnSkeletonRef.current
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [searchUsers, setSearchUsers] = useState<UserSummary[]>([]);
@@ -161,6 +281,21 @@ const ConversationPage = () => {
   const threadsRef = useRef<ThreadResponse[]>([]);
   const groupsRef = useRef<GroupSummary[]>([]);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!me) return;
+    writeConversationsCache({
+      me,
+      threads,
+      groups,
+      savedAt: Date.now(),
+    });
+  }, [groups, me, threads]);
+
+  useEffect(() => {
+    if (!shouldShowReturnSkeletonRef.current) return;
+    clearConversationReturnIntent();
+  }, []);
 
   useEffect(() => {
     meRef.current = me;
@@ -218,39 +353,57 @@ const ConversationPage = () => {
 
   useEffect(() => {
     let isMounted = true;
+    const shouldMaskInitialLoad = !initialCache || shouldShowReturnSkeletonRef.current;
 
     const load = async () => {
+      const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
       try {
         const meResponse = await fetch(`${BACKEND_URL}/auth/me`, {
           credentials: "include",
         });
         if (!meResponse.ok) {
-          if (isMounted) setStatus("Please login to see conversations.");
+          if (isMounted) {
+            setStatus("Please login to see conversations.");
+          }
           return;
         }
 
         const meData = await meResponse.json().catch(() => ({}));
         if (!meData.user) {
-          if (isMounted) setStatus("Please login to see conversations.");
+          if (isMounted) {
+            setStatus("Please login to see conversations.");
+          }
           return;
         }
 
         if (isMounted) setMe(meData.user);
 
         if (isMounted) {
-          await refreshThreads();
-          await refreshGroups();
+          await Promise.all([refreshThreads(), refreshGroups()]);
         }
       } catch {
         if (isMounted) setStatus("Failed to load conversations.");
+      } finally {
+        if (isMounted && shouldMaskInitialLoad) {
+          const endedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+          const elapsed = endedAt - startedAt;
+          const minimumDuration = shouldShowReturnSkeletonRef.current
+            ? CONVERSATION_RETURN_SKELETON_MIN_MS
+            : CONVERSATION_SKELETON_MIN_MS;
+          const remaining = minimumDuration - elapsed;
+          if (remaining > 0) {
+            await new Promise((resolve) => window.setTimeout(resolve, remaining));
+          }
+          setIsInitialLoading(false);
+        }
       }
     };
 
-    load();
+    void load();
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [initialCache]);
 
   useEffect(() => {
     if (!me) return;
@@ -459,13 +612,29 @@ const ConversationPage = () => {
     );
   }, [conversations, searchTerm]);
 
+  const skeletonCards = useMemo<ConversationSkeletonCard[]>(() => {
+    if (conversations.length === 0) {
+      return FALLBACK_SKELETON_CARDS;
+    }
+    return conversations.slice(0, 6).map((item, index) => ({
+      id: item.id,
+      chatType: item.chatType,
+      role: item.role,
+      hasTrust: Boolean(item.trust),
+      nameWidth: item.chatType === "group" ? "7.3rem" : index % 2 === 0 ? "8.2rem" : "6.9rem",
+      previewWidth: item.chatType === "group" ? "81%" : index % 2 === 0 ? "87%" : "76%",
+      previewSecondaryWidth: item.chatType === "group" ? "54%" : index % 2 === 0 ? "58%" : "49%",
+      sublineWidth: item.chatType === "group" ? "5.6rem" : "7.2rem",
+    }));
+  }, [conversations]);
+
   const handleOpenThread = (threadId: number, other: string, avatarUrl?: string) => {
-    navigate("/chat", { state: { threadId, other, avatarUrl } });
+    navigate("/chat", { state: { threadId, other, avatarUrl, fromPath: "/conversations" } });
   };
 
   const handleOpenGroup = (groupId: string, groupName: string, avatarUrl: string) => {
     navigate("/chat", {
-      state: { chatType: "group", groupId, other: groupName, avatarUrl },
+      state: { chatType: "group", groupId, other: groupName, avatarUrl, fromPath: "/conversations" },
     });
   };
 
@@ -526,9 +695,100 @@ const ConversationPage = () => {
   const heroName = me?.name || me?.cleanId || me?.email || "CleanChat";
   const heroTrust = me?.trust ?? null;
   const metaCount = hasQuery ? searchUsers.length : conversations.length;
-  const metaLabel = hasQuery
-    ? `${metaCount} ${metaCount === 1 ? "person" : "people"} found`
-    : `${metaCount} ${metaCount === 1 ? "conversation" : "conversations"}`;
+  const metaLabel = isInitialLoading && !hasQuery && metaCount === 0
+    ? "Syncing conversations"
+    : hasQuery
+      ? `${metaCount} ${metaCount === 1 ? "person" : "people"} found`
+      : `${metaCount} ${metaCount === 1 ? "conversation" : "conversations"}`;
+  const viewportIncrease = {
+    top: listOverscan,
+    bottom: listOverscan,
+  } as const;
+  const listOverscanWindow = {
+    main: listOverscan,
+    reverse: listOverscan,
+  } as const;
+
+  const renderSearchUserCard = (_index: number, user: UserSummary) => {
+    const hasThread = threadByUserId.has(user.id);
+    const actionLabel =
+      openingUserId === user.id ? "Opening..." : hasThread ? "Open Chat" : "Start Chat";
+
+    return (
+      <div className="conversations-virtual-item">
+        <button
+          type="button"
+          className="conversation-card"
+          onClick={() => {
+            if (openingUserId !== user.id) {
+              handleOpenUser(user);
+            }
+          }}
+        >
+          <div className="avatar">
+            <img src={resolveAvatarUrl(user.avatar)} alt={`${user.cleanId} avatar`} />
+          </div>
+          <div className="conversation-body">
+            <div className="conversation-top">
+              <h3>{user.name || user.cleanId}</h3>
+              <p className="role">{actionLabel}</p>
+            </div>
+            <div className="conversation-identity-row">
+              <p className={`conversation-subline conversation-cleanid conversation-cleanid-${user.trust?.band ?? "blurred"}`}>
+                @{user.cleanId}
+              </p>
+              <span className={`conversation-trust-chip conversation-trust-chip-${user.trust?.band ?? "blurred"}`}>
+                {getTrustToneLabel(user.trust ?? FALLBACK_CLEAN_ID_TRUST)}
+              </span>
+            </div>
+            <p className="conversation-subline">{user.email}</p>
+          </div>
+        </button>
+      </div>
+    );
+  };
+
+  const renderConversationCard = (_index: number, item: ConversationItem) => (
+    <div className="conversations-virtual-item">
+      <button
+        type="button"
+        className="conversation-card"
+        onClick={() => {
+          if (item.chatType === "group" && item.groupId) {
+            handleOpenGroup(item.groupId, item.name, item.avatarUrl);
+            return;
+          }
+          if (item.threadId) {
+            handleOpenThread(item.threadId, item.cleanId || item.email || item.name, item.avatarUrl);
+          }
+        }}
+      >
+        <div className="avatar">
+          <img src={item.avatarUrl} alt={`${item.name} avatar`} />
+        </div>
+        <div className="conversation-body">
+          <div className="conversation-top">
+            <h3>{item.name}</h3>
+            <p className="role">{item.role}</p>
+            <span className="time">{item.time}</span>
+          </div>
+          <p className="preview">{item.preview}</p>
+          <div className="conversation-identity-row">
+            <p
+              className={`conversation-subline ${item.trust ? `conversation-cleanid conversation-cleanid-${item.trust.band}` : ""}`}
+            >
+              {item.subline}
+            </p>
+            {item.trust && (
+              <span className={`conversation-trust-chip conversation-trust-chip-${item.trust.band}`}>
+                {getTrustToneLabel(item.trust)}
+              </span>
+            )}
+          </div>
+        </div>
+      </button>
+    </div>
+  );
 
   return (
     <div className="conversations-page">
@@ -616,58 +876,75 @@ const ConversationPage = () => {
           <span>{metaLabel}</span>
         </div>
 
-        {status && <div className="status-text">{status}</div>}
+        {isInitialLoading && !hasQuery && (
+          <section className="conversations-list conversations-list-loading" aria-label="Loading conversations">
+            {skeletonCards.map((item) => (
+              <article key={`loading-${item.id}`} className="conversation-card conversation-card-skeleton" aria-hidden="true">
+                <div className="avatar avatar-skeleton">
+                  <span className="skeleton-surface avatar-skeleton-core" />
+                </div>
+                <div className="conversation-body">
+                  <div className="conversation-top">
+                    <span className="skeleton-surface conversation-title-skeleton" style={{ width: item.nameWidth }} />
+                    <span className="role role-skeleton">
+                      <span className="skeleton-surface role-skeleton-core" />
+                    </span>
+                    <span className="skeleton-surface time-skeleton" />
+                  </div>
+                  <div className="conversation-preview-skeleton">
+                    <span className="skeleton-surface preview-skeleton-line" style={{ width: item.previewWidth }} />
+                    <span
+                      className="skeleton-surface preview-skeleton-line preview-skeleton-line-short"
+                      style={{ width: item.previewSecondaryWidth }}
+                    />
+                  </div>
+                  <div className="conversation-identity-row">
+                    <span
+                      className={`conversation-subline conversation-cleanid conversation-cleanid-skeleton ${item.chatType === "group" ? "conversation-cleanid-skeleton-group" : ""}`}
+                    >
+                      <span className="skeleton-surface cleanid-skeleton-core" style={{ width: item.sublineWidth }} />
+                    </span>
+                    {item.hasTrust && (
+                      <span className="conversation-trust-chip conversation-trust-chip-skeleton">
+                        <span className="skeleton-surface trust-skeleton-core" />
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </section>
+        )}
 
-        {!status && hasQuery && (
+        {!isInitialLoading && status && <div className="status-text">{status}</div>}
+
+        {!isInitialLoading && !status && hasQuery && (
           <>
             {searchStatus && <div className="status-text">{searchStatus}</div>}
             {!searchStatus && searchUsers.length === 0 && (
               <div className="status-text">No users found.</div>
             )}
 
-            <section className="conversations-list">
-              {searchUsers.map((user) => {
-                const hasThread = threadByUserId.has(user.id);
-                const actionLabel =
-                  openingUserId === user.id ? "Opening..." : hasThread ? "Open Chat" : "Start Chat";
-
-                return (
-                  <button
-                    key={`user-${user.id}`}
-                    type="button"
-                    className="conversation-card"
-                    onClick={() => {
-                      if (openingUserId !== user.id) {
-                        handleOpenUser(user);
-                      }
-                    }}
-                  >
-                    <div className="avatar">
-                      <img src={resolveAvatarUrl(user.avatar)} alt={`${user.cleanId} avatar`} />
-                    </div>
-                    <div className="conversation-body">
-                      <div className="conversation-top">
-                        <h3>{user.name || user.cleanId}</h3>
-                        <p className="role">{actionLabel}</p>
-                      </div>
-                      <div className="conversation-identity-row">
-                        <p className={`conversation-subline conversation-cleanid conversation-cleanid-${user.trust?.band ?? "blurred"}`}>
-                          @{user.cleanId}
-                        </p>
-                        <span className={`conversation-trust-chip conversation-trust-chip-${user.trust?.band ?? "blurred"}`}>
-                          {getTrustToneLabel(user.trust ?? FALLBACK_CLEAN_ID_TRUST)}
-                        </span>
-                      </div>
-                      <p className="conversation-subline">{user.email}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </section>
+            {searchUsers.length > 0 && (
+              <section className="conversations-list-shell" aria-label="Search results">
+                <Virtuoso
+                  className="conversations-virtuoso"
+                  useWindowScroll
+                  data={searchUsers}
+                  computeItemKey={(_index, user) => `user-${user.id}`}
+                  defaultItemHeight={116}
+                  increaseViewportBy={viewportIncrease}
+                  overscan={listOverscanWindow}
+                  minOverscanItemCount={{ top: 12, bottom: 12 }}
+                  skipAnimationFrameInResizeObserver
+                  itemContent={renderSearchUserCard}
+                />
+              </section>
+            )}
           </>
         )}
 
-        {!status && !hasQuery && conversations.length === 0 && (
+        {!isInitialLoading && !status && !hasQuery && conversations.length === 0 && (
           <section className={`conversations-empty-state ${heroTrust ? `conversations-empty-state-${heroTrust.band}` : ""}`}>
             <div className="conversations-empty-mark">
               <span className={`conversation-cleanid conversation-cleanid-${heroTrust?.band ?? "blurred"}`}>
@@ -697,52 +974,24 @@ const ConversationPage = () => {
           </section>
         )}
 
-        {!status && !hasQuery && conversations.length > 0 && filteredConversations.length === 0 && (
+        {!isInitialLoading && !status && !hasQuery && conversations.length > 0 && filteredConversations.length === 0 && (
           <div className="status-text">No conversations match "{searchTerm.trim()}".</div>
         )}
 
-        {!status && !hasQuery && (
-          <section className="conversations-list">
-            {filteredConversations.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className="conversation-card"
-                onClick={() => {
-                  if (item.chatType === "group" && item.groupId) {
-                    handleOpenGroup(item.groupId, item.name, item.avatarUrl);
-                    return;
-                  }
-                  if (item.threadId) {
-                    handleOpenThread(item.threadId, item.cleanId || item.email || item.name, item.avatarUrl);
-                  }
-                }}
-              >
-                <div className="avatar">
-                  <img src={item.avatarUrl} alt={`${item.name} avatar`} />
-                </div>
-                <div className="conversation-body">
-                  <div className="conversation-top">
-                    <h3>{item.name}</h3>
-                    <p className="role">{item.role}</p>
-                    <span className="time">{item.time}</span>
-                  </div>
-                  <p className="preview">{item.preview}</p>
-                  <div className="conversation-identity-row">
-                    <p
-                      className={`conversation-subline ${item.trust ? `conversation-cleanid conversation-cleanid-${item.trust.band}` : ""}`}
-                    >
-                      {item.subline}
-                    </p>
-                    {item.trust && (
-                      <span className={`conversation-trust-chip conversation-trust-chip-${item.trust.band}`}>
-                        {getTrustToneLabel(item.trust)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </button>
-            ))}
+        {!isInitialLoading && !status && !hasQuery && (
+          <section className="conversations-list-shell" aria-label="Recent conversations">
+            <Virtuoso
+              className="conversations-virtuoso"
+              useWindowScroll
+              data={filteredConversations}
+              computeItemKey={(_index, item) => item.id}
+              defaultItemHeight={118}
+              increaseViewportBy={viewportIncrease}
+              overscan={listOverscanWindow}
+              minOverscanItemCount={{ top: 12, bottom: 12 }}
+              skipAnimationFrameInResizeObserver
+              itemContent={renderConversationCard}
+            />
           </section>
         )}
       </div>

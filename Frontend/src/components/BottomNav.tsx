@@ -53,29 +53,26 @@ const BottomNav = () => {
   ];
 
   return (
-    <>
-      <div className="bottom-nav-spacer" />
-      <nav className="bottom-nav" aria-label="Primary navigation">
-        <div className="bottom-nav-inner">
-          {items.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `bottom-nav-link ${isActive ? "active" : ""}`
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <NavIcon kind={item.kind} active={isActive} />
-                  <span className="bottom-nav-label">{item.label}</span>
-                </>
-              )}
-            </NavLink>
-          ))}
-        </div>
-      </nav>
-    </>
+    <nav className="bottom-nav" aria-label="Primary navigation">
+      <div className="bottom-nav-inner">
+        {items.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) =>
+              `bottom-nav-link ${isActive ? "active" : ""}`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <NavIcon kind={item.kind} active={isActive} />
+                <span className="bottom-nav-label">{item.label}</span>
+              </>
+            )}
+          </NavLink>
+        ))}
+      </div>
+    </nav>
   );
 };
 

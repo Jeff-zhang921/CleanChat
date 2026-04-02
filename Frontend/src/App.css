@@ -24,11 +24,20 @@ body {
   font-family: "Manrope", sans-serif;
   color: #182218;
   background: #f6efe3;
+  overflow-x: hidden;
 }
 
 .app-route-stage {
   animation: app-route-enter var(--motion-medium) var(--motion-smooth) both;
   will-change: opacity, transform, filter;
+}
+
+.app-route-stage-spatial-forward {
+  animation: app-route-enter-spatial-forward 420ms var(--motion-smooth) both;
+}
+
+.app-route-stage-spatial-back {
+  animation: app-route-enter-spatial-back 320ms var(--motion-smooth) both;
 }
 
 @keyframes app-route-enter {
@@ -51,8 +60,34 @@ body {
   }
 }
 
+@keyframes app-route-enter-spatial-forward {
+  0% {
+    opacity: 0;
+    transform: translateX(26px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes app-route-enter-spatial-back {
+  0% {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .app-route-stage {
+  .app-route-stage,
+  .app-route-stage-spatial-forward,
+  .app-route-stage-spatial-back {
     animation: none;
   }
 }

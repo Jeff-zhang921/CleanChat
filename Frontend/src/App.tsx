@@ -9,6 +9,9 @@ import LoginPage from './pages/login'
 import VerifyPage from './pages/verify'
 import BasicInfoPage from './pages/basicInfo'
 import ProfilePage from './pages/profile'
+import ProfileEditPage from './pages/profileEdit'
+import PurityDetailPage from './pages/purityDetail'
+import type { ProfileRouteState } from './utils/profileUser';
 
 type PretextBackdropVariant = 'auth' | 'app';
 
@@ -181,22 +184,32 @@ const PretextBackdrop = ({ variant }: { variant: PretextBackdropVariant }) => {
 
 const RoutedApp = () => {
   const location = useLocation();
+  const routeState = (location.state as ProfileRouteState | null) ?? null;
   const authRoutes = ['/login', '/verify', '/basic-info'];
   const variant: PretextBackdropVariant = authRoutes.some((route) => location.pathname.startsWith(route))
     ? 'auth'
     : 'app';
+  const routeStageClass = [
+    'app-route-stage',
+    routeState?.spatialTransition === 'push' ? 'app-route-stage-spatial-forward' : '',
+    routeState?.spatialTransition === 'pop' ? 'app-route-stage-spatial-back' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div style={{ position: 'relative', minHeight: '100svh' }}>
       <PretextBackdrop variant={variant} />
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <div className="app-route-stage" key={`${location.pathname}${location.search}`}>
+        <div className={routeStageClass} key={`${location.pathname}${location.search}${routeState?.spatialTransition ?? ''}`}>
           <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<LoginPage/>} />
             <Route path="/verify" element={<VerifyPage />} />
             <Route path="/basic-info" element={<BasicInfoPage />} />
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/profile/edit" element={<ProfileEditPage />} />
+            <Route path="/profile/purity" element={<PurityDetailPage />} />
             <Route path="/conversations" element={<ConversationsPage />} />
             <Route path="/groups" element={<GroupConversationPage />} />
             <Route path="/chat" element={<ChatPage />} />
