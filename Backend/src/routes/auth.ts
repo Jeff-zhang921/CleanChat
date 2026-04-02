@@ -3,6 +3,7 @@ import{PrismaClient}from"@prisma/client"
 import crypto from "crypto"
 import nodemailer from "nodemailer"
 import { DEFAULT_AVATAR } from "../avatar"
+import { buildCleanIdTrustSnapshots, fallbackCleanIdTrustSnapshot } from "../cleanIdTrust"
 
 const router = Router()
 const prisma = new PrismaClient()
@@ -244,23 +245,32 @@ if (loginCode.attempts >= MAX_ATTEMPTS) {
   const isNewUser = !existingUser
   const user = existingUser
     ? existingUser
-    : await prisma.user.create({
-        data: {
-          email,
-          name: email.split("@")[0],
-          avatar: DEFAULT_AVATAR,
-          cleanId: await generateUniqueCleanId(),
-        },
-      });
-    req.session.user = {
-    id: user.id,
-    email: user.email,
-    name: user.name ?? null,
-    cleanId: user.cleanId,
-    provider: "email",
-  };
+     : await prisma.user.create({
+         data: {
+           email,
+           name: email.split("@")[0],
+           avatar: DEFAULT_AVATAR,
+           cleanId: await generateUniqueCleanId(),
+         },
+       });
+    const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [user.id])
+     req.session.user = {
+     id: user.id,
+     email: user.email,
+     name: user.name ?? null,
+     cleanId: user.cleanId,
+     avatar: user.avatar ?? null,
+     provider: "email",
+   };
 
- res.json({message:"Login code verified",user,isNewUser})
+ res.json({
+   message:"Login code verified",
+   user: {
+     ...user,
+     trust: trustSnapshots.get(user.id) ?? fallbackCleanIdTrustSnapshot,
+   },
+   isNewUser
+ })
 })
 
 
@@ -269,8 +279,34 @@ router.get("/me",(req,res)=>{
     if(!req.session.user){
         return res.status(401).json({error:"Not authenticated"})
     }
-    res.json({user:req.session.user})
-
+    const sessionUser = req.session.user
+    void (async () => {
+      const user = await prisma.user.findUnique({
+        where: { id: sessionUser.id },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          cleanId: true,
+          avatar: true,
+        },
+      })
+      if (!user) {
+        delete req.session.user
+        res.status(404).json({ error: "User not found" })
+        return
+      }
+      const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [user.id])
+      res.json({
+        user: {
+          ...user,
+          trust: trustSnapshots.get(user.id) ?? fallbackCleanIdTrustSnapshot,
+        },
+      })
+    })().catch((error) => {
+      const details = error instanceof Error ? error.message : String(error)
+      res.status(500).json({ error: "Failed to load session user.", details })
+    })
 })
 router.post("/logout",(req,res)=>{
     req.session.destroy((err)=>{

@@ -2,6 +2,9 @@
 
 :root {
   color-scheme: light;
+  --motion-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-quick: 220ms;
+  --motion-medium: 360ms;
 }
 
 *,
@@ -21,4 +24,35 @@ body {
   font-family: "Manrope", sans-serif;
   color: #182218;
   background: #f6efe3;
+}
+
+.app-route-stage {
+  animation: app-route-enter var(--motion-medium) var(--motion-smooth) both;
+  will-change: opacity, transform, filter;
+}
+
+@keyframes app-route-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.992);
+    filter: blur(10px);
+  }
+
+  60% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-route-stage {
+    animation: none;
+  }
 }

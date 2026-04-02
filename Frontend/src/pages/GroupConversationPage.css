@@ -7,6 +7,21 @@
   background: var(--panel);
   box-shadow: 0 14px 30px rgba(15, 21, 36, 0.08);
   box-sizing: border-box;
+  animation: group-panel-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes group-panel-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.99);
+    filter: blur(8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
 }
 
 .groups-page .group-create-panel h3 {
@@ -386,5 +401,11 @@
 
   .groups-avatar-option {
     font-size: 0.76rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .groups-page .group-create-panel {
+    animation: none;
   }
 }

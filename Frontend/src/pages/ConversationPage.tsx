@@ -3,6 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { io, type Socket } from "socket.io-client";
 import BottomNav from "../components/BottomNav";
 import { BACKEND_URL, SOCKET_URL } from "../config";
+import {
+  FALLBACK_CLEAN_ID_TRUST,
+  type CleanIdTrustSnapshot,
+  getTrustToneLabel,
+} from "../utils/cleanIdTrust";
 import { showMessageNotification } from "../utils/notifications";
 import "./ConversationPage.css";
 
@@ -24,6 +29,7 @@ type UserSummary = {
   email: string;
   cleanId: string;
   avatar: AvatarKey;
+  trust: CleanIdTrustSnapshot;
 };
 
 type SessionUser = UserSummary;
@@ -60,6 +66,7 @@ type ConversationItem = {
   time: string;
   sortAt?: string | null;
   subline: string;
+  trust?: CleanIdTrustSnapshot;
 };
 
 type RealtimeMessage = {
@@ -155,6 +162,15 @@ const getConversationPreview = (body?: string | null) => {
 const getNotificationBody = (body: string) =>
   isImageMessageBody(body) ? "sent a photo" : body;
 
+const SearchGlyph = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path
+      d="M10.75 4.75a6 6 0 1 0 0 12a6 6 0 0 0 0-12Zm0-2a8 8 0 1 1 4.95 14.28l4.01 4.01a1 1 0 1 1-1.42 1.41l-4-4A8 8 0 0 1 10.75 2.75Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
 const ConversationPage = () => {
   const navigate = useNavigate();
 
@@ -163,6 +179,7 @@ const ConversationPage = () => {
   const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [status, setStatus] = useState("Loading...");
   const [searchTerm, setSearchTerm] = useState("");
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [searchUsers, setSearchUsers] = useState<UserSummary[]>([]);
   const [searchStatus, setSearchStatus] = useState("");
   const [openingUserId, setOpeningUserId] = useState<number | null>(null);
@@ -170,6 +187,7 @@ const ConversationPage = () => {
   const meRef = useRef<SessionUser | null>(null);
   const threadsRef = useRef<ThreadResponse[]>([]);
   const groupsRef = useRef<GroupSummary[]>([]);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     meRef.current = me;
@@ -182,6 +200,15 @@ const ConversationPage = () => {
   useEffect(() => {
     groupsRef.current = groups;
   }, [groups]);
+
+  useEffect(() => {
+    if (!isSearchExpanded) return;
+    const frame = window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isSearchExpanded]);
 
   const refreshThreads = async () => {
     const threadsResponse = await fetch(`${BACKEND_URL}/chat/threads`, {
@@ -421,6 +448,7 @@ const ConversationPage = () => {
         time: formatTime(lastActivityTime),
         sortAt: lastActivityTime,
         subline: `@${other.cleanId}`,
+        trust: other.trust ?? FALLBACK_CLEAN_ID_TRUST,
       };
     });
 
@@ -509,8 +537,21 @@ const ConversationPage = () => {
     }
   };
 
+  const openSearch = () => {
+    setIsSearchExpanded(true);
+  };
+
+  const closeSearch = () => {
+    setSearchTerm("");
+    setSearchUsers([]);
+    setSearchStatus("");
+    setIsSearchExpanded(false);
+  };
+
   const hasQuery = searchTerm.trim().length > 0;
+  const isSearchOpen = isSearchExpanded || hasQuery;
   const heroName = me?.name || me?.cleanId || me?.email || "CleanChat";
+  const heroTrust = me?.trust ?? null;
   const metaCount = hasQuery ? searchUsers.length : conversations.length;
   const metaLabel = hasQuery
     ? `${metaCount} ${metaCount === 1 ? "person" : "people"} found`
@@ -528,19 +569,72 @@ const ConversationPage = () => {
                 ? "Search people by CleanID and jump straight into a conversation."
                 : "Direct chats and joined groups, sorted by latest activity."}
             </p>
+            {heroTrust && (
+              <div className={`conversations-signal-strip conversations-signal-strip-${heroTrust.band}`}>
+                <div className="conversations-signal-top">
+                  <span className={`conversation-trust-chip conversation-trust-chip-${heroTrust.band}`}>
+                    {getTrustToneLabel(heroTrust)}
+                  </span>
+                  <strong>{heroTrust.score}</strong>
+                </div>
+                <div className="conversations-signal-mark-row">
+                  <span className={`conversation-cleanid conversation-cleanid-${heroTrust.band}`}>@{me?.cleanId}</span>
+                  <span className="conversations-signal-copy">{heroTrust.summary}</span>
+                </div>
+              </div>
+            )}
           </div>
         </header>
 
-        <div className="conversations-toolbar">
-          <div className="search-field">
-            <label htmlFor="conversation-search">Search</label>
-            <input
-              id="conversation-search"
-              type="text"
-              placeholder="Search everyone by CleanID"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-            />
+        <div className={`conversations-toolbar ${isSearchOpen ? "search-open" : ""}`}>
+          {!isSearchOpen && (
+            <button
+              type="button"
+              className="search-launcher"
+              aria-label="Open search"
+              onClick={openSearch}
+            >
+              <SearchGlyph />
+            </button>
+          )}
+          <div className={`search-shell ${isSearchOpen ? "expanded" : ""}`}>
+            <div className="search-field">
+              <label className="sr-only" htmlFor="conversation-search">
+                Search by CleanID
+              </label>
+              <div className="search-input-wrap">
+                <span className="search-icon">
+                  <SearchGlyph />
+                </span>
+                <input
+                  ref={searchInputRef}
+                  id="conversation-search"
+                  type="text"
+                  placeholder="Search everyone by CleanID"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  onFocus={openSearch}
+                  onBlur={() => {
+                    if (!searchTerm.trim()) {
+                      setIsSearchExpanded(false);
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      closeSearch();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="search-dismiss"
+                  aria-label="Close search"
+                  onClick={closeSearch}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -583,7 +677,14 @@ const ConversationPage = () => {
                         <h3>{user.name || user.cleanId}</h3>
                         <p className="role">{actionLabel}</p>
                       </div>
-                      <p className="preview">@{user.cleanId}</p>
+                      <div className="conversation-identity-row">
+                        <p className={`conversation-subline conversation-cleanid conversation-cleanid-${user.trust?.band ?? "blurred"}`}>
+                          @{user.cleanId}
+                        </p>
+                        <span className={`conversation-trust-chip conversation-trust-chip-${user.trust?.band ?? "blurred"}`}>
+                          {getTrustToneLabel(user.trust ?? FALLBACK_CLEAN_ID_TRUST)}
+                        </span>
+                      </div>
                       <p className="conversation-subline">{user.email}</p>
                     </div>
                   </button>
@@ -594,7 +695,33 @@ const ConversationPage = () => {
         )}
 
         {!status && !hasQuery && conversations.length === 0 && (
-          <div className="status-text">No conversations or joined groups yet.</div>
+          <section className={`conversations-empty-state ${heroTrust ? `conversations-empty-state-${heroTrust.band}` : ""}`}>
+            <div className="conversations-empty-mark">
+              <span className={`conversation-cleanid conversation-cleanid-${heroTrust?.band ?? "blurred"}`}>
+                @{me?.cleanId ?? "cleanid"}
+              </span>
+              {heroTrust && (
+                <span className={`conversation-trust-chip conversation-trust-chip-${heroTrust.band}`}>
+                  {getTrustToneLabel(heroTrust)}
+                </span>
+              )}
+            </div>
+            <h3>No conversations yet</h3>
+            <p>
+              Start with a CleanID search or join a group. Healthy back-and-forth is what sharpens your identity
+              signal here.
+            </p>
+            <div className="conversations-empty-grid">
+              <div className="conversations-empty-cell">
+                <span>Start clean</span>
+                <strong>Search by CleanID</strong>
+              </div>
+              <div className="conversations-empty-cell">
+                <span>Stay trusted</span>
+                <strong>{heroTrust?.summary ?? "Build consistent conversations."}</strong>
+              </div>
+            </div>
+          </section>
         )}
 
         {!status && !hasQuery && conversations.length > 0 && filteredConversations.length === 0 && (
@@ -628,7 +755,18 @@ const ConversationPage = () => {
                     <span className="time">{item.time}</span>
                   </div>
                   <p className="preview">{item.preview}</p>
-                  <p className="conversation-subline">{item.subline}</p>
+                  <div className="conversation-identity-row">
+                    <p
+                      className={`conversation-subline ${item.trust ? `conversation-cleanid conversation-cleanid-${item.trust.band}` : ""}`}
+                    >
+                      {item.subline}
+                    </p>
+                    {item.trust && (
+                      <span className={`conversation-trust-chip conversation-trust-chip-${item.trust.band}`}>
+                        {getTrustToneLabel(item.trust)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </button>
             ))}

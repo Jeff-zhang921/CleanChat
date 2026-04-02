@@ -2,6 +2,12 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
 import { BACKEND_URL } from "../config";
+import {
+  FALLBACK_CLEAN_ID_TRUST,
+  type CleanIdTrustSnapshot,
+  getTrustMetricLabel,
+  getTrustToneLabel,
+} from "../utils/cleanIdTrust";
 import { getNotificationPermission, requestNotificationPermission } from "../utils/notifications";
 import "./profile.css";
 
@@ -25,6 +31,7 @@ type ProfileUser = {
   name: string;
   cleanId: string;
   avatar: AvatarKey;
+  trust: CleanIdTrustSnapshot;
 };
 
 type OwnedGroupSummary = {
@@ -528,6 +535,34 @@ const ProfilePage = () => {
   const activeName = user ? (isEditing ? nickname : user.name) : "";
   const activeCleanId = user ? (isEditing ? cleanId : user.cleanId) : "";
   const selectedOwnedGroup = ownedGroups.find((group) => group.id === selectedGroupId) ?? null;
+  const activeTrust = user?.trust ?? FALLBACK_CLEAN_ID_TRUST;
+  const trustMetrics = [
+    {
+      label: "Score",
+      value: `${activeTrust.score}`,
+    },
+    {
+      label: "Account age",
+      value: `${activeTrust.metrics.accountAgeDays}d`,
+    },
+    {
+      label: "Stable threads",
+      value: `${activeTrust.metrics.sustainedThreads}`,
+    },
+    {
+      label: "Recent replies",
+      value: `${activeTrust.metrics.recentMessages}`,
+    },
+    {
+      label: "Sent",
+      value: `${activeTrust.metrics.sentMessages}`,
+    },
+    {
+      label: "Penalties",
+      value: activeTrust.metrics.moderationPenalties === 0 ? "None" : `${activeTrust.metrics.moderationPenalties}`,
+    },
+  ];
+  const trustMeterWidth = `${Math.max(activeTrust.score, 6)}%`;
 
   return (
     <div className="profile-shell">
@@ -553,7 +588,7 @@ const ProfilePage = () => {
               </button>
             </header>
 
-            <section className="profile-summary">
+            <section className={`profile-summary profile-summary-band-${activeTrust.band}`}>
               <img
                 className="profile-avatar-main"
                 src={avatarUrl(activeAvatar)}
@@ -561,9 +596,80 @@ const ProfilePage = () => {
               />
               <div className="profile-summary-text">
                 <h2>{activeName}</h2>
-                <p>@{activeCleanId}</p>
+                <p className={`profile-cleanid profile-cleanid-${activeTrust.band}`}>@{activeCleanId}</p>
                 <span>{user.email}</span>
               </div>
+              <div className="profile-summary-signal">
+                <span className={`profile-trust-pill profile-trust-pill-${activeTrust.band}`}>
+                  {getTrustToneLabel(activeTrust)}
+                </span>
+                <div className={`profile-summary-orb profile-summary-orb-${activeTrust.band}`}>
+                  <strong>{activeTrust.score}</strong>
+                  <span>signal</span>
+                </div>
+                <p>{activeTrust.title}</p>
+              </div>
+            </section>
+
+            <section className={`profile-trust-card profile-trust-card-${activeTrust.band}`}>
+              <div className="profile-trust-head">
+                <div>
+                  <p className="profile-settings-eyebrow">CleanID</p>
+                  <h3>Identity purity</h3>
+                </div>
+                <div className="profile-trust-score-wrap">
+                  <span className={`profile-trust-pill profile-trust-pill-${activeTrust.band}`}>
+                    {getTrustToneLabel(activeTrust)}
+                  </span>
+                  <strong>{activeTrust.score}</strong>
+                </div>
+              </div>
+              <div className="profile-trust-meter" aria-hidden="true">
+                <div
+                  className={`profile-trust-meter-fill profile-trust-meter-fill-${activeTrust.band}`}
+                  style={{ width: trustMeterWidth }}
+                />
+                <span
+                  className={`profile-trust-meter-dot profile-trust-meter-dot-${activeTrust.band}`}
+                  style={{ left: `calc(${trustMeterWidth} - 0.4rem)` }}
+                />
+              </div>
+              <div className="profile-trust-mark-row">
+                <span className={`profile-trust-mark profile-trust-mark-${activeTrust.band}`}>
+                  @{activeCleanId}
+                </span>
+                <span className="profile-trust-caption">{getTrustMetricLabel(activeTrust)}</span>
+              </div>
+              <p className="profile-trust-summary">{activeTrust.summary}</p>
+              <p className="profile-hint">{activeTrust.detail}</p>
+              <div className="profile-trust-metrics">
+                {trustMetrics.map((metric) => (
+                  <div key={metric.label} className="profile-trust-metric">
+                    <span>{metric.label}</span>
+                    <strong>{metric.value}</strong>
+                  </div>
+                ))}
+              </div>
+              <div className="profile-trust-ledger">
+                <div className="profile-trust-ledger-item">
+                  <span>Signal texture</span>
+                  <strong>{activeTrust.band === "clear" ? "Crisp" : activeTrust.band === "steady" ? "Stable" : activeTrust.band === "fragile" ? "Soft" : "Diffuse"}</strong>
+                </div>
+                <div className="profile-trust-ledger-item">
+                  <span>What sharpens it</span>
+                  <strong>
+                    {activeTrust.metrics.sustainedThreads > 1
+                      ? "Longer threads"
+                      : activeTrust.metrics.recentMessages > 4
+                        ? "Steady replies"
+                        : "Healthy cadence"}
+                  </strong>
+                </div>
+              </div>
+              <p className="profile-trust-footnote">
+                This read is based on conversation consistency today. Block and report penalties can plug into
+                the same surface later without turning it into a level system.
+              </p>
             </section>
 
             {!isEditing && (

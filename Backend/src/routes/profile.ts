@@ -1,5 +1,6 @@
 import { NextFunction,Request,Response,Router } from "express";
 import { Avatar, PrismaClient } from "@prisma/client";
+import { buildCleanIdTrustSnapshots, fallbackCleanIdTrustSnapshot } from "../cleanIdTrust";
 const router = Router();    
 const prisma = new PrismaClient();
 
@@ -38,7 +39,13 @@ router.get("/me",requireProfileSession,async (req,res)=>{
         delete req.session.user
         return res.status(404).json({error:"User not found"})
     }
-    res.json({user})
+    const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [user.id])
+    res.json({
+      user: {
+        ...user,
+        trust: trustSnapshots.get(user.id) ?? fallbackCleanIdTrustSnapshot,
+      },
+    })
 })
 router.patch("/me",requireProfileSession,async (req,res)=>{
     const sessionUser=req.session.user
@@ -73,20 +80,27 @@ router.patch("/me",requireProfileSession,async (req,res)=>{
   }
 
   try {
-    const updatedUser = await prisma.user.update({
-      where: { id: sessionUser.id },
-      data: updates,
-      select: { id: true, email: true, name: true, cleanId: true, avatar: true },
-    })
+      const updatedUser = await prisma.user.update({
+        where: { id: sessionUser.id },
+        data: updates,
+        select: { id: true, email: true, name: true, cleanId: true, avatar: true },
+      })
+      const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [updatedUser.id])
 
-    req.session.user = {
-      ...sessionUser,
-      name: updatedUser.name ?? null,
-      cleanId: updatedUser.cleanId,
-      avatar: updatedUser.avatar ?? null,
-    }
+      req.session.user = {
+        ...sessionUser,
+        name: updatedUser.name ?? null,
+        cleanId: updatedUser.cleanId,
+        avatar: updatedUser.avatar ?? null,
+      }
 
-    res.json({ message: "Profile updated.", user: updatedUser })
+      res.json({
+        message: "Profile updated.",
+        user: {
+          ...updatedUser,
+          trust: trustSnapshots.get(updatedUser.id) ?? fallbackCleanIdTrustSnapshot,
+        },
+      })
   } catch (error) {
     const details = error instanceof Error ? error.message : String(error)
     const enumMismatch =
@@ -183,12 +197,19 @@ router.patch("/clean-id",requireProfileSession,async (req,res)=>{
     data: { cleanId: cleanIdRaw },
     select: { id: true, email: true, name: true, cleanId: true, avatar: true },
   })
+  const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [updatedUser.id])
 
   req.session.user = {
     ...sessionUser,
     cleanId: updatedUser.cleanId,
   }
-  res.json({ message: "cleanId updated.", user: updatedUser })
+  res.json({
+    message: "cleanId updated.",
+    user: {
+      ...updatedUser,
+      trust: trustSnapshots.get(updatedUser.id) ?? fallbackCleanIdTrustSnapshot,
+    },
+  })
 })
 
 

@@ -20,6 +20,7 @@ import {
   updateGroupJoinPolicy,
   isGroupMember,
 } from "../groupStore";
+import { buildCleanIdTrustSnapshots, fallbackCleanIdTrustSnapshot } from "../cleanIdTrust";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -171,7 +172,17 @@ router.get("/users/search", async (req, res) => {
     take: 20,
   });
 
-  res.json({ users });
+  const trustSnapshots = await buildCleanIdTrustSnapshots(
+    prisma,
+    users.map((user) => user.id)
+  );
+
+  res.json({
+    users: users.map((user) => ({
+      ...user,
+      trust: trustSnapshots.get(user.id) ?? fallbackCleanIdTrustSnapshot,
+    })),
+  });
 });
 
 router.get("/groups", async (req, res) => {
@@ -595,7 +606,24 @@ router.get("/threads", async (req, res) => {
     orderBy: [{ lastMessageAt: "desc" }, { updatedAt: "desc" }],
   });
 
-  res.json(threads);
+  const trustSnapshots = await buildCleanIdTrustSnapshots(
+    prisma,
+    threads.flatMap((thread) => [thread.UserA.id, thread.UserB.id])
+  );
+
+  res.json(
+    threads.map((thread) => ({
+      ...thread,
+      UserA: {
+        ...thread.UserA,
+        trust: trustSnapshots.get(thread.UserA.id) ?? fallbackCleanIdTrustSnapshot,
+      },
+      UserB: {
+        ...thread.UserB,
+        trust: trustSnapshots.get(thread.UserB.id) ?? fallbackCleanIdTrustSnapshot,
+      },
+    }))
+  );
 });
 
 router.get("/threads/:threadId/messages", async (req, res) => {
