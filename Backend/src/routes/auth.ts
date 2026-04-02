@@ -36,6 +36,7 @@ const mailer =
 
 function generateLoginCode():string{
     const max=10**CODE_LENGTH
+    //padstart check the generate number
       return crypto.randomInt(0, max).toString().padStart(CODE_LENGTH, "0");
 }
 function hashCode(code:string):string{
@@ -104,12 +105,13 @@ await mailer.sendMail({
     html
 })  
 }
-
+//typescirpt no need force return value
 function queueLoginCodeEmail(name: string, email: string, code: string, codeHash: string) {
   if (process.env.NODE_ENV === "test") {
     return;
   }
-
+//关键字 void:去后台做，不用回信
+//await :等它做完，我再动。
   void sendLoginCode(name, email, code).catch(async (error) => {
     console.error("Failed to send verification email:", error);
     try {
@@ -158,6 +160,7 @@ router.post("/email/start",async(req,res)=>{
     const code=generateLoginCode()
     const hashedCode=hashCode(code)
     const expireAt=new Date(Date.now()+CODE_TTL_MS)
+    //prisma function is all async
     await prisma.$transaction(
       [
         prisma.loginCode.deleteMany({
@@ -178,6 +181,7 @@ router.post("/email/start",async(req,res)=>{
     queueLoginCodeEmail(name,email,code,hashedCode)
     res.status(202).json({message:"Verification code is being sent"})
   }catch(error){
+    //instance of Error:判断error是不是Error的实例，如果是，就用error.message；如果不是，就把error转换成字符串。
     const details = error instanceof Error ? error.message : String(error)
     console.error("Failed to start email verification:", error)
     res.status(500).json({

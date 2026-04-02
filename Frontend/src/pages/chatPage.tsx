@@ -646,6 +646,7 @@ useEffect(() => {
           <button 
           type='button'
           className='back-button'
+          aria-label='Go back'
           onClick={()=>navigate(-1)}
           >
            ⤺
@@ -673,7 +674,7 @@ useEffect(() => {
           )}
 
           {message.length === 0 && (
-            <div>{chatMode === "group" ? "No group messages yet." : "Start a conversation"}</div>
+            <div className="chat-empty">{chatMode === "group" ? "No group messages yet." : "Start a conversation"}</div>
           )}
           
           {message.map((msg) => {

@@ -481,7 +481,7 @@ const ProfilePage = () => {
             onClick={handleBackToLogin}
             disabled={isLoggingOut}
           >
-            {isLoggingOut ? "Logging out..." : "Back to Login"}
+            {isLoggingOut ? "Logging out..." : "Log Out"}
           </button>
         </header>
 

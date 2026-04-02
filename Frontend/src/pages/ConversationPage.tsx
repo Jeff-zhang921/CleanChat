@@ -595,13 +595,25 @@ const ConversationPage = () => {
   };
 
   const hasQuery = searchTerm.trim().length > 0;
+  const heroName = me?.name || me?.cleanId || me?.email || "CleanChat";
+  const metaCount = hasQuery ? searchUsers.length : conversations.length;
+  const metaLabel = hasQuery
+    ? `${metaCount} ${metaCount === 1 ? "person" : "people"} found`
+    : `${metaCount} ${metaCount === 1 ? "conversation" : "conversations"}`;
 
   return (
     <div className="conversations-page">
       <div className="conversations-shell">
-        <p className="search-owner-name">{me?.name || me?.cleanId || me?.email}</p>
-        <header className="conversations-header">
-          <div className="conversations-header-spacer" />
+        <header className="conversations-hero">
+          <div className="conversations-title-wrap">
+            <p className="eyebrow">{heroName}</p>
+            <h1 className="page-title">Messages</h1>
+            <p className="page-copy">
+              {hasQuery
+                ? "Search people by CleanID and jump straight into a conversation."
+                : "Direct chats and joined groups, sorted by latest activity."}
+            </p>
+          </div>
           <button
             type="button"
             className="notify-button"
@@ -628,7 +640,8 @@ const ConversationPage = () => {
         </div>
 
         <div className="conversations-meta">
-          <h2>{hasQuery ? "People" : "Messages"}</h2>
+          <h2>{hasQuery ? "People" : "Recent activity"}</h2>
+          <span>{metaLabel}</span>
         </div>
 
         {status && <div className="status-text">{status}</div>}
@@ -647,17 +660,12 @@ const ConversationPage = () => {
                   openingUserId === user.id ? "Opening..." : hasThread ? "Open Chat" : "Start Chat";
 
                 return (
-                  <article
+                  <button
                     key={`user-${user.id}`}
+                    type="button"
                     className="conversation-card"
                     onClick={() => {
                       if (openingUserId !== user.id) {
-                        handleOpenUser(user);
-                      }
-                    }}
-                    role="button"
-                    onKeyDown={(event) => {
-                      if ((event.key === "Enter" || event.key === " ") && openingUserId !== user.id) {
                         handleOpenUser(user);
                       }
                     }}
@@ -673,7 +681,7 @@ const ConversationPage = () => {
                       <p className="preview">@{user.cleanId}</p>
                       <p className="conversation-subline">{user.email}</p>
                     </div>
-                  </article>
+                  </button>
                 );
               })}
             </section>
@@ -691,8 +699,9 @@ const ConversationPage = () => {
         {!status && !hasQuery && (
           <section className="conversations-list">
             {filteredConversations.map((item) => (
-              <article
+              <button
                 key={item.id}
+                type="button"
                 className="conversation-card"
                 onClick={() => {
                   if (item.chatType === "group" && item.groupId) {
@@ -701,18 +710,6 @@ const ConversationPage = () => {
                   }
                   if (item.threadId) {
                     handleOpenThread(item.threadId, item.cleanId || item.email || item.name, item.avatarUrl);
-                  }
-                }}
-                role="button"
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    if (item.chatType === "group" && item.groupId) {
-                      handleOpenGroup(item.groupId, item.name, item.avatarUrl);
-                      return;
-                    }
-                    if (item.threadId) {
-                      handleOpenThread(item.threadId, item.cleanId || item.email || item.name, item.avatarUrl);
-                    }
                   }
                 }}
               >
@@ -728,7 +725,7 @@ const ConversationPage = () => {
                   <p className="preview">{item.preview}</p>
                   <p className="conversation-subline">{item.subline}</p>
                 </div>
-              </article>
+              </button>
             ))}
           </section>
         )}

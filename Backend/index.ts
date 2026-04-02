@@ -1,4 +1,4 @@
-import express,{Request,Response} from 'express';
+import express,{NextFunction,Request,Response} from 'express';
 
 import cors from 'cors';
 import { sessionMiddleware } from "./src/session";
@@ -20,7 +20,14 @@ if (useProxyTrust) {
     app.set("trust proxy", 1);
 }
 
-const defaultOrigins = ["http://localhost:5173", "http://localhost:5273"];
+const defaultOrigins = [
+  "http://localhost:4173",
+  "http://localhost:5173",
+  "http://localhost:5273",
+  "http://127.0.0.1:4173",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5273",
+];
 const envOrigins = (process.env.FRONTEND_URLS ?? process.env.FRONTEND_URL ?? "")
   .split(",")
   .map((origin) => origin.trim())
@@ -44,6 +51,31 @@ const PORT = Number(process.env.PORT || 4000);
 app.get("/",(request:Request,response:Response)=>{
      response.json({message:"Hello CleanChat"});
      console.log("Root endpoint was called")
+});
+
+app.use((request: Request, response: Response) => {
+    response.status(404).json({
+        error: "Route not found",
+        method: request.method,
+        path: request.originalUrl,
+    });
+});
+
+app.use((error: unknown, request: Request, response: Response, _next: NextFunction) => {
+    console.error("Unhandled server error", error);
+
+    if (response.headersSent) {
+        return;
+    }
+
+    const details = error instanceof Error ? error.message : String(error);
+
+    response.status(500).json({
+        error: "Internal server error",
+        method: request.method,
+        path: request.originalUrl,
+        ...(process.env.NODE_ENV === "production" ? {} : { details }),
+    });
 });
 
 if (require.main === module) {

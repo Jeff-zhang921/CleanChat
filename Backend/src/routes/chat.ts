@@ -25,11 +25,14 @@ const router = Router();
 const prisma = new PrismaClient();
 const utapi = new UTApi();
 const MAX_IMAGE_UPLOAD_BYTES = 15 * 1024 * 1024;
+//multer is a middleware to set up the req.file for image upload
+//initalise
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_IMAGE_UPLOAD_BYTES },
 });
 
+//is keyword: if true then type numer|undefined will be narrowed to number
 const ensureAuth = (sessionUserId: number | undefined): sessionUserId is number =>
   typeof sessionUserId === "number" && Number.isInteger(sessionUserId) && sessionUserId > 0;
 
@@ -46,6 +49,7 @@ const parsePositiveInt = (raw: unknown): number | null => {
 };
 
 router.post("/upload-image",(req, res, next) => {
+  //upload.single("image"): 这是一个由 Multer 生成的中间件函数，
     upload.single("image")(req, res, (error: unknown) => {
       if (!error) {
         next();
@@ -65,6 +69,7 @@ router.post("/upload-image",(req, res, next) => {
       res.status(400).json({ error: "Invalid image upload request.", details });
     });
   },
+  
   async (req, res) => {
   const sessionUserId = req.session.user?.id;
   if (!ensureAuth(sessionUserId)) {
@@ -76,24 +81,31 @@ router.post("/upload-image",(req, res, next) => {
     res.status(500).json({ error: "UPLOADTHING_TOKEN is not configured on backend." });
     return;
   }
-
+//typeof:check type
+//is:narrow type "is" is with if
+//in:check if property exists in object
+//as: type assertion, tell compiler to treat a variable as a certain type
+//instance of: check if an object is an instance of a class or constructor function
+//?.: if null stop and return undefined
   const file = req.file as Express.Multer.File | undefined;
   if (!file) {
     res.status(400).json({ error: "Image file is required." });
     return;
   }
+  //mimetype is a new property in req/file it tell server what the type of this file
   if (!file.mimetype.startsWith("image/")) {
     res.status(400).json({ error: "Only image files are allowed." });
     return;
   }
 
   try {
+    //UTFile is file format that accepted by utapi, send it to uploadthing
     //UTFile expects a BlobPart which can be ArrayBuffer, ArrayBufferView, Blob, or string. Buffer from multer can be treated as a BlobPart.
     const uploadFile = new UTFile([file.buffer as BlobPart], file.originalname || `chat-${Date.now()}.jpg`, {
       type: file.mimetype,
       lastModified: Date.now(),
     });
-
+//utapi is the use of Uploadting API
     const uploaded = await utapi.uploadFiles(uploadFile);
     const uploadedData = Array.isArray(uploaded) ? uploaded[0]?.data : uploaded.data;
     const uploadedError = Array.isArray(uploaded) ? uploaded[0]?.error : uploaded.error;

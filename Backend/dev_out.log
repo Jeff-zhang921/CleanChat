@@ -1,0 +1,4 @@
+
+> express@1.0.0 dev
+> nodemon --exec "ts-node --files" index.ts
+

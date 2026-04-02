@@ -328,10 +328,20 @@ const GroupConversationPage = () => {
     await handleJoinGroup(group);
   };
 
+  const heroName = me?.name || me?.cleanId || me?.email || "CleanChat";
+
   return (
     <div className="conversations-page groups-page">
       <div className="conversations-shell">
-        <p className="search-owner-name">{me?.name || me?.cleanId || me?.email}</p>
+        <header className="conversations-hero conversations-hero-compact">
+          <div className="conversations-title-wrap">
+            <p className="eyebrow">{heroName}</p>
+            <h1 className="page-title">Groups</h1>
+            <p className="page-copy">
+              Create a room, browse communities, and manage the ones you own.
+            </p>
+          </div>
+        </header>
 
         <div className="conversations-toolbar">
           <div className="search-field">
@@ -347,7 +357,8 @@ const GroupConversationPage = () => {
         </div>
 
         <div className="conversations-meta">
-          <h2>Groups</h2>
+          <h2>Browse and create</h2>
+          <span>{filteredGroups.length} groups visible</span>
         </div>
 
         <section className="group-create-panel">
@@ -432,8 +443,10 @@ const GroupConversationPage = () => {
                     if (canOpenByCard) openGroupChat(group);
                   }}
                   role={canOpenByCard ? "button" : undefined}
+                  tabIndex={canOpenByCard ? 0 : -1}
                   onKeyDown={(event) => {
                     if (canOpenByCard && (event.key === "Enter" || event.key === " ")) {
+                      event.preventDefault();
                       openGroupChat(group);
                     }
                   }}
