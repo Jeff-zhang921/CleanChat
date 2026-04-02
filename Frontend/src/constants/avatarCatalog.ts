@@ -69,52 +69,41 @@ export type AvatarAccess = {
   tiers: Record<AvatarTier, AvatarTierAccess>;
 };
 
-type PortraitStyle = "cartoon" | "studio" | "anime";
-type HairShape =
-  | "bob"
-  | "wave"
-  | "bun"
-  | "short"
-  | "pony"
-  | "parted"
-  | "pixie"
-  | "curl";
-type Accessory = "none" | "clip" | "glasses" | "earring" | "scarf" | "band";
-type Expression = "calm" | "smile" | "soft";
-type Motif = "grid" | "leaf" | "halo" | "petal" | "ripple";
-
-type Palette = {
-  bg: string;
-  wash: string;
-  glow: string;
-  skin: string;
-  skinShade: string;
-  hair: string;
-  hairShade: string;
-  top: string;
-  accent: string;
-  line: string;
-  iris: string;
-  blush: string;
-};
-
-type PortraitSeed = {
+type StarterSeed = {
   key: AvatarKey;
   label: string;
-  palette: keyof typeof PALETTES;
-  hairShape: HairShape;
-  accessory: Accessory;
-  expression: Expression;
-  motif: Motif;
+  background: string;
+  wash: string;
+  skin: string;
+  hair: string;
+  shirt: string;
+  line: string;
+  accent: string;
+  hairShape: "bob" | "crop" | "wave" | "veil" | "bun";
+  mark: "leaf" | "arc" | "grid" | "ribbon";
 };
 
-type PortraitDefinition = AvatarOption & {
-  style: PortraitStyle;
-  palette: Palette;
-  hairShape: HairShape;
-  accessory: Accessory;
-  expression: Expression;
-  motif: Motif;
+type MarbleSeed = {
+  key: AvatarKey;
+  label: string;
+  stone: string;
+  stoneDark: string;
+  fog: string;
+  accent: string;
+  profile: "left" | "right";
+  crown: "halo" | "laurel" | "veil" | "arch";
+  fracture: "ring" | "scar" | "grain" | "dust";
+};
+
+type EtherSeed = {
+  key: AvatarKey;
+  label: string;
+  base: string;
+  obsidian: string;
+  glowA: string;
+  glowB: string;
+  glowC: string;
+  form: "arch" | "spire" | "orb" | "crown" | "veil";
 };
 
 const ACTIVE_UNLOCK_RECENT_MESSAGES = 8;
@@ -122,153 +111,10 @@ const ACTIVE_UNLOCK_TOTAL_MESSAGES = 12;
 const TRUSTED_UNLOCK_SCORE = 64;
 
 const FAMILY_BY_TIER: Record<AvatarTier, string> = {
-  starter: "Calm Cartoon Characters",
-  active: "Studio Portraits",
-  trusted: "Serene Anime Characters",
+  starter: "Minimalist Characters",
+  active: "Classical Marble Portraits",
+  trusted: "Ethereal Light Forms",
 };
-
-const PALETTES = {
-  sagePeach: {
-    bg: "#F6F1E8",
-    wash: "#E6EFE5",
-    glow: "#E7D7C8",
-    skin: "#F1D9C9",
-    skinShade: "#E6C6B0",
-    hair: "#6C665C",
-    hairShade: "#4E4A44",
-    top: "#8FA79A",
-    accent: "#D9B39F",
-    line: "#534F49",
-    iris: "#57685C",
-    blush: "#E6B5AC",
-  },
-  mistBlue: {
-    bg: "#EEF3F5",
-    wash: "#E6ECE8",
-    glow: "#D8E2E8",
-    skin: "#F0D9CC",
-    skinShade: "#E5C3B0",
-    hair: "#5D6471",
-    hairShade: "#404651",
-    top: "#93A9BB",
-    accent: "#C5D2DB",
-    line: "#4E5561",
-    iris: "#56728A",
-    blush: "#E4B1AA",
-  },
-  clayRose: {
-    bg: "#F7EEE8",
-    wash: "#F0E6E2",
-    glow: "#EAD8D1",
-    skin: "#F2DBC9",
-    skinShade: "#E4BEAA",
-    hair: "#775E58",
-    hairShade: "#57433F",
-    top: "#B48D85",
-    accent: "#D9C0B7",
-    line: "#584944",
-    iris: "#6E5D58",
-    blush: "#E7B0AB",
-  },
-  oatFern: {
-    bg: "#F4F1E7",
-    wash: "#E9EEE1",
-    glow: "#D8D7C7",
-    skin: "#EFD7C4",
-    skinShade: "#DEBAA5",
-    hair: "#5E5C4F",
-    hairShade: "#434135",
-    top: "#8DA287",
-    accent: "#C5C8B1",
-    line: "#4D4B42",
-    iris: "#5E6A53",
-    blush: "#E4AEA5",
-  },
-  seaGlass: {
-    bg: "#EEF4F1",
-    wash: "#E6F0EC",
-    glow: "#D3E2DD",
-    skin: "#F2DCCC",
-    skinShade: "#E7C2B4",
-    hair: "#4E6B68",
-    hairShade: "#37504D",
-    top: "#7EA7A1",
-    accent: "#B6D5CC",
-    line: "#465754",
-    iris: "#4E7572",
-    blush: "#E5B4AB",
-  },
-  duskLavender: {
-    bg: "#F2EEF6",
-    wash: "#ECE7F1",
-    glow: "#DDD7E7",
-    skin: "#F0D8CD",
-    skinShade: "#E2BEB0",
-    hair: "#645C79",
-    hairShade: "#4A435A",
-    top: "#A89ABF",
-    accent: "#D4CBE5",
-    line: "#554E64",
-    iris: "#70649D",
-    blush: "#E4B0B7",
-  },
-  cloudMint: {
-    bg: "#EFF5F3",
-    wash: "#E5F0EE",
-    glow: "#D7E8E3",
-    skin: "#F1DCCF",
-    skinShade: "#E4C3B1",
-    hair: "#566964",
-    hairShade: "#3F4F4B",
-    top: "#93B2A8",
-    accent: "#C5DDD7",
-    line: "#4E5D59",
-    iris: "#597D74",
-    blush: "#E7B6B0",
-  },
-  linenSky: {
-    bg: "#F1F4F8",
-    wash: "#EBEEF3",
-    glow: "#DCE4EE",
-    skin: "#F3DDD0",
-    skinShade: "#E8C4B2",
-    hair: "#64748D",
-    hairShade: "#475366",
-    top: "#9AB4CC",
-    accent: "#CBD8E7",
-    line: "#526072",
-    iris: "#617EA5",
-    blush: "#E8B4AC",
-  },
-  cocoaLeaf: {
-    bg: "#F5EFE9",
-    wash: "#EDE7E1",
-    glow: "#E3D7CB",
-    skin: "#EFD7CA",
-    skinShade: "#DDB5A6",
-    hair: "#6B534A",
-    hairShade: "#4F3D37",
-    top: "#8E9C87",
-    accent: "#D1C0B1",
-    line: "#544740",
-    iris: "#6A5A4E",
-    blush: "#E4ACA4",
-  },
-  dawnApricot: {
-    bg: "#F8F1E9",
-    wash: "#F5EAE2",
-    glow: "#ECD8C9",
-    skin: "#F1D6C7",
-    skinShade: "#E3B9A4",
-    hair: "#705C57",
-    hairShade: "#514440",
-    top: "#D0A088",
-    accent: "#E6C7B2",
-    line: "#5B4D49",
-    iris: "#7B665E",
-    blush: "#E8B0AA",
-  },
-} as const;
 
 export const DEFAULT_AVATAR_KEY: AvatarKey = "AVATAR_LEO";
 
@@ -281,310 +127,358 @@ export const AVATAR_TIER_META: Record<
   }
 > = {
   starter: {
-    eyebrow: "Starter",
-    title: "Cartoon Characters",
-    description: "Hand-drawn cartoon portraits with fine lines and quiet Morandi palettes. Open from day one.",
+    eyebrow: "Level 1",
+    title: "Minimalist Characters",
+    description:
+      "Low-saturation human portraits with quiet line work, clean posture, and almost no ornament.",
   },
   active: {
-    eyebrow: "Active",
-    title: "Studio Portraits",
-    description: "Richer editorial portraits that unlock once your conversations feel consistent and lived in.",
+    eyebrow: "Level 2",
+    title: "Classical Marble Portraits",
+    description:
+      "Grayscale museum figures with illustrated marble texture, profile restraint, and old-money gravity.",
   },
   trusted: {
-    eyebrow: "Trusted",
-    title: "Anime Characters",
-    description: "Calm, fully clothed anime portraits designed to feel safe, human, and instantly memorable.",
+    eyebrow: "Level 3",
+    title: "Ethereal Light Forms",
+    description:
+      "Abstract human silhouettes built from cosmic light, obsidian shadow, and silence rather than facial detail.",
   },
 };
 
 export const AVATAR_TIER_ORDER: AvatarTier[] = ["starter", "active", "trusted"];
 
-const starterSeed = (
-  key: AvatarKey,
-  label: string,
-  palette: keyof typeof PALETTES,
-  hairShape: HairShape,
-  accessory: Accessory,
-  expression: Expression,
-  motif: Motif
-): PortraitSeed => ({ key, label, palette, hairShape, accessory, expression, motif });
-
-const activeSeed = starterSeed;
-const trustedSeed = starterSeed;
-
-const STARTER_SEEDS: PortraitSeed[] = [
-  starterSeed("AVATAR_LEO", "Maple", "sagePeach", "bob", "clip", "smile", "grid"),
-  starterSeed("AVATAR_SOPHIE", "Juniper", "mistBlue", "wave", "none", "calm", "ripple"),
-  starterSeed("AVATAR_MAX", "Wren", "clayRose", "short", "glasses", "soft", "leaf"),
-  starterSeed("AVATAR_BELLA", "Sol", "seaGlass", "bun", "earring", "smile", "halo"),
-  starterSeed("AVATAR_CHARLIE", "Olive", "oatFern", "parted", "scarf", "calm", "leaf"),
-  starterSeed("AVATAR_ALMA", "Alma", "duskLavender", "bob", "band", "soft", "petal"),
-  starterSeed("AVATAR_THEO", "Theo", "linenSky", "short", "none", "smile", "grid"),
-  starterSeed("AVATAR_IONA", "Iona", "cloudMint", "curl", "clip", "calm", "leaf"),
-  starterSeed("AVATAR_LARK", "Lark", "dawnApricot", "pony", "earring", "smile", "halo"),
-  starterSeed("AVATAR_MINA", "Mina", "mistBlue", "pixie", "none", "soft", "ripple"),
-  starterSeed("AVATAR_CEDAR", "Cedar", "cocoaLeaf", "parted", "glasses", "calm", "grid"),
-  starterSeed("AVATAR_ORIEL", "Oriel", "sagePeach", "wave", "scarf", "smile", "petal"),
-  starterSeed("AVATAR_LINA", "Lina", "seaGlass", "bun", "clip", "soft", "leaf"),
-  starterSeed("AVATAR_REMY", "Remy", "duskLavender", "short", "band", "calm", "halo"),
-  starterSeed("AVATAR_NOOR", "Noor", "oatFern", "bob", "none", "smile", "ripple"),
+const STARTER_SEEDS: StarterSeed[] = [
+  { key: "AVATAR_LEO", label: "Maple", background: "#F4EFE7", wash: "#EEE7DE", skin: "#E8D2C5", hair: "#6D675F", shirt: "#98A89E", line: "#57514A", accent: "#C7D2C1", hairShape: "bob", mark: "leaf" },
+  { key: "AVATAR_SOPHIE", label: "Juniper", background: "#EEF2F2", wash: "#E7ECEB", skin: "#EAD8CB", hair: "#5B6670", shirt: "#8EA1AE", line: "#4D565D", accent: "#CBD5DA", hairShape: "wave", mark: "arc" },
+  { key: "AVATAR_MAX", label: "Wren", background: "#F5EEE7", wash: "#EDE4DC", skin: "#E7D0C2", hair: "#735D56", shirt: "#B0988D", line: "#594841", accent: "#D9C4B9", hairShape: "crop", mark: "grid" },
+  { key: "AVATAR_BELLA", label: "Sol", background: "#EEF4F1", wash: "#E5EDE9", skin: "#ECD7C9", hair: "#516A66", shirt: "#7FA29A", line: "#475552", accent: "#C4D9D1", hairShape: "bun", mark: "leaf" },
+  { key: "AVATAR_CHARLIE", label: "Olive", background: "#F2F0E6", wash: "#EAE7DB", skin: "#E7D0C2", hair: "#625E52", shirt: "#95A089", line: "#4E4B42", accent: "#D2D0BF", hairShape: "wave", mark: "ribbon" },
+  { key: "AVATAR_ALMA", label: "Alma", background: "#F1EEF3", wash: "#E8E5EC", skin: "#EAD4C8", hair: "#665D77", shirt: "#A298BB", line: "#554F62", accent: "#D6D0E1", hairShape: "bob", mark: "arc" },
+  { key: "AVATAR_THEO", label: "Theo", background: "#F0F4F7", wash: "#E8EDF2", skin: "#E9D4C8", hair: "#68758A", shirt: "#9EB5C8", line: "#546174", accent: "#D4DFE9", hairShape: "crop", mark: "grid" },
+  { key: "AVATAR_IONA", label: "Iona", background: "#EEF5F3", wash: "#E5EFEC", skin: "#E9D7CB", hair: "#586865", shirt: "#95B0A8", line: "#4B5A57", accent: "#D0E0DA", hairShape: "veil", mark: "leaf" },
+  { key: "AVATAR_LARK", label: "Lark", background: "#F7F0E8", wash: "#F0E6DC", skin: "#EBD3C6", hair: "#6B5E57", shirt: "#C09A89", line: "#5A4B44", accent: "#E0C7BA", hairShape: "wave", mark: "arc" },
+  { key: "AVATAR_MINA", label: "Mina", background: "#EFF2F4", wash: "#E8ECEE", skin: "#EAD6CB", hair: "#5A6470", shirt: "#A0ADB8", line: "#4D5660", accent: "#D1D9DE", hairShape: "crop", mark: "ribbon" },
+  { key: "AVATAR_CEDAR", label: "Cedar", background: "#F5EFE8", wash: "#EDE6DE", skin: "#E6CEC2", hair: "#6A564E", shirt: "#8D9986", line: "#534640", accent: "#D5C5B8", hairShape: "veil", mark: "grid" },
+  { key: "AVATAR_ORIEL", label: "Oriel", background: "#F3EFE8", wash: "#ECE5DB", skin: "#EAD5C8", hair: "#6A655E", shirt: "#A9A08C", line: "#575149", accent: "#D8D0C0", hairShape: "wave", mark: "leaf" },
+  { key: "AVATAR_LINA", label: "Lina", background: "#EEF4F2", wash: "#E5ECEA", skin: "#EBD7C9", hair: "#536B67", shirt: "#85A79F", line: "#485854", accent: "#CADED8", hairShape: "bun", mark: "arc" },
+  { key: "AVATAR_REMY", label: "Remy", background: "#F0EEF2", wash: "#E7E4EB", skin: "#E6D0C5", hair: "#645D70", shirt: "#9F94AF", line: "#534D5F", accent: "#D4CDDE", hairShape: "crop", mark: "grid" },
+  { key: "AVATAR_NOOR", label: "Noor", background: "#F3F0E6", wash: "#EBE7DB", skin: "#E9D4C7", hair: "#605B50", shirt: "#98A18C", line: "#4E4A41", accent: "#D3D0C1", hairShape: "bob", mark: "ribbon" },
 ];
 
-const ACTIVE_SEEDS: PortraitSeed[] = [
-  activeSeed("AVATAR_AVERY", "Sable", "linenSky", "parted", "glasses", "calm", "halo"),
-  activeSeed("AVATAR_RILEY", "Ellis", "seaGlass", "wave", "earring", "soft", "ripple"),
-  activeSeed("AVATAR_JORDAN", "Haze", "duskLavender", "pixie", "band", "smile", "grid"),
-  activeSeed("AVATAR_SKYLER", "Clove", "cocoaLeaf", "bun", "none", "calm", "leaf"),
-  activeSeed("AVATAR_MORGAN", "Rowan", "cloudMint", "curl", "scarf", "soft", "halo"),
-  activeSeed("AVATAR_MIRO", "Miro", "mistBlue", "short", "clip", "smile", "ripple"),
-  activeSeed("AVATAR_ELIO", "Elio", "dawnApricot", "parted", "earring", "calm", "petal"),
-  activeSeed("AVATAR_TAVI", "Tavi", "sagePeach", "pony", "band", "soft", "grid"),
-  activeSeed("AVATAR_BRIAR", "Briar", "oatFern", "wave", "glasses", "smile", "leaf"),
-  activeSeed("AVATAR_SENA", "Sena", "clayRose", "bob", "clip", "calm", "halo"),
+const ACTIVE_SEEDS: MarbleSeed[] = [
+  { key: "AVATAR_AVERY", label: "Sable", stone: "#D8D4CF", stoneDark: "#8A857F", fog: "#F1EEE9", accent: "#C3B9AF", profile: "left", crown: "halo", fracture: "ring" },
+  { key: "AVATAR_RILEY", label: "Ellis", stone: "#D6D3CE", stoneDark: "#8E8881", fog: "#EEEAE4", accent: "#BFB4A8", profile: "right", crown: "laurel", fracture: "scar" },
+  { key: "AVATAR_JORDAN", label: "Haze", stone: "#D9D6D1", stoneDark: "#8A857E", fog: "#F2EFEB", accent: "#C7BCB1", profile: "left", crown: "arch", fracture: "grain" },
+  { key: "AVATAR_SKYLER", label: "Clove", stone: "#D7D3CC", stoneDark: "#8B857B", fog: "#EEEAE3", accent: "#C3B7AD", profile: "right", crown: "veil", fracture: "dust" },
+  { key: "AVATAR_MORGAN", label: "Rowan", stone: "#D5D1CB", stoneDark: "#827D78", fog: "#ECE8E2", accent: "#B8B0A6", profile: "left", crown: "halo", fracture: "scar" },
+  { key: "AVATAR_MIRO", label: "Miro", stone: "#DCD8D1", stoneDark: "#928A83", fog: "#F4F1EB", accent: "#C7BBB0", profile: "right", crown: "arch", fracture: "ring" },
+  { key: "AVATAR_ELIO", label: "Elio", stone: "#D8D5D0", stoneDark: "#8E877F", fog: "#F1EDE7", accent: "#C2B7AB", profile: "left", crown: "laurel", fracture: "grain" },
+  { key: "AVATAR_TAVI", label: "Tavi", stone: "#D4D0CA", stoneDark: "#827B74", fog: "#ECE8E1", accent: "#BBB1A6", profile: "right", crown: "halo", fracture: "dust" },
+  { key: "AVATAR_BRIAR", label: "Briar", stone: "#D7D4CE", stoneDark: "#8A837C", fog: "#EFEBE4", accent: "#C3B8AE", profile: "left", crown: "veil", fracture: "scar" },
+  { key: "AVATAR_SENA", label: "Sena", stone: "#DAD7D2", stoneDark: "#908983", fog: "#F3EFEA", accent: "#C8BCB1", profile: "right", crown: "laurel", fracture: "ring" },
 ];
 
-const TRUSTED_SEEDS: PortraitSeed[] = [
-  trustedSeed("AVATAR_AIRI", "Airi", "duskLavender", "wave", "clip", "soft", "halo"),
-  trustedSeed("AVATAR_REN", "Ren", "linenSky", "short", "none", "calm", "ripple"),
-  trustedSeed("AVATAR_NAMI", "Nami", "seaGlass", "parted", "earring", "smile", "leaf"),
-  trustedSeed("AVATAR_KIKO", "Kiko", "dawnApricot", "bob", "band", "soft", "petal"),
-  trustedSeed("AVATAR_YUTA", "Yuta", "cloudMint", "short", "scarf", "calm", "grid"),
-  trustedSeed("AVATAR_HINA", "Hina", "sagePeach", "bun", "clip", "smile", "halo"),
-  trustedSeed("AVATAR_AOBA", "Aoba", "mistBlue", "wave", "none", "soft", "ripple"),
-  trustedSeed("AVATAR_MEI", "Mei", "clayRose", "pony", "earring", "calm", "petal"),
-  trustedSeed("AVATAR_SORA", "Sora", "linenSky", "parted", "glasses", "soft", "leaf"),
-  trustedSeed("AVATAR_KAEDE", "Kaede", "oatFern", "curl", "band", "smile", "halo"),
-  trustedSeed("AVATAR_YORI", "Yori", "seaGlass", "short", "clip", "calm", "grid"),
-  trustedSeed("AVATAR_MIO", "Mio", "duskLavender", "bob", "none", "soft", "petal"),
-  trustedSeed("AVATAR_AKARI", "Akari", "dawnApricot", "bun", "earring", "smile", "ripple"),
-  trustedSeed("AVATAR_RIN", "Rin", "cloudMint", "parted", "scarf", "calm", "leaf"),
-  trustedSeed("AVATAR_HARU", "Haru", "sagePeach", "pixie", "band", "soft", "halo"),
+const TRUSTED_SEEDS: EtherSeed[] = [
+  { key: "AVATAR_AIRI", label: "Airi", base: "#0F1319", obsidian: "#1B2027", glowA: "#8A97A7", glowB: "#C4CCD5", glowC: "#697789", form: "arch" },
+  { key: "AVATAR_REN", label: "Ren", base: "#10151D", obsidian: "#1D222C", glowA: "#8794A6", glowB: "#CAD1DA", glowC: "#647487", form: "spire" },
+  { key: "AVATAR_NAMI", label: "Nami", base: "#11161B", obsidian: "#1D242A", glowA: "#7D8F9B", glowB: "#C1CCD3", glowC: "#5E7283", form: "orb" },
+  { key: "AVATAR_KIKO", label: "Kiko", base: "#121417", obsidian: "#20242B", glowA: "#8D95A0", glowB: "#D0D5DB", glowC: "#717A87", form: "crown" },
+  { key: "AVATAR_YUTA", label: "Yuta", base: "#101419", obsidian: "#1B2228", glowA: "#7B90A2", glowB: "#BCC9D2", glowC: "#596E80", form: "veil" },
+  { key: "AVATAR_HINA", label: "Hina", base: "#0F141A", obsidian: "#1B232A", glowA: "#7E8B97", glowB: "#C7CFD7", glowC: "#64707F", form: "arch" },
+  { key: "AVATAR_AOBA", label: "Aoba", base: "#11161E", obsidian: "#1E2430", glowA: "#8696A8", glowB: "#CBD3DC", glowC: "#687A8F", form: "orb" },
+  { key: "AVATAR_MEI", label: "Mei", base: "#121317", obsidian: "#20232A", glowA: "#8D8F9D", glowB: "#D1D3D8", glowC: "#757887", form: "crown" },
+  { key: "AVATAR_SORA", label: "Sora", base: "#0F151B", obsidian: "#1B242E", glowA: "#8292A0", glowB: "#C7D1D9", glowC: "#607285", form: "spire" },
+  { key: "AVATAR_KAEDE", label: "Kaede", base: "#101418", obsidian: "#1D2328", glowA: "#7E8B95", glowB: "#C6CDD4", glowC: "#646F7C", form: "veil" },
+  { key: "AVATAR_YORI", label: "Yori", base: "#11161D", obsidian: "#1F2630", glowA: "#8594A7", glowB: "#CAD3DB", glowC: "#67778A", form: "arch" },
+  { key: "AVATAR_MIO", label: "Mio", base: "#111418", obsidian: "#1D2128", glowA: "#878B98", glowB: "#D1D4D9", glowC: "#717580", form: "orb" },
+  { key: "AVATAR_AKARI", label: "Akari", base: "#101519", obsidian: "#1A2228", glowA: "#80909D", glowB: "#C9D0D7", glowC: "#61717E", form: "crown" },
+  { key: "AVATAR_RIN", label: "Rin", base: "#0F151C", obsidian: "#1B2431", glowA: "#7A8FA5", glowB: "#BFCCD7", glowC: "#5B738A", form: "spire" },
+  { key: "AVATAR_HARU", label: "Haru", base: "#111419", obsidian: "#1E232A", glowA: "#878F99", glowB: "#D0D4DA", glowC: "#6E7882", form: "veil" },
 ];
+
+const STARTER_KEYS = STARTER_SEEDS.map((seed) => seed.key);
+const ACTIVE_KEYS = ACTIVE_SEEDS.map((seed) => seed.key);
+const TRUSTED_KEYS = TRUSTED_SEEDS.map((seed) => seed.key);
 
 const encodeSvg = (svg: string) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 
-const renderMotif = (motif: Motif, accent: string) => {
-  switch (motif) {
-    case "grid":
+const renderStarterHair = (seed: StarterSeed) => {
+  switch (seed.hairShape) {
+    case "crop":
       return `
-        <path d="M24 46H136" stroke="${accent}" stroke-width="1.2" stroke-opacity="0.24"/>
-        <path d="M24 86H136" stroke="${accent}" stroke-width="1.2" stroke-opacity="0.18"/>
-        <path d="M52 26V134" stroke="${accent}" stroke-width="1.2" stroke-opacity="0.18"/>
-        <path d="M108 26V134" stroke="${accent}" stroke-width="1.2" stroke-opacity="0.18"/>
-      `;
-    case "leaf":
-      return `
-        <path d="M28 118C34 96 50 84 70 82" stroke="${accent}" stroke-width="2.2" stroke-linecap="round" stroke-opacity="0.25"/>
-        <path d="M26 118C44 108 54 100 62 88" stroke="${accent}" stroke-width="1.5" stroke-linecap="round" stroke-opacity="0.18"/>
-        <path d="M132 40C116 48 106 60 100 76" stroke="${accent}" stroke-width="2" stroke-linecap="round" stroke-opacity="0.18"/>
-      `;
-    case "halo":
-      return `
-        <circle cx="122" cy="40" r="20" fill="${accent}" fill-opacity="0.12"/>
-        <circle cx="122" cy="40" r="30" stroke="${accent}" stroke-width="1.2" stroke-opacity="0.18"/>
-        <circle cx="122" cy="40" r="40" stroke="${accent}" stroke-width="0.9" stroke-opacity="0.12"/>
-      `;
-    case "petal":
-      return `
-        <path d="M28 40c8-12 18-16 24-4c-6 14-18 18-24 4Z" fill="${accent}" fill-opacity="0.16"/>
-        <path d="M116 118c10-8 20-8 24 6c-10 10-20 8-24-6Z" fill="${accent}" fill-opacity="0.18"/>
-        <circle cx="126" cy="54" r="7" fill="${accent}" fill-opacity="0.12"/>
-      `;
-    default:
-      return `
-        <path d="M26 108C44 94 66 90 88 92C110 94 126 102 138 116" stroke="${accent}" stroke-width="2.1" stroke-linecap="round" stroke-opacity="0.18"/>
-        <path d="M20 118C42 102 64 96 84 98C108 100 126 110 142 130" stroke="${accent}" stroke-width="1.4" stroke-linecap="round" stroke-opacity="0.12"/>
-      `;
-  }
-};
-
-const renderHair = (style: PortraitStyle, hairShape: HairShape, hair: string, hairShade: string) => {
-  const shared = `fill="${hair}"`;
-  const shadow = `fill="${hairShade}" fill-opacity="${style === "anime" ? "0.22" : "0.18"}"`;
-  switch (hairShape) {
-    case "bun":
-      return `
-        <circle cx="108" cy="42" r="16" ${shared}/>
-        <path d="M44 86C44 48 64 26 84 24C110 22 126 40 126 80C120 100 104 116 80 116C58 116 46 102 44 86Z" ${shared}/>
-        <path d="M56 46C72 28 100 24 118 44C106 34 84 36 66 48Z" ${shadow}/>
+        <path d="M44 74C48 44 68 28 86 28C108 28 120 44 118 70C100 80 80 84 54 80Z" fill="${seed.hair}"/>
+        <path d="M58 42C74 34 92 34 108 44" stroke="${seed.line}" stroke-opacity="0.16" stroke-width="2.6" stroke-linecap="round"/>
       `;
     case "wave":
       return `
-        <path d="M38 84C40 42 68 22 88 24C118 26 128 50 124 88C118 102 108 114 88 118C70 122 48 108 38 84Z" ${shared}/>
-        <path d="M32 88C42 110 58 126 82 128C60 122 46 106 38 86Z" ${shadow}/>
+        <path d="M38 84C40 44 66 22 88 24C114 26 126 48 122 86C114 102 102 112 82 116C58 120 44 106 38 84Z" fill="${seed.hair}"/>
+        <path d="M40 88C52 108 66 120 86 124" stroke="${seed.line}" stroke-opacity="0.18" stroke-width="2.2" stroke-linecap="round"/>
       `;
-    case "short":
+    case "veil":
       return `
-        <path d="M44 78C46 48 68 28 84 26C106 24 122 40 122 72C114 78 106 82 94 84C82 86 68 84 54 82Z" ${shared}/>
-        <path d="M58 42C72 32 92 30 110 42C96 36 76 36 58 42Z" ${shadow}/>
+        <path d="M40 84C40 46 64 22 86 22C110 22 124 42 124 80C118 100 108 114 84 118C58 122 44 108 40 84Z" fill="${seed.hair}"/>
+        <path d="M34 84C42 108 54 124 70 134" stroke="${seed.hair}" stroke-opacity="0.72" stroke-width="8" stroke-linecap="round"/>
       `;
-    case "pony":
+    case "bun":
       return `
-        <path d="M42 86C42 48 68 24 86 24C108 24 124 40 124 78C118 94 108 106 90 110C66 114 48 104 42 86Z" ${shared}/>
-        <path d="M116 64C130 72 138 88 134 104C122 94 118 80 116 64Z" ${shared}/>
-        <path d="M58 42C78 28 100 30 118 48C100 38 78 38 58 42Z" ${shadow}/>
-      `;
-    case "parted":
-      return `
-        <path d="M40 84C42 46 66 24 86 24C112 24 128 46 124 88C118 104 106 116 84 118C64 120 48 108 40 84Z" ${shared}/>
-        <path d="M80 28C72 40 68 52 68 68" stroke="${hairShade}" stroke-width="${style === "anime" ? "4.5" : "4"}" stroke-linecap="round" stroke-opacity="0.35"/>
-      `;
-    case "pixie":
-      return `
-        <path d="M46 76C50 46 70 28 88 28C108 28 122 44 118 70C102 82 84 86 58 84Z" ${shared}/>
-        <path d="M54 42C70 34 92 34 110 46C94 40 72 38 54 42Z" ${shadow}/>
-      `;
-    case "curl":
-      return `
-        <path d="M40 88C40 44 66 20 88 24C112 28 130 48 124 88C116 106 102 118 82 120C60 122 44 108 40 88Z" ${shared}/>
-        <circle cx="52" cy="58" r="10" ${shadow}/>
-        <circle cx="110" cy="54" r="8" ${shadow}/>
+        <circle cx="108" cy="42" r="14" fill="${seed.hair}"/>
+        <path d="M44 84C44 46 66 24 86 24C108 24 124 42 122 80C116 98 104 112 84 116C60 120 46 106 44 84Z" fill="${seed.hair}"/>
+        <path d="M56 42C72 30 96 30 114 44" stroke="${seed.line}" stroke-opacity="0.16" stroke-width="2.6" stroke-linecap="round"/>
       `;
     default:
       return `
-        <path d="M42 84C42 46 64 24 84 22C110 20 126 42 124 84C118 102 106 116 82 118C60 120 48 106 42 84Z" ${shared}/>
-        <path d="M58 40C72 28 96 28 112 42C98 36 76 36 58 40Z" ${shadow}/>
+        <path d="M42 84C42 46 66 22 88 22C110 22 124 42 122 82C116 100 102 112 82 116C60 120 46 108 42 84Z" fill="${seed.hair}"/>
+        <path d="M54 46C68 34 94 32 112 46" stroke="${seed.line}" stroke-opacity="0.18" stroke-width="2.4" stroke-linecap="round"/>
       `;
   }
 };
 
-const renderAccessory = (accessory: Accessory, accent: string, line: string) => {
-  switch (accessory) {
-    case "clip":
-      return `<rect x="106" y="58" width="15" height="8" rx="4" fill="${accent}" stroke="${line}" stroke-width="1.1"/>`;
-    case "glasses":
+const renderStarterMark = (seed: StarterSeed) => {
+  switch (seed.mark) {
+    case "grid":
       return `
-        <circle cx="66" cy="82" r="10" fill="none" stroke="${line}" stroke-width="1.6" stroke-opacity="0.8"/>
-        <circle cx="94" cy="82" r="10" fill="none" stroke="${line}" stroke-width="1.6" stroke-opacity="0.8"/>
-        <path d="M76 82H84" stroke="${line}" stroke-width="1.4" stroke-linecap="round" stroke-opacity="0.8"/>
+        <path d="M22 44H138" stroke="${seed.accent}" stroke-width="1.2" stroke-opacity="0.28"/>
+        <path d="M22 88H138" stroke="${seed.accent}" stroke-width="1.2" stroke-opacity="0.18"/>
+        <path d="M52 20V140" stroke="${seed.accent}" stroke-width="1.2" stroke-opacity="0.18"/>
       `;
-    case "earring":
-      return `<circle cx="104" cy="102" r="3.8" fill="${accent}" fill-opacity="0.88"/>`;
-    case "scarf":
+    case "leaf":
       return `
-        <path d="M54 132C62 122 76 118 92 118C108 118 120 122 126 132V140H54Z" fill="${accent}" fill-opacity="0.9"/>
-        <path d="M76 122C88 124 98 128 104 140" stroke="${line}" stroke-width="1.1" stroke-opacity="0.24"/>
+        <path d="M28 122C34 100 50 88 70 84" stroke="${seed.accent}" stroke-width="2.2" stroke-linecap="round" stroke-opacity="0.26"/>
+        <path d="M124 42C112 50 102 62 96 76" stroke="${seed.accent}" stroke-width="2" stroke-linecap="round" stroke-opacity="0.18"/>
       `;
-    case "band":
-      return `<path d="M48 56C62 44 80 40 102 42C114 44 122 48 126 54" stroke="${accent}" stroke-width="7" stroke-linecap="round" stroke-opacity="0.7"/>`;
+    case "ribbon":
+      return `
+        <path d="M18 112C44 92 66 86 86 88C108 90 124 100 142 118" stroke="${seed.accent}" stroke-width="2" stroke-linecap="round" stroke-opacity="0.22"/>
+        <path d="M24 120C48 104 70 100 90 102C114 104 128 110 140 126" stroke="${seed.accent}" stroke-width="1.2" stroke-linecap="round" stroke-opacity="0.14"/>
+      `;
     default:
-      return "";
+      return `
+        <circle cx="122" cy="38" r="18" fill="${seed.accent}" fill-opacity="0.14"/>
+        <circle cx="122" cy="38" r="28" stroke="${seed.accent}" stroke-width="1" stroke-opacity="0.18"/>
+      `;
   }
 };
 
-const renderFace = (style: PortraitStyle, expression: Expression, line: string, iris: string, blush: string) => {
-  if (style === "anime") {
-    const mouth =
-      expression === "smile"
-        ? `M72 106C78 112 86 112 92 106`
-        : expression === "soft"
-          ? `M74 106C79 109 85 109 90 106`
-          : `M76 106C80 108 84 108 88 106`;
-    return `
-      <ellipse cx="66" cy="84" rx="10" ry="12" fill="#fff" fill-opacity="0.95"/>
-      <ellipse cx="94" cy="84" rx="10" ry="12" fill="#fff" fill-opacity="0.95"/>
-      <ellipse cx="66" cy="86" rx="5.2" ry="7.4" fill="${iris}"/>
-      <ellipse cx="94" cy="86" rx="5.2" ry="7.4" fill="${iris}"/>
-      <circle cx="64" cy="82" r="2.2" fill="#fff" fill-opacity="0.88"/>
-      <circle cx="92" cy="82" r="2.2" fill="#fff" fill-opacity="0.88"/>
-      <path d="M56 74C60 69 66 68 72 70" stroke="${line}" stroke-width="1.6" stroke-linecap="round" stroke-opacity="0.72"/>
-      <path d="M88 70C94 68 100 69 104 74" stroke="${line}" stroke-width="1.6" stroke-linecap="round" stroke-opacity="0.72"/>
-      <path d="M79 88C78 92 78 95 80 98" stroke="${line}" stroke-width="1.1" stroke-linecap="round" stroke-opacity="0.42"/>
-      <path d="${mouth}" stroke="${line}" stroke-width="1.35" stroke-linecap="round" fill="none"/>
-      <circle cx="56" cy="98" r="5.2" fill="${blush}" fill-opacity="0.24"/>
-      <circle cx="104" cy="98" r="5.2" fill="${blush}" fill-opacity="0.24"/>
-    `;
-  }
-
-  const mouth =
-    expression === "smile"
-      ? `M74 104C79 109 85 109 90 104`
-      : expression === "soft"
-        ? `M76 104C80 107 84 107 88 104`
-        : `M77 104C81 106 83 106 87 104`;
-  return `
-    <path d="M60 84C64 80 68 80 72 84" stroke="${line}" stroke-width="2.1" stroke-linecap="round" fill="none"/>
-    <path d="M88 84C92 80 96 80 100 84" stroke="${line}" stroke-width="2.1" stroke-linecap="round" fill="none"/>
-    <circle cx="66" cy="86" r="2.2" fill="${iris}"/>
-    <circle cx="94" cy="86" r="2.2" fill="${iris}"/>
-    <path d="M80 88C79 92 79 95 81 97" stroke="${line}" stroke-width="1.3" stroke-linecap="round" stroke-opacity="0.38"/>
-    <path d="${mouth}" stroke="${line}" stroke-width="1.7" stroke-linecap="round" fill="none"/>
-    <circle cx="58" cy="98" r="4.6" fill="${blush}" fill-opacity="0.2"/>
-    <circle cx="102" cy="98" r="4.6" fill="${blush}" fill-opacity="0.2"/>
-  `;
-};
-
-const buildPortraitDataUri = (definition: PortraitDefinition) => {
-  const { palette, style, motif, hairShape, accessory, expression } = definition;
-  const faceWidth = style === "anime" ? 36 : style === "studio" ? 34 : 33;
-  const faceHeight = style === "anime" ? 42 : 39;
-  const svg = `
+const buildStarterAvatar = (seed: StarterSeed) =>
+  encodeSvg(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" fill="none">
       <defs>
-        <linearGradient id="bg" x1="16" y1="18" x2="144" y2="146" gradientUnits="userSpaceOnUse">
-          <stop stop-color="${palette.bg}"/>
-          <stop offset="1" stop-color="${palette.wash}"/>
+        <linearGradient id="bg" x1="20" y1="18" x2="142" y2="146" gradientUnits="userSpaceOnUse">
+          <stop stop-color="${seed.background}"/>
+          <stop offset="1" stop-color="${seed.wash}"/>
         </linearGradient>
-        <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(118 34) rotate(122) scale(88 80)">
-          <stop stop-color="${palette.glow}" stop-opacity="${style === "anime" ? "0.84" : "0.72"}"/>
-          <stop offset="1" stop-color="${palette.glow}" stop-opacity="0"/>
+      </defs>
+      <rect width="160" height="160" rx="34" fill="url(#bg)"/>
+      <rect x="12" y="12" width="136" height="136" rx="28" stroke="${seed.line}" stroke-opacity="0.08"/>
+      ${renderStarterMark(seed)}
+      <ellipse cx="80" cy="118" rx="56" ry="28" fill="${seed.accent}" fill-opacity="0.22"/>
+      <path d="M40 156C44 130 58 118 80 118C102 118 116 130 120 156H40Z" fill="${seed.shirt}"/>
+      <ellipse cx="80" cy="86" rx="34" ry="40" fill="${seed.skin}"/>
+      <ellipse cx="80" cy="90" rx="33" ry="39" stroke="${seed.line}" stroke-opacity="0.12"/>
+      ${renderStarterHair(seed)}
+      <path d="M60 84C64 80 68 80 72 84" stroke="${seed.line}" stroke-width="2" stroke-linecap="round" fill="none"/>
+      <path d="M88 84C92 80 96 80 100 84" stroke="${seed.line}" stroke-width="2" stroke-linecap="round" fill="none"/>
+      <circle cx="66" cy="86" r="2" fill="${seed.line}"/>
+      <circle cx="94" cy="86" r="2" fill="${seed.line}"/>
+      <path d="M80 89C79 92 79 95 81 97" stroke="${seed.line}" stroke-width="1.2" stroke-linecap="round" stroke-opacity="0.36"/>
+      <path d="M74 104C79 109 85 109 90 104" stroke="${seed.line}" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+    </svg>
+  `);
+
+const profileBustPath = (profile: "left" | "right") =>
+  profile === "left"
+    ? "M98 32C88 34 82 42 76 54C72 62 68 70 58 76C54 78 52 82 52 88C52 94 56 98 62 100C70 102 76 110 80 120C84 130 92 138 108 142C96 130 94 118 94 102C94 92 100 84 108 78C114 74 118 68 118 58C118 44 110 34 98 32Z"
+    : "M62 32C72 34 78 42 84 54C88 62 92 70 102 76C106 78 108 82 108 88C108 94 104 98 98 100C90 102 84 110 80 120C76 130 68 138 52 142C64 130 66 118 66 102C66 92 60 84 52 78C46 74 42 68 42 58C42 44 50 34 62 32Z";
+
+const profileLinePath = (profile: "left" | "right") =>
+  profile === "left"
+    ? "M98 48C90 52 86 60 82 68C80 72 76 76 70 80C76 80 80 82 82 86C84 90 84 96 80 100"
+    : "M62 48C70 52 74 60 78 68C80 72 84 76 90 80C84 80 80 82 78 86C76 90 76 96 80 100";
+
+const renderMarbleCrown = (seed: MarbleSeed) => {
+  switch (seed.crown) {
+    case "laurel":
+      return `
+        <path d="M34 40C48 30 64 26 80 26" stroke="${seed.accent}" stroke-width="2" stroke-linecap="round" stroke-opacity="0.2"/>
+        <path d="M126 40C112 30 96 26 80 26" stroke="${seed.accent}" stroke-width="2" stroke-linecap="round" stroke-opacity="0.2"/>
+      `;
+    case "veil":
+      return `
+        <path d="M48 20C70 14 92 14 112 20" stroke="${seed.accent}" stroke-width="5.5" stroke-linecap="round" stroke-opacity="0.18"/>
+      `;
+    case "arch":
+      return `
+        <path d="M36 124C36 76 54 30 80 30C106 30 124 76 124 124" stroke="${seed.accent}" stroke-width="1.3" stroke-opacity="0.2"/>
+      `;
+    default:
+      return `
+        <circle cx="80" cy="34" r="18" stroke="${seed.accent}" stroke-width="1.2" stroke-opacity="0.22"/>
+        <circle cx="80" cy="34" r="28" stroke="${seed.accent}" stroke-width="0.9" stroke-opacity="0.14"/>
+      `;
+  }
+};
+
+const renderMarbleFracture = (seed: MarbleSeed) => {
+  switch (seed.fracture) {
+    case "scar":
+      return `<path d="M90 28C84 44 82 58 84 74C86 90 92 110 100 132" stroke="${seed.stoneDark}" stroke-opacity="0.18" stroke-width="1.4" stroke-linecap="round"/>`;
+    case "grain":
+      return `
+        <path d="M48 48C66 52 88 52 112 48" stroke="${seed.stoneDark}" stroke-opacity="0.12" stroke-width="1.1" stroke-linecap="round"/>
+        <path d="M42 98C64 104 92 104 118 98" stroke="${seed.stoneDark}" stroke-opacity="0.1" stroke-width="1.1" stroke-linecap="round"/>
+      `;
+    case "dust":
+      return `
+        <circle cx="44" cy="44" r="2.2" fill="${seed.stoneDark}" fill-opacity="0.18"/>
+        <circle cx="118" cy="62" r="1.8" fill="${seed.stoneDark}" fill-opacity="0.14"/>
+        <circle cx="54" cy="116" r="2" fill="${seed.stoneDark}" fill-opacity="0.14"/>
+      `;
+    default:
+      return `<circle cx="118" cy="40" r="18" stroke="${seed.stoneDark}" stroke-width="1.2" stroke-opacity="0.16"/>`;
+  }
+};
+
+const buildMarbleAvatar = (seed: MarbleSeed) =>
+  encodeSvg(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" fill="none">
+      <defs>
+        <linearGradient id="bg" x1="18" y1="16" x2="142" y2="148" gradientUnits="userSpaceOnUse">
+          <stop stop-color="${seed.fog}"/>
+          <stop offset="1" stop-color="${seed.stone}"/>
+        </linearGradient>
+        <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(110 30) rotate(120) scale(82 72)">
+          <stop stop-color="#FFFFFF" stop-opacity="0.82"/>
+          <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
         </radialGradient>
       </defs>
       <rect width="160" height="160" rx="34" fill="url(#bg)"/>
-      <rect x="12" y="12" width="136" height="136" rx="28" stroke="${palette.line}" stroke-opacity="0.08"/>
+      <rect x="12" y="12" width="136" height="136" rx="28" stroke="${seed.stoneDark}" stroke-opacity="0.08"/>
       <rect x="12" y="12" width="136" height="136" rx="28" fill="url(#glow)"/>
-      ${renderMotif(motif, palette.accent)}
-      <ellipse cx="80" cy="116" rx="54" ry="30" fill="${palette.accent}" fill-opacity="${style === "anime" ? "0.2" : "0.16"}"/>
-      <path d="M40 156C42 130 56 118 80 118C104 118 118 130 120 156H40Z" fill="${palette.top}"/>
-      <path d="M52 156C56 136 66 126 80 126C94 126 104 136 108 156" fill="${palette.top}" fill-opacity="0.7"/>
-      <path d="M68 120C70 112 74 106 80 106C86 106 90 112 92 120" fill="${palette.skinShade}" fill-opacity="0.7"/>
-      <ellipse cx="80" cy="84" rx="${faceWidth}" ry="${faceHeight}" fill="${palette.skin}"/>
-      <ellipse cx="80" cy="90" rx="${faceWidth - 1}" ry="${faceHeight - 1}" stroke="${palette.line}" stroke-opacity="${style === "anime" ? "0.18" : "0.15"}"/>
-      ${renderHair(style, hairShape, palette.hair, palette.hairShade)}
-      ${renderAccessory(accessory, palette.accent, palette.line)}
-      ${renderFace(style, expression, palette.line, palette.iris, palette.blush)}
+      <ellipse cx="80" cy="130" rx="46" ry="18" fill="${seed.accent}" fill-opacity="0.14"/>
+      ${renderMarbleCrown(seed)}
+      <path d="${profileBustPath(seed.profile)}" fill="${seed.stone}" stroke="${seed.stoneDark}" stroke-opacity="0.22" stroke-width="1.2"/>
+      <path d="${profileLinePath(seed.profile)}" stroke="${seed.stoneDark}" stroke-opacity="0.34" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+      <path d="M52 142H108" stroke="${seed.stoneDark}" stroke-opacity="0.14" stroke-width="1.2" stroke-linecap="round"/>
+      <path d="M60 148H100" stroke="${seed.stoneDark}" stroke-opacity="0.12" stroke-width="2" stroke-linecap="round"/>
+      ${renderMarbleFracture(seed)}
     </svg>
-  `.trim();
-  return encodeSvg(svg);
+  `);
+
+const silhouettePath = (form: EtherSeed["form"]) => {
+  switch (form) {
+    case "spire":
+      return "M80 20C68 24 60 38 58 54C56 68 54 74 46 84C42 90 40 98 42 106C46 122 60 130 80 140C100 130 114 122 118 106C120 98 118 90 114 84C106 74 104 68 102 54C100 38 92 24 80 20Z";
+    case "orb":
+      return "M80 22C64 26 54 40 52 56C50 72 42 84 42 98C42 120 56 132 80 140C104 132 118 120 118 98C118 84 110 72 108 56C106 40 96 26 80 22Z";
+    case "crown":
+      return "M80 18C68 26 64 36 62 52C60 66 50 76 46 90C42 104 48 122 80 140C112 122 118 104 114 90C110 76 100 66 98 52C96 36 92 26 80 18Z";
+    case "veil":
+      return "M80 22C66 26 58 38 56 52C54 66 48 80 44 94C40 110 48 126 80 140C112 126 120 110 116 94C112 80 106 66 104 52C102 38 94 26 80 22Z";
+    default:
+      return "M80 20C68 24 60 38 58 54C56 68 48 78 46 92C44 110 52 126 80 140C108 126 116 110 114 92C112 78 104 68 102 54C100 38 92 24 80 20Z";
+  }
 };
 
-const buildDefinitions = (
-  seeds: PortraitSeed[],
-  tier: AvatarTier,
-  style: PortraitStyle
-): PortraitDefinition[] =>
-  seeds.map((seed) => ({
+const renderEtherField = (seed: EtherSeed) => {
+  switch (seed.form) {
+    case "orb":
+      return `
+        <circle cx="118" cy="42" r="18" stroke="${seed.glowB}" stroke-width="1.1" stroke-opacity="0.4"/>
+        <circle cx="118" cy="42" r="28" stroke="${seed.glowA}" stroke-width="0.8" stroke-opacity="0.22"/>
+      `;
+    case "crown":
+      return `
+        <path d="M42 34C58 18 70 18 80 28C90 18 102 18 118 34" stroke="${seed.glowB}" stroke-width="1.4" stroke-linecap="round" stroke-opacity="0.32"/>
+      `;
+    case "veil":
+      return `
+        <path d="M50 26C60 20 70 18 80 18C90 18 100 20 110 26" stroke="${seed.glowB}" stroke-width="4.4" stroke-linecap="round" stroke-opacity="0.18"/>
+      `;
+    case "spire":
+      return `
+        <path d="M80 10V34" stroke="${seed.glowB}" stroke-width="1.1" stroke-linecap="round" stroke-opacity="0.32"/>
+        <path d="M64 24H96" stroke="${seed.glowA}" stroke-width="0.9" stroke-linecap="round" stroke-opacity="0.22"/>
+      `;
+    default:
+      return `
+        <path d="M34 122C40 68 56 28 80 28C104 28 120 68 126 122" stroke="${seed.glowA}" stroke-width="1.2" stroke-opacity="0.24"/>
+      `;
+  }
+};
+
+const buildEtherAvatar = (seed: EtherSeed) =>
+  encodeSvg(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" fill="none">
+      <defs>
+        <linearGradient id="bg" x1="20" y1="14" x2="140" y2="148" gradientUnits="userSpaceOnUse">
+          <stop stop-color="${seed.obsidian}"/>
+          <stop offset="1" stop-color="${seed.base}"/>
+        </linearGradient>
+        <radialGradient id="nebulaA" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(118 34) rotate(126) scale(78 72)">
+          <stop stop-color="${seed.glowB}" stop-opacity="0.9"/>
+          <stop offset="1" stop-color="${seed.glowB}" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="nebulaB" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(48 126) rotate(-48) scale(72 70)">
+          <stop stop-color="${seed.glowA}" stop-opacity="0.74"/>
+          <stop offset="1" stop-color="${seed.glowA}" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="silhouette" x1="44" y1="18" x2="116" y2="142" gradientUnits="userSpaceOnUse">
+          <stop stop-color="${seed.glowB}"/>
+          <stop offset="0.48" stop-color="${seed.glowA}"/>
+          <stop offset="1" stop-color="${seed.glowC}"/>
+        </linearGradient>
+        <mask id="figure">
+          <rect width="160" height="160" fill="black"/>
+          <path d="${silhouettePath(seed.form)}" fill="white"/>
+        </mask>
+      </defs>
+      <rect width="160" height="160" rx="34" fill="url(#bg)"/>
+      <rect x="12" y="12" width="136" height="136" rx="28" stroke="${seed.glowB}" stroke-opacity="0.08"/>
+      <rect x="12" y="12" width="136" height="136" rx="28" fill="url(#nebulaA)"/>
+      <rect x="12" y="12" width="136" height="136" rx="28" fill="url(#nebulaB)"/>
+      ${renderEtherField(seed)}
+      <g mask="url(#figure)">
+        <rect x="28" y="16" width="104" height="128" fill="url(#silhouette)"/>
+        <path d="M26 118C48 92 68 82 82 80C98 78 114 84 136 118" stroke="${seed.glowB}" stroke-opacity="0.36" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M20 132C40 108 58 98 78 96C100 94 118 102 140 132" stroke="${seed.glowA}" stroke-opacity="0.22" stroke-width="1.4" stroke-linecap="round"/>
+        <circle cx="56" cy="58" r="2.4" fill="${seed.glowB}" fill-opacity="0.88"/>
+        <circle cx="102" cy="44" r="1.8" fill="${seed.glowB}" fill-opacity="0.72"/>
+        <circle cx="88" cy="90" r="1.6" fill="${seed.glowA}" fill-opacity="0.78"/>
+        <path d="M44 28L120 132" stroke="${seed.obsidian}" stroke-opacity="0.2" stroke-width="14"/>
+      </g>
+      <path d="${silhouettePath(seed.form)}" stroke="${seed.glowB}" stroke-opacity="0.18" stroke-width="1.1"/>
+    </svg>
+  `);
+
+const AVATAR_OPTIONS: AvatarOption[] = [
+  ...STARTER_SEEDS.map((seed) => ({
     key: seed.key,
     label: seed.label,
-    family: FAMILY_BY_TIER[tier],
-    tier,
-    url: "",
-    style,
-    palette: PALETTES[seed.palette],
-    hairShape: seed.hairShape,
-    accessory: seed.accessory,
-    expression: seed.expression,
-    motif: seed.motif,
-  }));
-
-const AVATAR_DEFINITIONS: PortraitDefinition[] = [
-  ...buildDefinitions(STARTER_SEEDS, "starter", "cartoon"),
-  ...buildDefinitions(ACTIVE_SEEDS, "active", "studio"),
-  ...buildDefinitions(TRUSTED_SEEDS, "trusted", "anime"),
+    family: FAMILY_BY_TIER.starter,
+    tier: "starter" as const,
+    url: buildStarterAvatar(seed),
+  })),
+  ...ACTIVE_SEEDS.map((seed) => ({
+    key: seed.key,
+    label: seed.label,
+    family: FAMILY_BY_TIER.active,
+    tier: "active" as const,
+    url: buildMarbleAvatar(seed),
+  })),
+  ...TRUSTED_SEEDS.map((seed) => ({
+    key: seed.key,
+    label: seed.label,
+    family: FAMILY_BY_TIER.trusted,
+    tier: "trusted" as const,
+    url: buildEtherAvatar(seed),
+  })),
 ];
 
-export const AVATAR_OPTIONS: AvatarOption[] = AVATAR_DEFINITIONS.map((definition) => ({
-  key: definition.key,
-  label: definition.label,
-  family: definition.family,
-  tier: definition.tier,
-  url: buildPortraitDataUri(definition),
-}));
-
 const ACTIVE_UNLOCK_HINT =
-  "Unlock Studio Portraits after 24 hours of healthy activity or a steady reply pattern.";
+  "Classical Marble Portraits unlock after 24 hours of healthy activity or a steady reply rhythm.";
 const TRUSTED_UNLOCK_HINT =
-  "Unlock Anime Characters once your Trust Score reaches the steady band.";
+  "Ethereal Light Forms unlock once your Trust Score reaches the clear enough band.";
 
 const getTierAccess = (
   tier: AvatarTier,
@@ -594,7 +488,7 @@ const getTierAccess = (
     return {
       unlocked: true,
       title: "Starter",
-      hint: "Cartoon Characters are open from day one so every CleanID starts with a calm human portrait.",
+      hint: "Minimalist Characters are open from day one so every CleanID begins with a quiet human mark.",
     };
   }
 
@@ -607,7 +501,7 @@ const getTierAccess = (
       unlocked,
       title: "Active",
       hint: unlocked
-        ? "Studio Portraits are open. Your cadence already feels steady enough."
+        ? "Classical Marble Portraits are open. Your cadence already reads settled."
         : ACTIVE_UNLOCK_HINT,
     };
   }
@@ -617,7 +511,7 @@ const getTierAccess = (
     unlocked,
     title: "Trusted",
     hint: unlocked
-      ? "Anime Characters are open. This set stays fully clothed, calm, and deliberately non-suggestive."
+      ? "Ethereal Light Forms are open. This set avoids suggestive, aggressive, or uncanny anatomy."
       : TRUSTED_UNLOCK_HINT,
   };
 };
@@ -626,11 +520,18 @@ export const getAvatarOption = (avatar: AvatarKey) =>
   AVATAR_OPTIONS.find((option) => option.key === avatar) ??
   AVATAR_OPTIONS.find((option) => option.key === DEFAULT_AVATAR_KEY)!;
 
+export const getAvatarTier = (avatar: AvatarKey): AvatarTier => getAvatarOption(avatar).tier;
+
 export const getAvatarUrl = (avatar?: AvatarKey | null) =>
   getAvatarOption(avatar ?? DEFAULT_AVATAR_KEY).url;
 
 export const getAvatarOptionsByTier = (tier: AvatarTier) =>
   AVATAR_OPTIONS.filter((option) => option.tier === tier);
+
+export const getAvatarToneClass = (avatar?: AvatarKey | null) => {
+  const tier = getAvatarTier(avatar ?? DEFAULT_AVATAR_KEY);
+  return `avatar-tone avatar-tone-${tier}`;
+};
 
 export const buildDerivedAvatarAccess = ({
   trust = FALLBACK_CLEAN_ID_TRUST,
@@ -655,7 +556,7 @@ export const buildDerivedAvatarAccess = ({
   }).map((option) => option.key);
 
   return {
-    currentTier: getAvatarOption(current).tier,
+    currentTier: getAvatarTier(current),
     availableKeys,
     tiers,
   };
@@ -663,3 +564,9 @@ export const buildDerivedAvatarAccess = ({
 
 export const isAvatarUnlocked = (avatar: AvatarKey, access: AvatarAccess) =>
   access.availableKeys.includes(avatar);
+
+export const AVATAR_COUNTS = {
+  starter: STARTER_KEYS.length,
+  active: ACTIVE_KEYS.length,
+  trusted: TRUSTED_KEYS.length,
+} as const;

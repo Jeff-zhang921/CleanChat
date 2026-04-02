@@ -1,5 +1,11 @@
 @import "./ConversationPage.css";
 
+.groups-page .conversations-shell {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-padding-bottom: 1rem;
+}
+
 .groups-page .group-create-panel {
   border: 1px solid var(--line);
   border-radius: 1rem;
@@ -146,60 +152,70 @@
 }
 
 .groups-page .group-action {
-  border: 1px solid var(--line);
-  border-radius: 0.78rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
   padding: 0.58rem 0.82rem;
   font: inherit;
   font-size: 0.8rem;
-  font-weight: 700;
-  background: #ffffff;
-  color: #202737;
+  font-weight: 600;
+  background: var(--ghost-button-bg);
+  color: #233126;
   cursor: pointer;
   white-space: nowrap;
-  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+  backdrop-filter: var(--ghost-button-blur);
+  -webkit-backdrop-filter: var(--ghost-button-blur);
+  box-shadow: var(--ghost-button-shadow);
+  transition: var(--ghost-button-transition);
   box-sizing: border-box;
 }
 
 .groups-page .group-action.join {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: #ffffff;
+  border-color: rgba(143, 195, 168, 0.26);
+  background: linear-gradient(180deg, rgba(234, 249, 241, 0.3), rgba(234, 249, 241, 0.12));
+  color: #21543b;
 }
 
 .groups-page .group-action.open {
-  border-color: #bfd2c3;
-  background: #eef7f1;
+  border-color: rgba(255, 255, 255, 0.18);
+  background: var(--ghost-button-bg);
   color: #23583f;
 }
 
 .groups-page .group-action.avatar {
-  border-color: #9ec7ad;
-  background: #f2f8f3;
+  border-color: rgba(161, 201, 176, 0.22);
+  background: linear-gradient(180deg, rgba(238, 248, 241, 0.28), rgba(238, 248, 241, 0.12));
   color: #236247;
 }
 
 .groups-page .group-action.leave {
-  border-color: #e9bfc2;
-  background: #fff5f6;
+  border-color: rgba(220, 178, 183, 0.22);
+  background: linear-gradient(180deg, rgba(255, 243, 244, 0.3), rgba(255, 243, 244, 0.14));
   color: #8f2630;
 }
 
 .groups-page .group-action.delete {
-  border-color: #d48c90;
-  background: #c22a38;
-  color: #ffffff;
+  border-color: rgba(200, 122, 130, 0.24);
+  background: linear-gradient(180deg, rgba(255, 239, 241, 0.32), rgba(255, 239, 241, 0.14));
+  color: #7a2932;
 }
 
 .groups-page .group-action.create {
-  border-color: #111111;
-  background: #111111;
-  color: #ffffff;
+  border-color: rgba(143, 195, 168, 0.26);
+  background: linear-gradient(180deg, rgba(234, 249, 241, 0.32), rgba(234, 249, 241, 0.14));
+  color: #1f553c;
 }
 
 .groups-page .group-action.cancel {
-  border-color: #c7cfdf;
-  background: #eef1f8;
-  color: #273042;
+  border-color: rgba(255, 255, 255, 0.18);
+  background: var(--ghost-button-bg);
+  color: #263344;
+}
+
+.groups-page .group-action:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: var(--ghost-button-bg-hover);
+  box-shadow: var(--ghost-button-shadow-hover);
+  transform: translateY(-1px);
 }
 
 .groups-page .group-action:disabled {

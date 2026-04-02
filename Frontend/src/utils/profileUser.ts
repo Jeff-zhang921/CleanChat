@@ -26,6 +26,8 @@ export type SpatialTransition = "push" | "pop";
 export type ProfileRouteState = {
   user?: ProfileUser;
   spatialTransition?: SpatialTransition;
+  focusClaim?: boolean;
+  returnTo?: "/profile" | "/profile/purity" | "/profile/vault" | "/profile/settings";
 };
 
 export const hydrateProfileUser = (user: ProfileUser): ProfileUser => ({

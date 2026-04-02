@@ -1,0 +1,512 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap");
+
+.identity-vault-shell {
+  --vault-ink: #17211b;
+  --vault-muted: rgba(23, 33, 27, 0.68);
+  --vault-line: rgba(23, 33, 27, 0.08);
+  min-height: 100svh;
+  padding: clamp(1rem, 3vw, 1.6rem);
+  color: var(--vault-ink);
+  font-family: "Manrope", sans-serif;
+  animation: identity-vault-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.identity-vault-shell.is-leaving {
+  animation: identity-vault-exit 260ms cubic-bezier(0.55, 0.08, 0.68, 0.53) both;
+}
+
+.identity-vault-shell-blurred,
+.identity-vault-shell-fragile {
+  background:
+    radial-gradient(72rem 34rem at 50% 0%, rgba(246, 241, 231, 0.92), rgba(246, 241, 231, 0) 74%),
+    linear-gradient(180deg, rgba(250, 247, 241, 0.92), rgba(245, 240, 232, 0.74));
+}
+
+.identity-vault-shell-steady {
+  background:
+    radial-gradient(62rem 30rem at 50% 0%, rgba(236, 247, 243, 0.92), rgba(236, 247, 243, 0) 74%),
+    linear-gradient(180deg, rgba(247, 252, 249, 0.94), rgba(239, 246, 242, 0.76));
+}
+
+.identity-vault-shell-clear {
+  background:
+    radial-gradient(52rem 28rem at 50% 0%, rgba(210, 249, 231, 0.94), rgba(210, 249, 231, 0) 72%),
+    linear-gradient(180deg, rgba(248, 255, 251, 0.96), rgba(237, 248, 241, 0.78));
+}
+
+.identity-vault-page {
+  width: min(100%, 74rem);
+  margin: 0 auto;
+  display: grid;
+  gap: clamp(1.3rem, 3vw, 2rem);
+}
+
+.identity-vault-nav {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.identity-vault-back-button {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: var(--ghost-button-bg);
+  backdrop-filter: var(--ghost-button-blur);
+  -webkit-backdrop-filter: var(--ghost-button-blur);
+  color: var(--vault-ink);
+  padding: 0.46rem 0.82rem 0.46rem 0.68rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  box-shadow: var(--ghost-button-shadow);
+  transition: var(--ghost-button-transition);
+}
+
+.identity-vault-back-button:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: var(--ghost-button-bg-hover);
+  box-shadow: var(--ghost-button-shadow-hover);
+  transform: translateY(-1px);
+}
+
+.identity-vault-back-button:disabled {
+  opacity: 0.54;
+  cursor: default;
+}
+
+.identity-vault-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.9rem;
+  padding: clamp(1.4rem, 4vw, 2.3rem);
+  display: grid;
+  gap: 1.1rem;
+}
+
+.identity-vault-hero::before,
+.identity-vault-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.identity-vault-hero::before {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.08) 42%, rgba(255, 255, 255, 0.24)),
+    radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.42), transparent 24%);
+}
+
+.identity-vault-hero-blurred,
+.identity-vault-hero-fragile {
+  background:
+    linear-gradient(160deg, rgba(249, 246, 240, 0.96), rgba(243, 239, 231, 0.92)),
+    repeating-linear-gradient(135deg, rgba(102, 94, 81, 0.03) 0 2px, transparent 2px 8px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -12px 24px rgba(98, 88, 76, 0.06);
+}
+
+.identity-vault-hero-steady {
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  background:
+    linear-gradient(160deg, rgba(246, 252, 249, 0.58), rgba(236, 245, 241, 0.42)),
+    radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.72), transparent 22%);
+  backdrop-filter: blur(22px) saturate(1.08);
+  -webkit-backdrop-filter: blur(22px) saturate(1.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 18px 42px rgba(101, 130, 118, 0.14);
+}
+
+.identity-vault-hero-clear {
+  border: 1px solid rgba(217, 250, 236, 0.76);
+  background:
+    radial-gradient(circle at 50% 12%, rgba(213, 252, 232, 0.42), transparent 38%),
+    linear-gradient(155deg, rgba(250, 255, 252, 0.84), rgba(232, 246, 238, 0.6));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.42),
+    inset 0 18px 32px rgba(255, 255, 255, 0.26),
+    0 22px 60px rgba(28, 109, 79, 0.16),
+    0 0 42px rgba(112, 214, 169, 0.12);
+}
+
+.identity-vault-hero-clear::after {
+  background:
+    radial-gradient(circle at 64% 26%, rgba(190, 255, 225, 0.34), transparent 30%),
+    radial-gradient(circle at 36% 44%, rgba(255, 255, 255, 0.34), transparent 28%);
+  animation: identity-vault-crystal-breathe 14s ease-in-out infinite;
+}
+
+.identity-vault-hero-main,
+.identity-vault-copy,
+.identity-vault-meta {
+  position: relative;
+  z-index: 1;
+}
+
+.identity-vault-hero-main {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.identity-vault-avatar-frame {
+  width: clamp(4.9rem, 10vw, 6rem);
+  height: clamp(4.9rem, 10vw, 6rem);
+  border-radius: 1.45rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 14px 32px rgba(17, 28, 18, 0.08);
+  flex-shrink: 0;
+}
+
+.identity-vault-avatar-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.identity-vault-copy {
+  display: grid;
+  gap: 0.8rem;
+  max-width: 42rem;
+}
+
+.identity-vault-eyebrow {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(23, 33, 27, 0.46);
+}
+
+.identity-vault-copy h1,
+.identity-vault-section-head h2 {
+  margin: 0;
+  font-size: clamp(1.9rem, 5vw, 3.1rem);
+  line-height: 1.03;
+  font-weight: 300;
+  letter-spacing: 0.05em;
+}
+
+.identity-vault-copy p:last-child,
+.identity-vault-section-head p,
+.identity-vault-loading,
+.identity-vault-status {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.85;
+  font-weight: 300;
+  letter-spacing: 0.05em;
+  color: var(--vault-muted);
+}
+
+.identity-vault-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.identity-vault-meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.28rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  background: rgba(255, 255, 255, 0.34);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-size: 0.74rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.identity-vault-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(17rem, 0.78fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.identity-vault-form,
+.identity-vault-ledger {
+  border-radius: 1.6rem;
+  border: 1px solid var(--vault-line);
+  background: rgba(255, 255, 255, 0.48);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.identity-vault-form {
+  padding: clamp(1rem, 2.7vw, 1.5rem);
+  display: grid;
+  gap: 1.15rem;
+  box-shadow: 0 16px 38px rgba(16, 23, 17, 0.06);
+}
+
+.identity-vault-section-head {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.identity-vault-section-head h2 {
+  font-size: clamp(1.28rem, 3vw, 1.9rem);
+}
+
+.identity-vault-claim {
+  display: grid;
+  gap: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(23, 33, 27, 0.08);
+}
+
+.identity-vault-field {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.identity-vault-field-label {
+  font-size: 0.74rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(23, 33, 27, 0.46);
+}
+
+.identity-vault-input {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid rgba(23, 33, 27, 0.16);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 -10px 18px rgba(255, 255, 255, 0.14);
+  font: inherit;
+  font-size: clamp(1.2rem, 3vw, 1.45rem);
+  line-height: 1.4;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+  color: var(--vault-ink);
+  padding: 0 0 0.78rem;
+  transition:
+    border-color 320ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    box-shadow 320ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.identity-vault-input:focus {
+  outline: none;
+  border-color: rgba(23, 33, 27, 0.34);
+  box-shadow: inset 0 -12px 22px rgba(255, 255, 255, 0.22);
+}
+
+.identity-vault-claim-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.95rem;
+  flex-wrap: wrap;
+}
+
+.identity-vault-token {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.4rem;
+  padding: 0.32rem 0.84rem;
+  border-radius: 999px;
+  border: 1px solid rgba(23, 33, 27, 0.12);
+  background: rgba(255, 255, 255, 0.66);
+  font-size: 0.96rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+
+.identity-vault-token-ultra {
+  color: #14543b;
+  border-color: rgba(20, 84, 59, 0.18);
+  background:
+    linear-gradient(120deg, rgba(214, 250, 232, 0.92), rgba(255, 255, 255, 0.98)),
+    repeating-linear-gradient(135deg, rgba(20, 84, 59, 0.08) 0 10px, transparent 10px 20px);
+}
+
+.identity-vault-token-scarce {
+  color: #2c3f31;
+  background: linear-gradient(120deg, rgba(240, 245, 239, 0.96), rgba(255, 255, 255, 0.98));
+}
+
+.identity-vault-token-locked {
+  color: rgba(23, 33, 27, 0.58);
+  background: rgba(239, 236, 229, 0.94);
+}
+
+.identity-vault-claim-copy {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.identity-vault-claim-copy strong,
+.identity-vault-ledger-item strong {
+  font-size: 1rem;
+  line-height: 1.7;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+}
+
+.identity-vault-claim-copy span,
+.identity-vault-ledger-item span {
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--vault-muted);
+}
+
+.identity-vault-library {
+  margin: 0;
+  padding-top: 0.2rem;
+}
+
+.identity-vault-library legend {
+  padding: 0;
+}
+
+.identity-vault-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding-top: 0.4rem;
+}
+
+.identity-vault-action {
+  min-height: 2.9rem;
+  padding: 0.7rem 1.08rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--ghost-button-bg);
+  backdrop-filter: var(--ghost-button-blur);
+  -webkit-backdrop-filter: var(--ghost-button-blur);
+  font: inherit;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  color: var(--vault-ink);
+  box-shadow: var(--ghost-button-shadow);
+  cursor: pointer;
+  transition: var(--ghost-button-transition);
+}
+
+.identity-vault-action:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: var(--ghost-button-bg-hover);
+  box-shadow: var(--ghost-button-shadow-hover);
+  transform: translateY(-1px);
+}
+
+.identity-vault-action:disabled {
+  opacity: 0.54;
+  cursor: default;
+}
+
+.identity-vault-action-primary {
+  min-width: 10.5rem;
+}
+
+.identity-vault-action-secondary {
+  color: rgba(23, 33, 27, 0.74);
+}
+
+.identity-vault-ledger {
+  padding: clamp(1rem, 2.7vw, 1.4rem);
+  display: grid;
+  gap: 1rem;
+}
+
+.identity-vault-ledger-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.identity-vault-ledger-item {
+  display: grid;
+  gap: 0.22rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(23, 33, 27, 0.08);
+}
+
+.identity-vault-loading,
+.identity-vault-status {
+  padding: 0.2rem 0;
+}
+
+@keyframes identity-vault-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes identity-vault-exit {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+}
+
+@keyframes identity-vault-crystal-breathe {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@media (max-width: 960px) {
+  .identity-vault-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .identity-vault-shell {
+    padding: 0.95rem;
+  }
+
+  .identity-vault-hero-main,
+  .profile-avatar-head,
+  .profile-avatar-tier-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .identity-vault-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .identity-vault-action {
+    width: 100%;
+  }
+}

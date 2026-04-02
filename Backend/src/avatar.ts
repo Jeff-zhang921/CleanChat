@@ -114,9 +114,9 @@ const AVATAR_TIER_MAP: Record<Avatar, AvatarTier> = {
 export const DEFAULT_AVATAR = Avatar.AVATAR_LEO;
 
 const ACTIVE_UNLOCK_HINT =
-  "Studio Portraits unlock after 24 hours of healthy activity or a steady reply pattern.";
+  "Classical Marble Portraits unlock after 24 hours of healthy activity or a steady reply rhythm.";
 const TRUSTED_UNLOCK_HINT =
-  "Anime Characters unlock once your Trust Score reaches the steady band.";
+  "Ethereal Light Forms unlock once your Trust Score reaches the clear enough band.";
 
 const getAvatarTierAccess = (
   tier: AvatarTier,
@@ -126,7 +126,7 @@ const getAvatarTierAccess = (
     return {
       unlocked: true,
       title: "Starter",
-      hint: "Cartoon Characters are open from day one so every CleanID starts with a calm human portrait.",
+      hint: "Minimalist Characters are open from day one so every CleanID starts with a calm human mark.",
     };
   }
 
@@ -139,7 +139,7 @@ const getAvatarTierAccess = (
       unlocked,
       title: "Active",
       hint: unlocked
-        ? "Studio Portraits are open. Your cadence already feels steady enough."
+        ? "Classical Marble Portraits are open. Your cadence already reads settled."
         : ACTIVE_UNLOCK_HINT,
     };
   }
@@ -147,10 +147,10 @@ const getAvatarTierAccess = (
   const unlocked = trust.score >= TRUSTED_UNLOCK_SCORE;
   return {
     unlocked,
-    title: "Trusted",
-    hint: unlocked
-      ? "Anime Characters are open. This set stays calm, human, fully clothed, and non-suggestive."
-      : TRUSTED_UNLOCK_HINT,
+      title: "Trusted",
+      hint: unlocked
+        ? "Ethereal Light Forms are open. This set stays calm, abstract, human-adjacent, and deliberately non-suggestive."
+        : TRUSTED_UNLOCK_HINT,
   };
 };
 

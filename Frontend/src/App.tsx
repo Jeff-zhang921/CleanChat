@@ -11,6 +11,8 @@ import BasicInfoPage from './pages/basicInfo'
 import ProfilePage from './pages/profile'
 import ProfileEditPage from './pages/profileEdit'
 import PurityDetailPage from './pages/purityDetail'
+import IdentityVaultPage from './pages/identityVault'
+import ProfileSettingsPage from './pages/profileSettings'
 import type { ProfileRouteState } from './utils/profileUser';
 
 type PretextBackdropVariant = 'auth' | 'app';
@@ -209,7 +211,9 @@ const RoutedApp = () => {
             <Route path="/basic-info" element={<BasicInfoPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/profile/edit" element={<ProfileEditPage />} />
+            <Route path="/profile/settings" element={<ProfileSettingsPage />} />
             <Route path="/profile/purity" element={<PurityDetailPage />} />
+            <Route path="/profile/vault" element={<IdentityVaultPage />} />
             <Route path="/conversations" element={<ConversationsPage />} />
             <Route path="/groups" element={<GroupConversationPage />} />
             <Route path="/chat" element={<ChatPage />} />

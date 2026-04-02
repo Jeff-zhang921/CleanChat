@@ -5,6 +5,22 @@
   --motion-smooth: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-quick: 220ms;
   --motion-medium: 360ms;
+  --ghost-button-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
+  --ghost-button-bg-hover: linear-gradient(180deg, rgba(255, 255, 255, 0.19), rgba(255, 255, 255, 0.1));
+  --ghost-button-bg-press: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
+  --ghost-button-border: rgba(255, 255, 255, 0.14);
+  --ghost-button-border-strong: rgba(255, 255, 255, 0.22);
+  --ghost-button-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 16px 34px rgba(24, 34, 24, 0.06);
+  --ghost-button-shadow-hover:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    0 18px 40px rgba(24, 34, 24, 0.08);
+  --ghost-button-shadow-press:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 10px 24px rgba(24, 34, 24, 0.05);
+  --ghost-button-blur: blur(14px) saturate(1.04);
+  --ghost-button-transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 *,
@@ -25,6 +41,25 @@ body {
   color: #182218;
   background: #f6efe3;
   overflow-x: hidden;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.avatar-tone {
+  --avatar-filter: contrast(0.9) grayscale(10%);
+  filter: var(--avatar-filter);
+}
+
+.avatar-tone-active {
+  --avatar-filter: contrast(0.9) grayscale(28%) sepia(20%);
+}
+
+.avatar-tone-trusted {
+  --avatar-filter: brightness(1.1) contrast(1.1) grayscale(24%);
 }
 
 .app-route-stage {

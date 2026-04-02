@@ -2,6 +2,7 @@ import { forwardRef, type CSSProperties, type ChangeEvent, useEffect, useRef, us
 import { Virtuoso, type ListProps, type ScrollerProps, type VirtuosoHandle } from "react-virtuoso";
 import { useLocation, useNavigate } from "react-router-dom";
 import { io, type Socket } from "socket.io-client";
+import { getAvatarToneClass, type AvatarKey } from "../constants/avatarCatalog";
 import { BACKEND_URL, SOCKET_URL } from "../config";
 import { useViewportOverscan } from "../hooks/useViewportOverscan";
 import { getNotificationPermission, showMessageNotification } from "../utils/notifications";
@@ -29,6 +30,7 @@ type ChatMode = "direct" | "group";
 type ChatLocationState = {
   other?: string;
   avatarUrl?: string;
+  avatarKey?: AvatarKey;
   hostId?: number;
   threadId?: number;
   groupId?: string;
@@ -88,6 +90,7 @@ const ChatPage = () => {
       : "direct";
   const other = locationState?.other ?? "";
   const avatarUrl = locationState?.avatarUrl ?? "";
+  const avatarToneClass = locationState?.avatarKey ? getAvatarToneClass(locationState.avatarKey) : "";
   const fromPath = locationState?.fromPath === "/groups" ? "/groups" : "/conversations";
 
   const socketRef = useRef<Socket | null>(null);
@@ -738,7 +741,7 @@ const ChatPage = () => {
             <span className="back-button-copy">{backLabel}</span>
           </button>
           <span className="avatar">
-            {avatarUrl ? <img src={avatarUrl} alt={`${chatLabel} avatar`} /> : avatarFallback}
+            {avatarUrl ? <img className={avatarToneClass || undefined} src={avatarUrl} alt={`${chatLabel} avatar`} /> : avatarFallback}
           </span>
           <div className="chat-heading">
             <span className="chat-kicker">{chatKicker}</span>
@@ -843,7 +846,7 @@ const ChatPage = () => {
         <footer className="chat-footer">
           <div className={`chat-footer-context ${isComposerEngaged ? "compact" : ""}`}>
             <span className="chat-footer-avatar" aria-hidden="true">
-              {avatarUrl ? <img src={avatarUrl} alt="" /> : avatarFallback}
+              {avatarUrl ? <img className={avatarToneClass || undefined} src={avatarUrl} alt="" /> : avatarFallback}
             </span>
             <div className="chat-footer-copy">
               <span className="chat-footer-kicker">{chatKicker}</span>

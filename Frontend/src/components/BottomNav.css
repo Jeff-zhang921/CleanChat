@@ -3,16 +3,14 @@
 }
 
 .bottom-nav {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: relative;
+  width: 100%;
+  flex-shrink: 0;
   min-height: var(--bottom-nav-height);
-  padding: 0 0 env(safe-area-inset-bottom, 0px);
+  padding: 0 clamp(0.55rem, 2vw, 1rem) env(safe-area-inset-bottom, 0px);
   border-top: 1px solid rgba(96, 91, 74, 0.14);
   background: rgba(247, 241, 231, 0.94);
   backdrop-filter: blur(18px);
-  z-index: 30;
   box-sizing: border-box;
   isolation: isolate;
 }

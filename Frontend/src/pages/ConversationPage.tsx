@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Virtuoso } from "react-virtuoso";
 import { io, type Socket } from "socket.io-client";
 import BottomNav from "../components/BottomNav";
-import { DEFAULT_AVATAR_KEY, getAvatarUrl, type AvatarKey } from "../constants/avatarCatalog";
+import { DEFAULT_AVATAR_KEY, getAvatarToneClass, getAvatarUrl, type AvatarKey } from "../constants/avatarCatalog";
 import { BACKEND_URL, SOCKET_URL } from "../config";
 import { useViewportOverscan } from "../hooks/useViewportOverscan";
 import {
@@ -48,6 +48,7 @@ type ConversationItem = {
   threadId?: number;
   groupId?: string;
   userId?: number;
+  avatarKey?: AvatarKey;
   name: string;
   email?: string;
   cleanId: string;
@@ -565,6 +566,7 @@ const ConversationPage = () => {
         chatType: "direct" as const,
         threadId: item.id,
         userId: other.id,
+        avatarKey: other.avatar,
         name: displayName,
         email: other.email,
         cleanId: other.cleanId,
@@ -628,8 +630,8 @@ const ConversationPage = () => {
     }));
   }, [conversations]);
 
-  const handleOpenThread = (threadId: number, other: string, avatarUrl?: string) => {
-    navigate("/chat", { state: { threadId, other, avatarUrl, fromPath: "/conversations" } });
+  const handleOpenThread = (threadId: number, other: string, avatarUrl?: string, avatarKey?: AvatarKey) => {
+    navigate("/chat", { state: { threadId, other, avatarUrl, avatarKey, fromPath: "/conversations" } });
   };
 
   const handleOpenGroup = (groupId: string, groupName: string, avatarUrl: string) => {
@@ -641,7 +643,7 @@ const ConversationPage = () => {
   const handleOpenUser = async (user: UserSummary) => {
     const existingThreadId = threadByUserId.get(user.id);
     if (existingThreadId) {
-      handleOpenThread(existingThreadId, user.cleanId || user.email, resolveAvatarUrl(user.avatar));
+      handleOpenThread(existingThreadId, user.cleanId || user.email, resolveAvatarUrl(user.avatar), user.avatar);
       return;
     }
 
@@ -671,7 +673,7 @@ const ConversationPage = () => {
       }
 
       setSearchStatus("");
-      handleOpenThread(threadId, user.cleanId || user.email, resolveAvatarUrl(user.avatar));
+      handleOpenThread(threadId, user.cleanId || user.email, resolveAvatarUrl(user.avatar), user.avatar);
     } catch {
       setSearchStatus("Failed to create conversation.");
     } finally {
@@ -726,7 +728,7 @@ const ConversationPage = () => {
           }}
         >
           <div className="avatar">
-            <img src={resolveAvatarUrl(user.avatar)} alt={`${user.cleanId} avatar`} />
+            <img className={getAvatarToneClass(user.avatar)} src={resolveAvatarUrl(user.avatar)} alt={`${user.cleanId} avatar`} />
           </div>
           <div className="conversation-body">
             <div className="conversation-top">
@@ -759,12 +761,12 @@ const ConversationPage = () => {
             return;
           }
           if (item.threadId) {
-            handleOpenThread(item.threadId, item.cleanId || item.email || item.name, item.avatarUrl);
+            handleOpenThread(item.threadId, item.cleanId || item.email || item.name, item.avatarUrl, item.avatarKey);
           }
         }}
       >
         <div className="avatar">
-          <img src={item.avatarUrl} alt={`${item.name} avatar`} />
+          <img className={item.avatarKey ? getAvatarToneClass(item.avatarKey) : undefined} src={item.avatarUrl} alt={`${item.name} avatar`} />
         </div>
         <div className="conversation-body">
           <div className="conversation-top">
@@ -876,6 +878,8 @@ const ConversationPage = () => {
           <span>{metaLabel}</span>
         </div>
 
+        <div className="conversations-stage">
+
         {isInitialLoading && !hasQuery && (
           <section className="conversations-list conversations-list-loading" aria-label="Loading conversations">
             {skeletonCards.map((item) => (
@@ -929,7 +933,6 @@ const ConversationPage = () => {
               <section className="conversations-list-shell" aria-label="Search results">
                 <Virtuoso
                   className="conversations-virtuoso"
-                  useWindowScroll
                   data={searchUsers}
                   computeItemKey={(_index, user) => `user-${user.id}`}
                   defaultItemHeight={116}
@@ -982,7 +985,6 @@ const ConversationPage = () => {
           <section className="conversations-list-shell" aria-label="Recent conversations">
             <Virtuoso
               className="conversations-virtuoso"
-              useWindowScroll
               data={filteredConversations}
               computeItemKey={(_index, item) => item.id}
               defaultItemHeight={118}
@@ -994,6 +996,7 @@ const ConversationPage = () => {
             />
           </section>
         )}
+        </div>
       </div>
       <BottomNav />
     </div>

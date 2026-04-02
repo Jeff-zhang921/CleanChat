@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   AVATAR_TIER_META,
   buildDerivedAvatarAccess,
+  getAvatarToneClass,
   getAvatarOptionsByTier,
   type AvatarAccess,
   type AvatarKey,
@@ -199,10 +200,10 @@ const BasicInfoPage = () => {
 
         <form className="basic-form" onSubmit={handleSubmit}>
           <fieldset className="basic-avatars">
-            <legend>Choose a calm cartoon portrait</legend>
+            <legend>Choose a minimalist character</legend>
             <p className="basic-hint">
-              New CleanIDs begin with {AVATAR_TIER_META.starter.title}: quiet hand-drawn people, low-saturation
-              palettes, and no blocky mascots.
+              New CleanIDs begin with {AVATAR_TIER_META.starter.title}: quiet human figures, low-saturation palettes,
+              and almost no ornament.
             </p>
             <div className="basic-avatar-grid">
               {starterAvatars.map((item) => (
@@ -218,6 +219,7 @@ const BasicInfoPage = () => {
                     onChange={() => setAvatar(item.key)}
                   />
                   <img
+                    className={getAvatarToneClass(item.key)}
                     src={item.url}
                     alt={item.label}
                   />
@@ -241,7 +243,7 @@ const BasicInfoPage = () => {
               <div className="basic-avatar-preview-row">
                 {activePreviewAvatars.map((item) => (
                   <div key={item.key} className="basic-avatar-preview">
-                    <img src={item.url} alt="" />
+                    <img className={getAvatarToneClass(item.key)} src={item.url} alt="" />
                   </div>
                 ))}
               </div>
@@ -261,7 +263,7 @@ const BasicInfoPage = () => {
               <div className="basic-avatar-preview-row">
                 {trustedPreviewAvatars.map((item) => (
                   <div key={item.key} className="basic-avatar-preview trusted">
-                    <img src={item.url} alt="" />
+                    <img className={getAvatarToneClass(item.key)} src={item.url} alt="" />
                   </div>
                 ))}
               </div>

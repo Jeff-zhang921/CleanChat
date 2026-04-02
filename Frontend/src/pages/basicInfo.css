@@ -239,28 +239,28 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  filter: saturate(0.92);
-}
-
-.basic-avatar-preview.trusted img {
-  filter: saturate(0.82) contrast(0.98);
 }
 
 .basic-submit {
   margin-top: 0.35rem;
-  border: 0;
-  border-radius: 0.82rem;
+  border: 1px solid rgba(143, 195, 168, 0.24);
+  border-radius: 999px;
   padding: 0.8rem 1rem;
   font: inherit;
-  font-weight: 700;
-  background: #11161f;
-  color: #ffffff;
+  font-weight: 600;
+  background: linear-gradient(180deg, rgba(234, 249, 241, 0.3), rgba(234, 249, 241, 0.12));
+  color: #1f553c;
   cursor: pointer;
-  transition: background-color 120ms ease, transform 100ms ease;
+  backdrop-filter: var(--ghost-button-blur);
+  -webkit-backdrop-filter: var(--ghost-button-blur);
+  box-shadow: var(--ghost-button-shadow);
+  transition: var(--ghost-button-transition);
 }
 
 .basic-submit:hover:not(:disabled) {
-  background: #214f37;
+  background: linear-gradient(180deg, rgba(234, 249, 241, 0.38), rgba(234, 249, 241, 0.18));
+  box-shadow: var(--ghost-button-shadow-hover);
+  transform: translateY(-1px);
 }
 
 .basic-submit:active:not(:disabled) {

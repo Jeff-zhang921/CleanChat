@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { getAvatarUrl } from "../constants/avatarCatalog";
+import { getAvatarToneClass, getAvatarUrl } from "../constants/avatarCatalog";
 import { BACKEND_URL } from "../config";
+import { getShortClaimRangeLabel } from "../utils/cleanIdClaim";
 import { getTrustToneLabel } from "../utils/cleanIdTrust";
 import { hydrateProfileUser, type ProfileRouteState, type ProfileUser } from "../utils/profileUser";
 import "./purityDetail.css";
@@ -74,12 +75,29 @@ const PurityDetailPage = () => {
     if (isLeaving) return;
     setIsLeaving(true);
     window.setTimeout(() => {
-      navigate("/profile", {
-        state: {
-          spatialTransition: "pop",
-        } satisfies ProfileRouteState,
+      const nextState: ProfileRouteState = {
+        spatialTransition: "pop",
+        returnTo: routeState?.returnTo ?? "/profile",
+      };
+      if (user) {
+        nextState.user = user;
+      }
+      navigate(routeState?.returnTo ?? "/profile", {
+        state: nextState,
       });
     }, EXIT_MS);
+  };
+
+  const handleOpenClaim = () => {
+    if (!user) return;
+    navigate("/profile/vault", {
+      state: {
+        user,
+        spatialTransition: "push",
+        focusClaim: true,
+        returnTo: "/profile/purity",
+      } satisfies ProfileRouteState,
+    });
   };
 
   const detailRows = useMemo(() => {
@@ -127,12 +145,41 @@ const PurityDetailPage = () => {
     ];
   }, [user]);
 
+  const resonanceCopy = useMemo(() => {
+    if (!user) {
+      return {
+        statement: "Your purity allows for a simpler identity.",
+        note: "",
+      };
+    }
+
+    const claim = user.shortIdClaim;
+    if (claim.isCurrentShort) {
+      return {
+        statement: "Your purity already holds a simpler identity.",
+        note: `Current window ${getShortClaimRangeLabel(claim)}. ${claim.scarcity}`,
+      };
+    }
+
+    if (claim.tier === "locked" && claim.nextUnlockScore) {
+      return {
+        statement: "As your signal settles, a simpler identity becomes reachable.",
+        note: `Short IDs open from ${claim.nextUnlockScore}+ trust. ${claim.detail}`,
+      };
+    }
+
+    return {
+      statement: "Your purity allows for a simpler identity.",
+      note: `${getShortClaimRangeLabel(claim)} claim window. ${claim.detail}`,
+    };
+  }, [user]);
+
   if (loading && !user) {
     return (
       <div className="purity-detail-shell purity-detail-shell-loading">
         <main className="purity-detail-page">
           <button type="button" className="purity-back-button" onClick={handleBack}>
-            <span aria-hidden="true">←</span>
+            <span aria-hidden="true">{"\u2190"}</span>
             <span>Back</span>
           </button>
           <p className="purity-loading">Loading purity space...</p>
@@ -146,7 +193,7 @@ const PurityDetailPage = () => {
       <div className="purity-detail-shell purity-detail-shell-loading">
         <main className="purity-detail-page">
           <button type="button" className="purity-back-button" onClick={handleBack}>
-            <span aria-hidden="true">←</span>
+            <span aria-hidden="true">{"\u2190"}</span>
             <span>Back</span>
           </button>
           <p className="purity-loading">Purity detail unavailable.</p>
@@ -162,14 +209,14 @@ const PurityDetailPage = () => {
       <main className="purity-detail-page">
         <header className="purity-detail-nav">
           <button type="button" className="purity-back-button" onClick={handleBack}>
-            <span aria-hidden="true">←</span>
+            <span aria-hidden="true">{"\u2190"}</span>
             <span>Back</span>
           </button>
         </header>
 
         <section className={`purity-detail-hero purity-detail-hero-${user.trust.band}`}>
           <div className="purity-detail-avatar-wrap">
-            <img src={getAvatarUrl(user.avatar)} alt={`${user.name || "User"} avatar`} />
+            <img className={getAvatarToneClass(user.avatar)} src={getAvatarUrl(user.avatar)} alt={`${user.name || "User"} avatar`} />
           </div>
           <div className="purity-detail-copy">
             <p className="purity-detail-eyebrow">Identity purity</p>
@@ -231,6 +278,20 @@ const PurityDetailPage = () => {
               </strong>
             </div>
           </div>
+        </section>
+
+        <section className="purity-detail-resonance" aria-labelledby="identity-resonance-title">
+          <div className="purity-detail-resonance-copy">
+            <p className="purity-detail-eyebrow">Identity Resonance</p>
+            <h2 id="identity-resonance-title">Short ID settles here, not on the surface.</h2>
+          </div>
+          <div className="purity-detail-resonance-line">
+            <p>{resonanceCopy.statement}</p>
+            <button type="button" className="purity-resonance-cta" onClick={handleOpenClaim}>
+              Claim Short ID
+            </button>
+          </div>
+          <p className="purity-detail-resonance-note">{resonanceCopy.note}</p>
         </section>
 
         {status && (

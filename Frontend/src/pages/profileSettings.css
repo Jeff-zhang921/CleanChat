@@ -1,0 +1,220 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap");
+
+.profile-settings-shell {
+  min-height: 100svh;
+  padding: clamp(1rem, 3vw, 1.6rem);
+  color: #17211a;
+  font-family: "Manrope", sans-serif;
+  background:
+    radial-gradient(58rem 30rem at 50% 0%, rgba(244, 250, 246, 0.82), rgba(244, 250, 246, 0) 74%),
+    linear-gradient(180deg, rgba(249, 246, 240, 0.94), rgba(245, 240, 232, 0.72));
+  animation: profile-settings-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.profile-settings-shell.is-leaving {
+  animation: profile-settings-exit 260ms cubic-bezier(0.55, 0.08, 0.68, 0.53) both;
+}
+
+.profile-settings-page {
+  width: min(100%, 42rem);
+  margin: 0 auto;
+  display: grid;
+  gap: clamp(1.2rem, 3vw, 2rem);
+}
+
+.profile-settings-nav {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.profile-settings-back-button,
+.profile-settings-action {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: var(--ghost-button-bg);
+  backdrop-filter: var(--ghost-button-blur);
+  -webkit-backdrop-filter: var(--ghost-button-blur);
+  color: #17211a;
+  box-shadow: var(--ghost-button-shadow);
+  transition: var(--ghost-button-transition);
+}
+
+.profile-settings-back-button {
+  padding: 0.46rem 0.82rem 0.46rem 0.68rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.profile-settings-back-button:hover:not(:disabled),
+.profile-settings-action:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: var(--ghost-button-bg-hover);
+  box-shadow: var(--ghost-button-shadow-hover);
+  transform: translateY(-1px);
+}
+
+.profile-settings-back-button:disabled,
+.profile-settings-action:disabled {
+  opacity: 0.54;
+  cursor: default;
+}
+
+.profile-settings-header {
+  display: grid;
+  gap: 0.85rem;
+  padding-top: clamp(1rem, 4vw, 2.8rem);
+}
+
+.profile-settings-eyebrow {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(23, 33, 26, 0.44);
+}
+
+.profile-settings-header h1,
+.profile-settings-copy h2 {
+  margin: 0;
+  font-size: clamp(1.55rem, 4vw, 2.35rem);
+  line-height: 1.08;
+  font-weight: 300;
+  letter-spacing: 0.05em;
+}
+
+.profile-settings-header p,
+.profile-settings-copy p,
+.profile-settings-copy span,
+.profile-settings-loading,
+.profile-settings-status,
+.profile-settings-danger-note {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.8;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+  color: rgba(23, 33, 26, 0.68);
+}
+
+.profile-settings-card {
+  border: 1px solid rgba(23, 33, 26, 0.08);
+  border-radius: 1.5rem;
+  background: rgba(255, 255, 255, 0.48);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: clamp(1rem, 3vw, 1.35rem);
+  display: grid;
+  gap: 0.9rem;
+}
+
+.profile-settings-card-soft {
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.54), rgba(248, 246, 239, 0.4)),
+    rgba(255, 255, 255, 0.44);
+}
+
+.profile-settings-card-danger {
+  border-color: rgba(141, 71, 82, 0.12);
+}
+
+.profile-settings-copy {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.profile-settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.profile-permission-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.34rem 0.74rem;
+  border-radius: 999px;
+  border: 1px solid rgba(23, 33, 26, 0.1);
+  background: rgba(255, 255, 255, 0.74);
+  color: rgba(23, 33, 26, 0.62);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.profile-permission-pill.active {
+  border-color: rgba(31, 138, 91, 0.24);
+  background: rgba(31, 138, 91, 0.1);
+  color: #21553d;
+}
+
+.profile-settings-action {
+  min-height: 2.9rem;
+  padding: 0.68rem 1.08rem;
+  font: inherit;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.profile-settings-action-danger {
+  border-color: rgba(173, 83, 95, 0.18);
+  color: #7a2a33;
+}
+
+.profile-settings-danger-note {
+  color: rgba(122, 42, 51, 0.76);
+}
+
+.profile-settings-status {
+  padding: 0.2rem 0;
+}
+
+@keyframes profile-settings-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(26px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes profile-settings-exit {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+}
+
+@media (max-width: 640px) {
+  .profile-settings-shell {
+    padding: 0.95rem;
+  }
+
+  .profile-settings-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .profile-settings-action {
+    width: 100%;
+  }
+}

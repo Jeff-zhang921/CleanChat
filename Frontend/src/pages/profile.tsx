@@ -6,6 +6,7 @@ import {
   AVATAR_TIER_ORDER,
   buildDerivedAvatarAccess,
   getAvatarOption,
+  getAvatarToneClass,
   getAvatarOptionsByTier,
   getAvatarUrl,
   isAvatarUnlocked,
@@ -15,7 +16,6 @@ import { BACKEND_URL } from "../config";
 import {
   FALLBACK_SHORT_ID_CLAIM,
   getShortClaimRangeLabel,
-  getShortClaimTierLabel,
   validateShortClaimInput,
 } from "../utils/cleanIdClaim";
 import {
@@ -181,6 +181,19 @@ const ProfilePage = () => {
       state: {
         user,
         spatialTransition: "push",
+        returnTo: "/profile",
+      } satisfies ProfileRouteState,
+    });
+  };
+
+  const openSettings = () => {
+    if (!user) return;
+    setStatus("");
+    navigate("/profile/settings", {
+      state: {
+        user,
+        spatialTransition: "push",
+        returnTo: "/profile",
       } satisfies ProfileRouteState,
     });
   };
@@ -526,6 +539,7 @@ const ProfilePage = () => {
       state: {
         user,
         spatialTransition: "push",
+        returnTo: "/profile",
       } satisfies ProfileRouteState,
     });
   };
@@ -554,7 +568,6 @@ const ProfilePage = () => {
   }));
   const activeAvatarOption = getAvatarOption(activeAvatar);
   const activeShortIdClaim = user?.shortIdClaim ?? FALLBACK_SHORT_ID_CLAIM;
-  const shortClaimTierLabel = getShortClaimTierLabel(activeShortIdClaim);
   const shortClaimRangeLabel = getShortClaimRangeLabel(activeShortIdClaim);
   const purityMaterialLabel =
     activeTrust.band === "clear"
@@ -566,10 +579,10 @@ const ProfilePage = () => {
           : "Matte paper";
   const purityActionLabel =
     activeTrust.band === "clear"
-      ? "Open crystal ledger"
+      ? "Read the quiet ledger"
       : activeTrust.band === "steady"
-        ? "Open purity field"
-        : "Inspect signal surface";
+        ? "Read purity detail"
+        : "Inspect the signal surface";
   const activeCleanIdLength = activeCleanId.trim().length;
   const cleanIdIntent =
     activeCleanIdLength > 0 && activeCleanIdLength <= 2
@@ -600,20 +613,12 @@ const ProfilePage = () => {
                 <p className="profile-step">Your Account</p>
                 <h1 className="profile-title">Profile</h1>
               </div>
-              <button
-                type="button"
-                className="profile-link-btn"
-                onClick={handleBackToLogin}
-                disabled={isLoggingOut}
-              >
-                {isLoggingOut ? "Logging out..." : "Log Out"}
-              </button>
             </header>
 
             <section className={`profile-entry-card profile-entry-card-${activeTrust.band}`}>
               <div className="profile-entry-identity">
                 <img
-                  className="profile-avatar-main"
+                  className={`profile-avatar-main ${getAvatarToneClass(activeAvatar)}`}
                   src={getAvatarUrl(activeAvatar)}
                   alt={`${activeName || "User"} avatar`}
                 />
@@ -622,9 +627,6 @@ const ProfilePage = () => {
                   <h2>{activeName}</h2>
                   <div className="profile-summary-id-row">
                     <p className={`profile-cleanid profile-cleanid-${activeTrust.band}`}>@{activeCleanId}</p>
-                    <span className={`profile-short-claim-badge profile-short-claim-badge-${activeShortIdClaim.tier}`}>
-                      {activeShortIdClaim.isCurrentShort ? "Short ID held" : activeShortIdClaim.pill}
-                    </span>
                   </div>
                   <p className="profile-avatar-family">{activeAvatarOption.family}</p>
                   <span>{user.email}</span>
@@ -647,66 +649,20 @@ const ProfilePage = () => {
             </section>
 
             {!isEditing && (
-              <section
-                className={`profile-short-claim-card profile-short-claim-card-${activeShortIdClaim.tier} profile-short-claim-standalone`}
-              >
-                <div className="profile-short-claim-head">
-                  <div>
-                    <p className="profile-settings-eyebrow">Short ID Claim</p>
-                    <h4>{activeShortIdClaim.title}</h4>
-                  </div>
-                  <span className={`profile-short-claim-pill profile-short-claim-pill-${activeShortIdClaim.tier}`}>
-                    {shortClaimTierLabel}
-                  </span>
-                </div>
-                <div className="profile-short-claim-hero">
-                  <span className={`profile-short-claim-token profile-short-claim-token-${activeShortIdClaim.tier}`}>
-                    @{activeCleanId}
-                  </span>
-                  <div className="profile-short-claim-hero-copy">
-                    <strong>
-                      {activeShortIdClaim.isCurrentShort
-                        ? `${cleanIdIntent} handle occupied`
-                        : `${shortClaimRangeLabel} claim window`}
-                    </strong>
-                    <span>{activeShortIdClaim.detail}</span>
-                  </div>
-                </div>
-                <div className="profile-short-claim-grid">
-                  <div className="profile-short-claim-cell">
-                    <span>Claim window</span>
-                    <strong>{shortClaimRangeLabel}</strong>
-                  </div>
-                  <div className="profile-short-claim-cell">
-                    <span>Next unlock</span>
-                    <strong>
-                      {activeShortIdClaim.nextUnlockScore
-                        ? `${activeShortIdClaim.nextUnlockScore}+`
-                        : "Open now"}
-                    </strong>
-                  </div>
-                </div>
-                <p className="profile-short-claim-note">{activeShortIdClaim.scarcity}</p>
-                <div className="profile-short-claim-examples">
-                  {activeShortIdClaim.examples.map((example) => (
-                    <span key={example} className="profile-short-claim-example">
-                      @{example}
-                    </span>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {!isEditing && (
               <div className="profile-top-actions">
                 <button type="button" className="profile-action-row" onClick={startEdit}>
                   <span className="profile-action-row-copy">
                     <span className="profile-action-row-title">Edit Profile</span>
-                    <span className="profile-action-row-note">Open the dedicated identity workspace</span>
+                    <span className="profile-action-row-note">Adjust display name and CleanID without touching vault privileges</span>
                   </span>
-                  <span className="profile-action-row-arrow" aria-hidden="true">
-                    &gt;
+                  <span className="profile-action-row-arrow" aria-hidden="true">{"\u2192"}</span>
+                </button>
+                <button type="button" className="profile-action-row" onClick={openSettings}>
+                  <span className="profile-action-row-copy">
+                    <span className="profile-action-row-title">Settings</span>
+                    <span className="profile-action-row-note">Notifications, session controls, and account removal</span>
                   </span>
+                  <span className="profile-action-row-arrow" aria-hidden="true">{"\u2192"}</span>
                 </button>
                 <button
                   type="button"
@@ -721,47 +677,9 @@ const ProfilePage = () => {
                       Review owned groups and pending join requests
                     </span>
                   </span>
-                  <span className="profile-action-row-arrow" aria-hidden="true">
-                    &gt;
-                  </span>
+                  <span className="profile-action-row-arrow" aria-hidden="true">{"\u2192"}</span>
                 </button>
               </div>
-            )}
-
-            {!isEditing && (
-              <section className="profile-settings-card">
-                <div className="profile-settings-copy">
-                  <p className="profile-settings-eyebrow">Notifications</p>
-                  <h3>Message alerts</h3>
-                  <p className="profile-hint">
-                    Turn browser notifications on here instead of showing that action on the chat list.
-                  </p>
-                </div>
-                <div className="profile-settings-actions">
-                  <span className={`profile-permission-pill ${notificationPermission === "granted" ? "active" : ""}`}>
-                    {notificationPermission === "granted"
-                      ? "On"
-                      : notificationPermission === "denied"
-                        ? "Blocked"
-                        : notificationPermission === "unsupported"
-                          ? "Unsupported"
-                          : "Off"}
-                  </span>
-                  <button
-                    type="button"
-                    className="profile-primary-btn"
-                    onClick={() => void handleEnableNotifications()}
-                    disabled={notificationPermission === "granted"}
-                  >
-                    {notificationPermission === "granted" ? "Notifications On" : "Enable Notifications"}
-                  </button>
-                </div>
-                {notificationStatus && (
-                  <p className="profile-status profile-notification-status" role="status">
-                    {notificationStatus}
-                  </p>
-                )}
-              </section>
             )}
 
             {isEditing && (
@@ -770,8 +688,8 @@ const ProfilePage = () => {
                   <legend>Avatar Library</legend>
                   <div className="profile-avatar-head">
                     <p className="profile-hint">
-                      CleanIDs now start with calm cartoon portraits, then unlock richer studio portraits and safe
-                      anime characters as trust settles.
+                      CleanIDs now begin with minimalist characters, then open into marble portraiture and finally
+                      abstract light-forms as trust settles.
                     </p>
                     <span className="profile-avatar-current-pill">
                       {AVATAR_TIER_META[avatarAccess.currentTier].title}
@@ -811,7 +729,7 @@ const ProfilePage = () => {
                                 onChange={() => setAvatar(item.key)}
                                 disabled={!item.unlocked}
                               />
-                              <img src={item.url} alt={item.label} />
+                              <img className={getAvatarToneClass(item.key)} src={item.url} alt={item.label} />
                               <span>{item.label}</span>
                               <em>
                                 {item.unlocked
@@ -1012,38 +930,6 @@ const ProfilePage = () => {
               </section>
             )}
 
-            <section className="profile-danger-wrap">
-              {isDeleteConfirming && !isDeleting && (
-                <p className="profile-danger-hint">
-                  Are you sure? This will permanently delete your account, profile, and all chats.
-                  Click delete again to continue.
-                </p>
-              )}
-              <div className="profile-danger-actions">
-                <button
-                  type="button"
-                  className={`profile-danger-btn ${isDeleteConfirming ? "confirm" : ""}`}
-                  onClick={handleDeleteAccount}
-                  disabled={isDeleting || isSaving || isLoggingOut}
-                >
-                  {isDeleting
-                    ? "Deleting..."
-                    : isDeleteConfirming
-                      ? "Delete Account (Confirm)"
-                      : "Delete Account"}
-                </button>
-                {isDeleteConfirming && !isDeleting && (
-                  <button
-                    type="button"
-                    className="profile-secondary-btn"
-                    onClick={() => setIsDeleteConfirming(false)}
-                    disabled={isSaving || isLoggingOut}
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
-            </section>
           </>
         )}
       </main>

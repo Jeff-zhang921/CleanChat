@@ -11,7 +11,7 @@
   --accent-soft: rgba(31, 138, 91, 0.16);
   min-height: 100svh;
   min-height: 100dvh;
-  padding-bottom: var(--bottom-nav-height, calc(74px + env(safe-area-inset-bottom, 0px)));
+  height: 100dvh;
   background: transparent;
   color: var(--ink);
   font-family: "Manrope", sans-serif;
@@ -19,6 +19,7 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .conversations-shell {
@@ -30,6 +31,8 @@
   gap: 1rem;
   box-sizing: border-box;
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .conversations-hero {
@@ -144,23 +147,26 @@
 
 .notify-button {
   align-self: flex-start;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 999px;
-  background: var(--panel);
+  background: var(--ghost-button-bg);
+  backdrop-filter: var(--ghost-button-blur);
+  -webkit-backdrop-filter: var(--ghost-button-blur);
   color: var(--ink);
   padding: 0.65rem 1rem;
   font: inherit;
   font-size: 0.86rem;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 0 10px 24px rgba(15, 21, 36, 0.08);
-  transition: border-color 120ms ease, background-color 120ms ease, transform 120ms ease;
+  box-shadow: var(--ghost-button-shadow);
+  transition: var(--ghost-button-transition);
 }
 
 .notify-button:hover:not(:disabled) {
-  border-color: #c4cfbf;
-  background: #f5fbf6;
+  border-color: rgba(255, 255, 255, 0.22);
+  background: var(--ghost-button-bg-hover);
+  box-shadow: var(--ghost-button-shadow-hover);
   transform: translateY(-1px);
 }
 
@@ -184,26 +190,27 @@
 .search-launcher {
   width: 3.4rem;
   height: 3.4rem;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 999px;
-  background:
-    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.96), rgba(247, 244, 238, 0.88)),
-    var(--panel);
+  background: var(--ghost-button-bg);
+  backdrop-filter: var(--ghost-button-blur);
+  -webkit-backdrop-filter: var(--ghost-button-blur);
   color: #233126;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 14px 28px rgba(15, 21, 36, 0.1);
+  box-shadow: var(--ghost-button-shadow);
   cursor: pointer;
-  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  transition: var(--ghost-button-transition);
   will-change: transform, opacity;
   transform: translateZ(0);
 }
 
 .search-launcher:hover {
   transform: translateY(-1px);
-  border-color: #c3cbbd;
-  box-shadow: 0 18px 34px rgba(15, 21, 36, 0.14);
+  border-color: rgba(255, 255, 255, 0.22);
+  background: var(--ghost-button-bg-hover);
+  box-shadow: var(--ghost-button-shadow-hover);
 }
 
 .search-launcher:focus-visible {
@@ -278,21 +285,26 @@
 }
 
 .search-dismiss {
-  border: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 999px;
-  background: rgba(24, 34, 24, 0.08);
+  background: var(--ghost-button-bg);
+  backdrop-filter: var(--ghost-button-blur);
+  -webkit-backdrop-filter: var(--ghost-button-blur);
   color: #233126;
   min-height: 2rem;
   padding: 0.32rem 0.7rem;
   font: inherit;
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 120ms ease, transform 120ms ease;
+  box-shadow: var(--ghost-button-shadow);
+  transition: var(--ghost-button-transition);
 }
 
 .search-dismiss:hover {
-  background: rgba(24, 34, 24, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+  background: var(--ghost-button-bg-hover);
+  box-shadow: var(--ghost-button-shadow-hover);
   transform: translateY(-1px);
 }
 
@@ -326,9 +338,26 @@
   gap: 0.75rem;
 }
 
+.conversations-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  flex: 1;
+  min-height: 0;
+}
+
 .conversations-list-shell,
 .conversations-virtuoso {
   min-width: 0;
+}
+
+.conversations-list-shell {
+  flex: 1;
+  min-height: 0;
+}
+
+.conversations-virtuoso {
+  height: 100%;
 }
 
 .conversations-virtual-item {
@@ -535,6 +564,8 @@ button.conversation-card {
 
 .conversations-list-loading {
   pointer-events: none;
+  overflow-y: auto;
+  padding-right: 0.1rem;
 }
 
 .conversation-card-skeleton {
