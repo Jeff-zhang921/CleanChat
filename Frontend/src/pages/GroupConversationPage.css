@@ -6,6 +6,7 @@
   padding: 1rem;
   background: var(--panel);
   box-shadow: 0 14px 30px rgba(15, 21, 36, 0.08);
+  box-sizing: border-box;
 }
 
 .groups-page .group-create-panel h3 {
@@ -30,6 +31,7 @@
   background: #ffffff;
   color: var(--ink);
   transition: border-color 120ms ease, box-shadow 120ms ease;
+  box-sizing: border-box;
 }
 
 .groups-page .group-create-grid input:focus {
@@ -85,7 +87,7 @@
 .groups-page .group-avatar-option.active {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
-  background: #eef4ff;
+  background: #eef7f1;
 }
 
 .groups-page .group-create-toggle {
@@ -140,6 +142,7 @@
   cursor: pointer;
   white-space: nowrap;
   transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+  box-sizing: border-box;
 }
 
 .groups-page .group-action.join {
@@ -149,15 +152,15 @@
 }
 
 .groups-page .group-action.open {
-  border-color: #bcc6dc;
-  background: #eef3ff;
-  color: #1f3c7a;
+  border-color: #bfd2c3;
+  background: #eef7f1;
+  color: #23583f;
 }
 
 .groups-page .group-action.avatar {
-  border-color: #86a6df;
-  background: #f3f7ff;
-  color: #1f4a92;
+  border-color: #9ec7ad;
+  background: #f2f8f3;
+  color: #236247;
 }
 
 .groups-page .group-action.leave {
@@ -270,7 +273,7 @@
 .groups-avatar-option.active {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
-  background: #eaf1ff;
+  background: #eef7f1;
 }
 
 .groups-delete-actions {
@@ -288,19 +291,100 @@
 @media (max-width: 760px) {
   .groups-page .group-avatar-options {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.38rem;
   }
 
   .groups-avatar-options {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .groups-page .group-create-panel {
+    padding: 0.82rem;
+    border-radius: 0.9rem;
+  }
+
+  .groups-page .group-create-panel h3 {
+    margin-bottom: 0.65rem;
+    font-size: 0.96rem;
+  }
+
+  .groups-page .group-create-grid {
+    gap: 0.55rem;
+  }
+
+  .groups-page .group-create-grid input {
+    padding: 0.74rem 0.82rem;
+    border-radius: 0.75rem;
+    font-size: 0.94rem;
+  }
+
+  .groups-page .group-create-toggle {
+    padding: 0.7rem 0.75rem;
+    border-radius: 0.75rem;
+    font-size: 0.76rem;
+  }
+
+  .groups-page .group-avatar-picker p {
+    font-size: 0.8rem;
+  }
+
+  .groups-page .group-avatar-option {
+    padding: 0.38rem;
+    border-radius: 0.72rem;
+    gap: 0.2rem;
+    font-size: 0.66rem;
+  }
+
+  .groups-page .group-avatar-option img {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
   .groups-page .group-card {
     grid-template-columns: auto minmax(0, 1fr);
-    gap: 0.8rem;
+    gap: 0.72rem;
   }
 
   .groups-page .group-action-row {
     grid-column: 1 / -1;
-    justify-content: flex-start;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
+    width: 100%;
+    gap: 0.45rem;
+  }
+
+  .groups-page .group-action {
+    width: 100%;
+    padding: 0.54rem 0.68rem;
+    border-radius: 0.72rem;
+    font-size: 0.76rem;
+    text-align: center;
+  }
+
+  .groups-page .conversation-subline {
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+
+  .groups-delete-modal,
+  .groups-avatar-modal {
+    padding: 0.85rem;
+    gap: 0.65rem;
+    border-radius: 0.9rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .groups-page .group-avatar-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .groups-page .group-action-row {
+    grid-template-columns: 1fr;
+  }
+
+  .groups-avatar-option {
+    font-size: 0.76rem;
   }
 }

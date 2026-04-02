@@ -8,8 +8,8 @@
   right: 0;
   bottom: 0;
   padding: 0 0 env(safe-area-inset-bottom, 0px);
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-  background: rgba(247, 247, 247, 0.96);
+  border-top: 1px solid rgba(96, 91, 74, 0.14);
+  background: rgba(247, 241, 231, 0.94);
   backdrop-filter: blur(18px);
   z-index: 30;
 }
@@ -31,7 +31,7 @@
   justify-content: center;
   gap: 0.2rem;
   text-decoration: none;
-  color: #6c727c;
+  color: #6b6d61;
   font-weight: 500;
   font-size: 0.74rem;
   letter-spacing: 0.01em;
@@ -39,16 +39,16 @@
 }
 
 .bottom-nav-link:hover {
-  color: #242b36;
+  color: #283128;
 }
 
 .bottom-nav-link.active {
-  color: #07c160;
+  color: #16955e;
 }
 
 .bottom-nav-link:focus-visible {
   outline: none;
-  color: #07c160;
+  color: #16955e;
 }
 
 .bottom-nav-icon {
@@ -63,6 +63,6 @@
 
 @media (min-width: 768px) {
   .bottom-nav {
-    background: rgba(247, 247, 247, 0.92);
+    background: rgba(247, 241, 231, 0.9);
   }
 }

@@ -1,7 +1,13 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { BACKEND_URL } from "../config";
-import "./login.css";
+import {
+  PretextMessageDeck,
+  PretextSignalOrb,
+  getPretextAuthStyles,
+  usePretextCompact,
+  usePretextPointer,
+} from "../pretext/auth";
 
 const CODE_LENGTH = 6;
 const PENDING_EMAIL_KEY = "cleanchat:pending-email";
@@ -36,6 +42,8 @@ const VerifyPage = () => {
   const location = useLocation();
   const emailFromState = ((location.state as VerifyLocationState)?.email || "").trim().toLowerCase();
   const [storedEmail, setStoredEmail] = useState(() => getPendingEmail());
+  const compact = usePretextCompact();
+  const { pointer, bindings } = usePretextPointer();
 
   useEffect(() => {
     if (!emailFromState || emailFromState === storedEmail) {
@@ -53,6 +61,11 @@ const VerifyPage = () => {
   const [code, setCode] = useState("");
   const [status, setStatus] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const emailParts = useMemo(() => email.split("@"), [email]);
+  const codeProgress = email
+    ? Math.min(1, 0.32 + code.trim().length / CODE_LENGTH)
+    : 0.18;
+  const styles = getPretextAuthStyles(compact, pointer);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -103,58 +116,132 @@ const VerifyPage = () => {
   };
 
   return (
-    <div className="auth-shell">
-      <main className="auth-layout">
-        <section className="auth-brand">
-          <p className="auth-kicker">Secure Messaging</p>
-          <h1 className="auth-logo">CleanChat</h1>
-          <p className="auth-tagline">You are one step away from your conversations.</p>
-          <div className="auth-chip-row">
-            <span className="auth-chip">6-digit verification</span>
-            <span className="auth-chip">Fast sign-in</span>
+    <div style={styles.shell} {...(compact ? {} : bindings)}>
+      <main style={styles.layout}>
+        <section style={styles.heroPanel}>
+          <div style={styles.heroGlowA} />
+          <div style={styles.heroGlowB} />
+
+          <div style={styles.heroHeader}>
+            <p style={styles.heroKicker}>Code Receipt</p>
+            <span style={styles.heroBadge}>mailbox handshake</span>
+          </div>
+
+          <h1 style={styles.heroTitle}>The lane is open. Now prove it is yours.</h1>
+          <p style={styles.heroCopy}>
+            Verification should feel like the second beat of the same experience, not a dead utility screen. Drop in
+            the code and the route resolves into your conversations.
+          </p>
+
+          <div style={styles.heroTagRow}>
+            {["6 digits", "temporary entry", "quiet handoff"].map((item) => (
+              <span key={item} style={styles.heroTag}>
+                {item}
+              </span>
+            ))}
+          </div>
+
+          <div style={styles.heroGrid}>
+            <PretextMessageDeck
+              compact={compact}
+              pointer={pointer}
+              emailLocal={emailParts[0] || ""}
+              emailDomain={emailParts[1] || ""}
+            />
+
+            <aside style={styles.sideCard}>
+              <p style={styles.sideLabel}>Verification Note</p>
+              <h2 style={styles.sideTitle}>One code, then the surface disappears.</h2>
+              <p style={styles.sideCopy}>
+                The whole point is speed: confirm the mailbox, step in, and leave the mechanics behind you.
+              </p>
+
+              <div style={styles.sideStatGrid}>
+                {[
+                  [String(CODE_LENGTH).padStart(2, "0"), "digits"],
+                  ["1", "mailbox"],
+                  ["0", "passwords"],
+                  ["now", "entry"],
+                ].map(([value, label]) => (
+                  <div key={label} style={styles.sideStat}>
+                    <span style={styles.sideStatValue}>{value}</span>
+                    <span style={styles.sideStatLabel}>{label}</span>
+                  </div>
+                ))}
+              </div>
+            </aside>
           </div>
         </section>
 
-        <section className="auth-panel">
-          <p className="auth-step">Step 2 of 2</p>
-          <h2 className="auth-title">Verify your code</h2>
-          <p className="auth-copy">
-            {email ? (
-              <>
-                Code sent to <span className="auth-email">{email}</span>
-              </>
-            ) : (
-              "Return to login to request a code."
-            )}
-          </p>
-
-          <form onSubmit={handleSubmit} className="auth-form">
-            <label className="auth-label" htmlFor="code">
-              Verification Code
-            </label>
-          <input
-            className="auth-input auth-code-input"
-            id="code"
-            type="text"
-            inputMode="numeric"
-            maxLength={CODE_LENGTH}
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-            placeholder="123456"
-            required
+        <section style={styles.panel}>
+          <p style={styles.step}>Step 2 of 2</p>
+          <PretextSignalOrb
+            progress={codeProgress}
+            compact={compact}
+            pointer={pointer}
+            heading={code.trim().length === CODE_LENGTH ? "All digits present. Resolve the lane." : "Awaiting full code."}
+            caption={
+              email
+                ? `Mailbox locked to ${email}. Finish the 6-digit sequence and we open the conversation surface.`
+                : "Return to login to request a new code before continuing."
+            }
           />
 
-            <button className="auth-primary" type="submit" disabled={isSubmitting || !email}>
-              {isSubmitting ? "Verifying..." : "Verify"}
+          <div>
+            <h2 style={styles.title}>Verify your code</h2>
+            <p style={styles.copy}>
+              {email ? `Code sent to ${email}.` : "Return to login to request a code."}
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} style={styles.form}>
+            <label style={styles.label} htmlFor="code">
+              Verification Code
+            </label>
+            <input
+              style={{
+                ...styles.input,
+                textAlign: "center",
+                letterSpacing: "0.24em",
+                fontWeight: 700,
+              }}
+              id="code"
+              type="text"
+              inputMode="numeric"
+              maxLength={CODE_LENGTH}
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+              placeholder="123456"
+              required
+            />
+
+            <div style={styles.helperRow}>
+              {[
+                `${code.trim().length}/${CODE_LENGTH} digits`,
+                emailParts[0] ? `entry ${emailParts[0]}` : "entry pending",
+                "mailbox verified",
+              ].map((item) => (
+                <span key={item} style={styles.helperPill}>
+                  {item}
+                </span>
+              ))}
+            </div>
+
+            <button
+              style={{ ...styles.primaryButton, opacity: isSubmitting || !email ? 0.72 : 1 }}
+              type="submit"
+              disabled={isSubmitting || !email}
+            >
+              {isSubmitting ? "Verifying..." : "Enter CleanChat"}
             </button>
           </form>
 
-          <button className="auth-secondary" type="button" onClick={() => navigate("/login")}>
+          <button style={styles.secondaryButton} type="button" onClick={() => navigate("/login")}>
             Back to login
           </button>
 
           {status && (
-            <p className="auth-status" role="status">
+            <p style={styles.status} role="status">
               {status}
             </p>
           )}

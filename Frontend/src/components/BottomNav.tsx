@@ -48,7 +48,7 @@ const NavIcon = ({ kind, active }: NavIconProps) => {
 const BottomNav = () => {
   const items = [
     { to: "/conversations", label: "Chats", kind: "conversations" as const },
-    { to: "/groups", label: "Contacts", kind: "groups" as const },
+    { to: "/groups", label: "Join Group", kind: "groups" as const },
     { to: "/profile", label: "Me", kind: "profile" as const },
   ];
 
