@@ -1,45 +1,68 @@
 .bottom-nav-spacer {
-  height: calc(78px + env(safe-area-inset-bottom, 0px));
+  height: calc(84px + env(safe-area-inset-bottom, 0px));
 }
 
 .bottom-nav {
   position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: max(10px, env(safe-area-inset-bottom, 0px));
-  width: min(100% - 1rem, 460px);
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 0.55rem;
-  padding: 0.5rem;
-  border-radius: 0.95rem;
-  border: 1px solid #d9deeb;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 10px 26px rgba(15, 21, 36, 0.16);
-  backdrop-filter: blur(8px);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0 0 env(safe-area-inset-bottom, 0px);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(247, 247, 247, 0.96);
+  backdrop-filter: blur(18px);
   z-index: 30;
 }
 
+.bottom-nav-inner {
+  width: min(100%, 480px);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: stretch;
+}
+
 .bottom-nav-link {
-  border: 1px solid #e3e7f0;
-  border-radius: 0.7rem;
-  padding: 0.58rem 0.75rem;
-  text-align: center;
+  min-height: 58px;
+  padding: 0.45rem 0.35rem 0.4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
   text-decoration: none;
-  color: #2f3746;
-  font-weight: 700;
-  font-size: 0.9rem;
-  background: #ffffff;
-  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+  color: #6c727c;
+  font-weight: 500;
+  font-size: 0.74rem;
+  letter-spacing: 0.01em;
+  transition: color 120ms ease, transform 120ms ease;
 }
 
 .bottom-nav-link:hover {
-  border-color: #bcc6dc;
-  background: #f8fbff;
+  color: #242b36;
 }
 
 .bottom-nav-link.active {
-  border-color: #2f6fed;
-  background: #2f6fed;
-  color: #ffffff;
+  color: #07c160;
+}
+
+.bottom-nav-link:focus-visible {
+  outline: none;
+  color: #07c160;
+}
+
+.bottom-nav-icon {
+  width: 1.42rem;
+  height: 1.42rem;
+  display: block;
+}
+
+.bottom-nav-label {
+  line-height: 1;
+}
+
+@media (min-width: 768px) {
+  .bottom-nav {
+    background: rgba(247, 247, 247, 0.92);
+  }
 }
