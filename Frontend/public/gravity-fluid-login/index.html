@@ -1,0 +1,1134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <link rel="icon" href="data:," />
+    <title>Gravity Fluid Login</title>
+  </head>
+  <body>
+    <canvas id="app" aria-label="Gravity fluid login canvas"></canvas>
+    <script>
+      (() => {
+        const canvas = document.getElementById("app");
+        const ctx = canvas.getContext("2d", { alpha: false, willReadFrequently: true });
+        const DPR = Math.min(window.devicePixelRatio || 1, 2);
+        const WORLD_W = 360;
+        const WORLD_H = 640;
+        const MID_X = WORLD_W / 2;
+        const HOLD_MS = 460;
+        const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        Object.assign(document.documentElement.style, {
+          background: "#061113",
+          colorScheme: "dark",
+        });
+        Object.assign(document.body.style, {
+          margin: "0",
+          overflow: "hidden",
+          background: "#061113",
+          touchAction: "none",
+        });
+
+        const state = {
+          phone: { x: 0, y: 0, w: WORLD_W, h: WORLD_H, scale: 1 },
+          gravity: { x: 0, y: 0.34 },
+          targetGravity: { x: 0, y: 0.34 },
+          fields: { email: "", code: "" },
+          activeField: "",
+          fluidCount: 10,
+          minFluidCount: 8,
+          radius: 8.5,
+          membraneNodes: 14,
+          surfaceTension: 0.026,
+          springK: 0.11,
+          tearLimit: 13,
+          drag: 0.985,
+          particleGravity: 0.34,
+          membraneGravity: 0.028,
+          repulseStrength: 0.22,
+          sameRange: 46,
+          sameTarget: 21,
+          membraneLimitPad: 8,
+          membranePush: 0.55,
+          particles: [],
+          membrane: [],
+          springs: [],
+          avgFrameMs: 16.7,
+          frameHistory: [],
+          frameIndex: 0,
+          mixScore: 0,
+          pixelFusionDensity: 0,
+          fused: false,
+          fusedAt: 0,
+          longPressPulse: 0,
+          orientationReady: false,
+          orientationMode: "pending",
+          tiltAngle: 0,
+          lastPromptAt: 0,
+          reducedAt: 0,
+          seed: 1,
+          automationMode: false,
+          vibrateHits: 0,
+          lastVibrationPattern: "",
+          press: {
+            active: false,
+            longPressId: 0,
+            startX: 0,
+            startY: 0,
+            longPressTriggered: false,
+          },
+        };
+
+        function seededRandom(seed) {
+          let value = seed >>> 0;
+          return () => {
+            value = (value * 1664525 + 1013904223) >>> 0;
+            return value / 4294967296;
+          };
+        }
+
+        function clamp(value, min, max) {
+          return Math.max(min, Math.min(max, value));
+        }
+
+        function lerp(a, b, t) {
+          return a + (b - a) * t;
+        }
+
+        function roundRectPath(context, x, y, w, h, r) {
+          const radius = Math.min(r, w * 0.5, h * 0.5);
+          context.beginPath();
+          context.moveTo(x + radius, y);
+          context.arcTo(x + w, y, x + w, y + h, radius);
+          context.arcTo(x + w, y + h, x, y + h, radius);
+          context.arcTo(x, y + h, x, y, radius);
+          context.arcTo(x, y, x + w, y, radius);
+          context.closePath();
+        }
+
+        function phoneToCanvas(x, y) {
+          return {
+            x: state.phone.x + x * state.phone.scale,
+            y: state.phone.y + y * state.phone.scale,
+          };
+        }
+
+        function canvasToPhone(clientX, clientY) {
+          const rect = canvas.getBoundingClientRect();
+          const x = (clientX - rect.left - state.phone.x) / state.phone.scale;
+          const y = (clientY - rect.top - state.phone.y) / state.phone.scale;
+          return { x, y };
+        }
+
+        function rebuildSimulation(count) {
+          state.fluidCount = count;
+          state.fused = false;
+          state.mixScore = 0;
+          state.fusedAt = 0;
+          state.gravity.x = 0;
+          state.gravity.y = state.particleGravity;
+          state.targetGravity.x = 0;
+          state.targetGravity.y = state.particleGravity;
+
+          const random = seededRandom(100 + count + state.seed);
+          const particles = [];
+          const cols = Math.max(3, Math.floor(Math.sqrt(count)));
+          const spacing = state.radius * 2.18;
+          const startY = WORLD_H * 0.22;
+          for (let group = 0; group < 2; group += 1) {
+            const baseX = WORLD_W * (group === 0 ? 0.27 : 0.73);
+            for (let i = 0; i < count; i += 1) {
+              const row = Math.floor(i / cols);
+              const col = i % cols;
+              particles.push({
+                x: baseX + (col - 1.5) * spacing + (random() - 0.5) * state.radius * 0.5,
+                y: startY + row * spacing + (random() - 0.5) * state.radius * 0.5,
+                vx: 0,
+                vy: 0,
+                group,
+              });
+            }
+          }
+
+          const membrane = [];
+          const springs = [];
+          const margin = 34;
+          const span = WORLD_H - margin * 2;
+          for (let i = 0; i < state.membraneNodes; i += 1) {
+            const t = i / (state.membraneNodes - 1);
+            membrane.push({
+              x: MID_X,
+              y: margin + span * t,
+              vx: 0,
+              vy: 0,
+              pinned: i === 0 || i === state.membraneNodes - 1,
+            });
+            if (i > 0) {
+              const a = membrane[i - 1];
+              const b = membrane[i];
+              springs.push({
+                a: i - 1,
+                b: i,
+                rest: Math.hypot(b.x - a.x, b.y - a.y),
+                torn: false,
+              });
+            }
+          }
+
+          state.particles = particles;
+          state.membrane = membrane;
+          state.springs = springs;
+        }
+
+        function requestOrientationOnce() {
+          if (state.orientationReady || state.orientationMode === "blocked") {
+            return;
+          }
+
+          const startListening = () => {
+            window.addEventListener("deviceorientation", handleOrientation, true);
+            state.orientationReady = true;
+            state.orientationMode = "live";
+          };
+
+          if (
+            typeof DeviceOrientationEvent !== "undefined" &&
+            typeof DeviceOrientationEvent.requestPermission === "function"
+          ) {
+            DeviceOrientationEvent.requestPermission()
+              .then((result) => {
+                if (result === "granted") {
+                  startListening();
+                } else {
+                  state.orientationMode = "blocked";
+                }
+              })
+              .catch(() => {
+                state.orientationMode = "blocked";
+              });
+            return;
+          }
+
+          if ("DeviceOrientationEvent" in window) {
+            startListening();
+          } else {
+            state.orientationMode = "unsupported";
+          }
+        }
+
+        function handleOrientation(event) {
+          const gamma = clamp((event.gamma || 0) / 62, -1, 1);
+          const beta = clamp((event.beta || 0) / 90, -1, 1);
+          state.targetGravity.x = gamma * state.particleGravity;
+          state.targetGravity.y = clamp(0.16 + Math.abs(beta) * 0.24, 0.16, 0.42);
+          state.tiltAngle = Math.round(Math.atan2(Math.abs(state.targetGravity.x), state.targetGravity.y) * 180 / Math.PI);
+        }
+
+        function openField(fieldName) {
+          const now = performance.now();
+          if (now - state.lastPromptAt < 180) {
+            return;
+          }
+          state.lastPromptAt = now;
+          state.activeField = fieldName;
+          requestOrientationOnce();
+          if (state.automationMode) {
+            return;
+          }
+          const title =
+            fieldName === "email"
+              ? "Pour email into the upper tide field"
+              : "Pour verify code into the lower signal dock";
+          const initialValue = state.fields[fieldName];
+          const nextValue = window.prompt(title, initialValue);
+          if (nextValue == null) {
+            return;
+          }
+
+          if (fieldName === "email") {
+            state.fields.email = nextValue.trim().toLowerCase();
+            pulseField(-1);
+          } else {
+            state.fields.code = nextValue.trim().replace(/\s+/g, "").slice(0, 6);
+            pulseField(1);
+          }
+        }
+
+        function pulseField(direction) {
+          const impulse = direction * (state.fields.code.length || state.fields.email.length ? 2.6 : 1.8);
+          for (const particle of state.particles) {
+            if ((direction < 0 && particle.group === 0) || (direction > 0 && particle.group === 1)) {
+              particle.vx += impulse * 0.08;
+              particle.vy -= 0.18;
+            }
+          }
+        }
+
+        function vibrate(pattern) {
+          state.vibrateHits += 1;
+          state.lastVibrationPattern = Array.isArray(pattern) ? pattern.join("-") : String(pattern);
+          if (navigator.vibrate) {
+            navigator.vibrate(pattern);
+          }
+        }
+
+        function triggerPulse(strength) {
+          state.longPressPulse = Math.min(1, state.longPressPulse + strength * 0.08);
+          for (const particle of state.particles) {
+            const direction = particle.group === 0 ? 1 : -1;
+            particle.vx += direction * strength * 0.26;
+            particle.vy -= 0.35 * Math.random();
+          }
+          for (const node of state.membrane) {
+            if (!node.pinned) {
+              node.vx += (Math.random() - 0.5) * strength * 0.8;
+              node.vy += (Math.random() - 0.5) * strength * 0.12;
+            }
+          }
+          vibrate([20, 30, 20]);
+        }
+
+        function closestPoint(ax, ay, bx, by, px, py) {
+          const abx = bx - ax;
+          const aby = by - ay;
+          const ab2 = abx * abx + aby * aby || 1e-6;
+          const t = clamp(((px - ax) * abx + (py - ay) * aby) / ab2, 0, 1);
+          return { x: ax + abx * t, y: ay + aby * t };
+        }
+        function stepPhysics(dtMs) {
+          const dtFactor = clamp(dtMs / 16.6667, 0.85, 1.4);
+          state.gravity.x = lerp(state.gravity.x, state.targetGravity.x, 0.08);
+          state.gravity.y = lerp(state.gravity.y, state.targetGravity.y, 0.08);
+          state.tiltAngle = Math.round(
+            Math.atan2(Math.abs(state.gravity.x), Math.max(0.01, state.gravity.y)) * 180 / Math.PI
+          );
+
+          const intactSegments = [];
+          for (const spring of state.springs) {
+            if (spring.torn) continue;
+            const a = state.membrane[spring.a];
+            const b = state.membrane[spring.b];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const dist = Math.hypot(dx, dy) || 1e-6;
+            const stretch = dist - spring.rest;
+            const dynamicTearLimit =
+              state.tearLimit -
+              Math.max(0, state.tiltAngle - 45) * 0.35 -
+              state.longPressPulse * 5;
+            if (Math.abs(stretch) > dynamicTearLimit) {
+              spring.torn = true;
+              continue;
+            }
+            const force = state.springK * stretch;
+            const fx = (dx / dist) * force;
+            const fy = (dy / dist) * force;
+            if (!a.pinned) {
+              a.vx += fx * dtFactor;
+              a.vy += fy * dtFactor;
+            }
+            if (!b.pinned) {
+              b.vx -= fx * dtFactor;
+              b.vy -= fy * dtFactor;
+            }
+            intactSegments.push([spring.a, spring.b]);
+          }
+
+          for (const node of state.membrane) {
+            if (node.pinned) {
+              node.x = MID_X;
+              node.vx = 0;
+              node.vy = 0;
+              continue;
+            }
+            node.vx = node.vx * 0.915 + state.gravity.x * state.membraneGravity * dtFactor;
+            node.vy *= 0.915;
+            node.x += node.vx * dtFactor;
+            node.y += node.vy * dtFactor;
+            node.x = clamp(node.x, MID_X - 84, MID_X + 84);
+            node.y = clamp(node.y, 24, WORLD_H - 24);
+          }
+
+          if (state.tiltAngle >= 45 && state.longPressPulse > 0.42) {
+            const centerSpring = Math.floor(state.springs.length / 2);
+            for (let offset = -1; offset <= 1; offset += 1) {
+              const spring = state.springs[centerSpring + offset];
+              if (!spring || spring.torn) {
+                continue;
+              }
+              const a = state.membrane[spring.a];
+              const b = state.membrane[spring.b];
+              const lateralPull = Math.abs(a.x - MID_X) + Math.abs(b.x - MID_X);
+              const threshold = 2.4 + Math.abs(offset) * 1.2;
+              if (lateralPull > threshold) {
+                spring.torn = true;
+              }
+            }
+          }
+
+          for (let i = 0; i < state.particles.length; i += 1) {
+            const p = state.particles[i];
+            p.vx += state.gravity.x * dtFactor;
+            p.vy += state.gravity.y * dtFactor;
+
+            for (let j = i + 1; j < state.particles.length; j += 1) {
+              const q = state.particles[j];
+              const dx = q.x - p.x;
+              const dy = q.y - p.y;
+              const dist = Math.hypot(dx, dy) || 1e-6;
+              const minDist = state.radius * 2;
+              if (dist < minDist) {
+                const overlap = minDist - dist;
+                const push = overlap * state.repulseStrength * dtFactor;
+                const nx = dx / dist;
+                const ny = dy / dist;
+                p.vx -= nx * push;
+                p.vy -= ny * push;
+                q.vx += nx * push;
+                q.vy += ny * push;
+              } else if (p.group === q.group && dist < state.sameRange) {
+                const pull = (dist - state.sameTarget) * state.surfaceTension * dtFactor;
+                const nx = dx / dist;
+                const ny = dy / dist;
+                p.vx += nx * pull;
+                p.vy += ny * pull;
+                q.vx -= nx * pull;
+                q.vy -= ny * pull;
+              }
+            }
+
+            for (const [aIndex, bIndex] of intactSegments) {
+              const a = state.membrane[aIndex];
+              const b = state.membrane[bIndex];
+              const point = closestPoint(a.x, a.y, b.x, b.y, p.x, p.y);
+              const dx = p.x - point.x;
+              const dy = p.y - point.y;
+              const dist = Math.hypot(dx, dy) || 1e-6;
+              const limit = state.radius + state.membraneLimitPad;
+              if (dist < limit) {
+                const overlap = limit - dist;
+                const nx = dx / dist;
+                const ny = dy / dist;
+                p.vx += nx * overlap * state.membranePush * dtFactor;
+                p.vy += ny * overlap * state.membranePush * dtFactor;
+                const impulse = overlap * state.membranePush * 0.1 * dtFactor;
+                if (!a.pinned) {
+                  a.vx -= nx * impulse;
+                  a.vy -= ny * impulse;
+                }
+                if (!b.pinned) {
+                  b.vx -= nx * impulse;
+                  b.vy -= ny * impulse;
+                }
+              }
+            }
+          }
+
+          for (const particle of state.particles) {
+            particle.vx *= state.drag;
+            particle.vy *= state.drag;
+            particle.x += particle.vx * dtFactor;
+            particle.y += particle.vy * dtFactor;
+
+            if (particle.x < state.radius) {
+              particle.x = state.radius;
+              particle.vx *= -0.16;
+            } else if (particle.x > WORLD_W - state.radius) {
+              particle.x = WORLD_W - state.radius;
+              particle.vx *= -0.16;
+            }
+            if (particle.y < state.radius) {
+              particle.y = state.radius;
+              particle.vy *= -0.16;
+            } else if (particle.y > WORLD_H - state.radius) {
+              particle.y = WORLD_H - state.radius;
+              particle.vy *= -0.16;
+            }
+          }
+
+          const leftInRight = state.particles.filter((p) => p.group === 0 && p.x > MID_X + state.radius).length;
+          const rightInLeft = state.particles.filter((p) => p.group === 1 && p.x < MID_X - state.radius).length;
+          const centerLeft = state.particles.filter((p) => p.group === 0 && Math.abs(p.x - MID_X) < state.radius * 2.2).length;
+          const centerRight = state.particles.filter((p) => p.group === 1 && Math.abs(p.x - MID_X) < state.radius * 2.2).length;
+          const tornCount = state.springs.filter((spring) => spring.torn).length;
+          state.mixScore =
+            leftInRight + rightInLeft + Math.min(centerLeft, centerRight) * 1.6 + tornCount * 2.4;
+
+          if (
+            !state.fused &&
+            state.mixScore >= 12 &&
+            state.pixelFusionDensity >= 0.004 &&
+            state.tiltAngle >= 45 &&
+            EMAIL_RE.test(state.fields.email) &&
+            state.fields.code.length >= 4
+          ) {
+            state.fused = true;
+            state.fusedAt = performance.now();
+            vibrate([28, 36, 28, 60, 28]);
+          }
+
+          state.longPressPulse *= 0.94;
+        }
+
+        function maybeReduceBudget() {
+          if (state.avgFrameMs < 21.5 || state.fluidCount <= state.minFluidCount) {
+            return;
+          }
+          const now = performance.now();
+          if (now - state.reducedAt < 1200) {
+            return;
+          }
+          state.reducedAt = now;
+          rebuildSimulation(state.fluidCount - 2);
+        }
+
+        function measureFusionDensity() {
+          state.frameIndex += 1;
+          if (state.frameIndex % 8 !== 0) {
+            return;
+          }
+
+          const sampleX = Math.max(0, Math.floor((state.phone.x + (MID_X - 56) * state.phone.scale) * DPR));
+          const sampleY = Math.max(0, Math.floor((state.phone.y + WORLD_H * 0.5 * state.phone.scale) * DPR));
+          const sampleW = Math.max(24, Math.floor(112 * state.phone.scale * DPR));
+          const sampleH = Math.max(48, Math.floor(140 * state.phone.scale * DPR));
+          const safeW = Math.min(sampleW, canvas.width - sampleX);
+          const safeH = Math.min(sampleH, canvas.height - sampleY);
+          if (safeW <= 0 || safeH <= 0) {
+            return;
+          }
+
+          const image = ctx.getImageData(sampleX, sampleY, safeW, safeH).data;
+          let hits = 0;
+          let total = 0;
+          for (let y = 0; y < safeH; y += 6) {
+            for (let x = 0; x < safeW; x += 6) {
+              const idx = (y * safeW + x) * 4;
+              const r = image[idx];
+              const g = image[idx + 1];
+              const b = image[idx + 2];
+              total += 1;
+              const aqua = g > 105 && b > 85 && r < 170 && g + b > 250;
+              const amber = r > 135 && g > 70 && b < 150 && r + g > 220;
+              if (aqua || amber) {
+                hits += 1;
+              }
+            }
+          }
+          state.pixelFusionDensity = total ? hits / total : 0;
+        }
+
+        function drawBackdrop() {
+          const width = canvas.width / DPR;
+          const height = canvas.height / DPR;
+          const gradient = ctx.createLinearGradient(0, 0, width, height);
+          gradient.addColorStop(0, "#081517");
+          gradient.addColorStop(1, "#031011");
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, width, height);
+
+          ctx.save();
+          ctx.globalAlpha = 0.18;
+          ctx.strokeStyle = "#15363a";
+          for (let x = 0; x <= width; x += 28) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, height);
+            ctx.stroke();
+          }
+          for (let y = 0; y <= height; y += 28) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(width, y);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        function drawFluidGroup(groupIndex, fillColor, glowColor) {
+          const sameGroup = state.particles.filter((particle) => particle.group === groupIndex);
+          ctx.save();
+          roundRectPath(
+            ctx,
+            state.phone.x,
+            state.phone.y,
+            state.phone.w * state.phone.scale,
+            state.phone.h * state.phone.scale,
+            38 * state.phone.scale
+          );
+          ctx.clip();
+
+          ctx.globalCompositeOperation = "lighter";
+          for (let i = 0; i < sameGroup.length; i += 1) {
+            const a = sameGroup[i];
+            const pa = phoneToCanvas(a.x, a.y);
+            for (let j = i + 1; j < sameGroup.length; j += 1) {
+              const b = sameGroup[j];
+              const dist = Math.hypot(a.x - b.x, a.y - b.y);
+              if (dist < state.sameRange * 0.8) {
+                const pb = phoneToCanvas(b.x, b.y);
+                ctx.strokeStyle = glowColor;
+                ctx.lineWidth = Math.max(3, (state.sameRange - dist) * 0.1) * state.phone.scale;
+                ctx.globalAlpha = 0.06 + (1 - dist / (state.sameRange * 0.8)) * 0.08;
+                ctx.beginPath();
+                ctx.moveTo(pa.x, pa.y);
+                ctx.lineTo(pb.x, pb.y);
+                ctx.stroke();
+              }
+            }
+          }
+
+          for (const particle of sameGroup) {
+            const point = phoneToCanvas(particle.x, particle.y);
+            const radius = state.radius * state.phone.scale * (1 + state.longPressPulse * 0.12);
+            const gradient = ctx.createRadialGradient(
+              point.x - radius * 0.18,
+              point.y - radius * 0.18,
+              radius * 0.15,
+              point.x,
+              point.y,
+              radius * 1.5
+            );
+            gradient.addColorStop(0, fillColor);
+            gradient.addColorStop(1, "rgba(0,0,0,0)");
+            ctx.fillStyle = gradient;
+            ctx.globalAlpha = 0.92;
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, radius * 1.52, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        function drawMembrane() {
+          ctx.save();
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          for (const spring of state.springs) {
+            const a = state.membrane[spring.a];
+            const b = state.membrane[spring.b];
+            const pa = phoneToCanvas(a.x, a.y);
+            const pb = phoneToCanvas(b.x, b.y);
+            ctx.globalAlpha = spring.torn ? 0.08 : 0.72;
+            ctx.strokeStyle = spring.torn ? "rgba(255, 115, 92, 0.35)" : "rgba(207, 248, 229, 0.86)";
+            ctx.lineWidth = spring.torn ? 1.5 * state.phone.scale : 2.4 * state.phone.scale;
+            ctx.beginPath();
+            ctx.moveTo(pa.x, pa.y);
+            ctx.lineTo(pb.x, pb.y);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        function maskCode(value) {
+          if (!value) {
+            return "";
+          }
+          const trimmed = value.slice(0, 6);
+          return trimmed
+            .split("")
+            .map((char, index) => (index < trimmed.length - 2 ? "*" : char))
+            .join(" ");
+        }
+
+        function drawWaveBand(x, y, w, h, label, value, active, ok, accent) {
+          ctx.save();
+          roundRectPath(ctx, x, y, w, h, 22 * state.phone.scale);
+          const gradient = ctx.createLinearGradient(x, y, x + w, y + h);
+          gradient.addColorStop(0, active ? accent.activeA : accent.idleA);
+          gradient.addColorStop(1, active ? accent.activeB : accent.idleB);
+          ctx.fillStyle = gradient;
+          ctx.fill();
+          ctx.strokeStyle = ok ? accent.edgeOk : accent.edgeIdle;
+          ctx.lineWidth = 1.4 * state.phone.scale;
+          ctx.stroke();
+
+          ctx.fillStyle = ok ? accent.copyOk : "#9bb1ad";
+          ctx.font = `${11 * state.phone.scale}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+          ctx.textBaseline = "top";
+          ctx.fillText(label, x + 16 * state.phone.scale, y + 12 * state.phone.scale);
+
+          ctx.fillStyle = "#f5fffc";
+          ctx.font = `600 ${16 * state.phone.scale}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+          const display = value || "tap to pour text";
+          ctx.fillText(
+            display.length > 28 ? `${display.slice(0, 28)}...` : display,
+            x + 16 * state.phone.scale,
+            y + 32 * state.phone.scale
+          );
+
+          ctx.globalAlpha = 0.22;
+          ctx.strokeStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.moveTo(x + 14 * state.phone.scale, y + h - 16 * state.phone.scale);
+          ctx.bezierCurveTo(
+            x + w * 0.28,
+            y + h - 2 * state.phone.scale,
+            x + w * 0.56,
+            y + h - 24 * state.phone.scale,
+            x + w - 16 * state.phone.scale,
+            y + h - 10 * state.phone.scale
+          );
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        function drawFieldPanel(x, y, w, label, value, active, ok) {
+          ctx.save();
+          roundRectPath(ctx, x, y, w, 54 * state.phone.scale, 18 * state.phone.scale);
+          ctx.fillStyle = active ? "rgba(229, 255, 247, 0.14)" : "rgba(240, 247, 247, 0.06)";
+          ctx.fill();
+          ctx.strokeStyle = ok ? "rgba(75, 255, 196, 0.42)" : "rgba(255, 255, 255, 0.08)";
+          ctx.lineWidth = 1.2 * state.phone.scale;
+          ctx.stroke();
+
+          ctx.fillStyle = ok ? "#aef5d7" : "#8ca9a3";
+          ctx.font = `${11 * state.phone.scale}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+          ctx.textBaseline = "top";
+          ctx.fillText(label, x + 14 * state.phone.scale, y + 10 * state.phone.scale);
+
+          ctx.fillStyle = "#f1faf7";
+          ctx.font = `${15 * state.phone.scale}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+          const display = value || "tap to pour text";
+          ctx.fillText(
+            display.length > 24 ? `${display.slice(0, 24)}…` : display,
+            x + 14 * state.phone.scale,
+            y + 26 * state.phone.scale
+          );
+          ctx.restore();
+        }
+
+        function drawInterfaceText() {
+          const x = state.phone.x;
+          const y = state.phone.y;
+          const w = state.phone.w * state.phone.scale;
+          const h = state.phone.h * state.phone.scale;
+
+          ctx.fillStyle = "#e8fff4";
+          ctx.font = `600 ${12 * state.phone.scale}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+          ctx.fillText("GRAVITY FLUID LOGIN", x + 20 * state.phone.scale, y + 26 * state.phone.scale);
+
+          ctx.fillStyle = "#7ea19d";
+          ctx.font = `${10 * state.phone.scale}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+          ctx.fillText("tap upper tide = email", x + 20 * state.phone.scale, y + 44 * state.phone.scale);
+          ctx.fillText("tap lower dock = code", x + 20 * state.phone.scale, y + 58 * state.phone.scale);
+          ctx.fillText("long press = shake membrane", x + 20 * state.phone.scale, y + 72 * state.phone.scale);
+
+          drawWaveBand(
+            x + 16 * state.phone.scale,
+            y + 98 * state.phone.scale,
+            w - 32 * state.phone.scale,
+            72 * state.phone.scale,
+            "EMAIL CURRENT",
+            state.fields.email,
+            state.activeField === "email",
+            EMAIL_RE.test(state.fields.email),
+            {
+              activeA: "rgba(62, 224, 194, 0.2)",
+              activeB: "rgba(17, 82, 72, 0.34)",
+              idleA: "rgba(240, 247, 247, 0.05)",
+              idleB: "rgba(17, 32, 34, 0.28)",
+              edgeOk: "rgba(73, 255, 196, 0.48)",
+              edgeIdle: "rgba(255, 255, 255, 0.1)",
+              copyOk: "#b8ffe3",
+            }
+          );
+
+          const dockCenterX = x + w * 0.5;
+          const dockCenterY = y + h - 102 * state.phone.scale;
+          const dockRadius = 52 * state.phone.scale;
+
+          ctx.save();
+          const dockGlow = ctx.createRadialGradient(
+            dockCenterX,
+            dockCenterY,
+            10,
+            dockCenterX,
+            dockCenterY,
+            dockRadius * 1.7
+          );
+          dockGlow.addColorStop(
+            0,
+            state.activeField === "code" ? "rgba(255, 154, 88, 0.28)" : "rgba(255, 154, 88, 0.1)"
+          );
+          dockGlow.addColorStop(1, "rgba(255, 154, 88, 0)");
+          ctx.fillStyle = dockGlow;
+          ctx.beginPath();
+          ctx.arc(dockCenterX, dockCenterY, dockRadius * 1.9, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(dockCenterX, dockCenterY, dockRadius, 0, Math.PI * 2);
+          ctx.fillStyle =
+            state.activeField === "code" ? "rgba(255, 137, 72, 0.2)" : "rgba(255, 255, 255, 0.05)";
+          ctx.fill();
+          ctx.strokeStyle =
+            state.fields.code.length >= 4 ? "rgba(255, 185, 132, 0.62)" : "rgba(255, 255, 255, 0.12)";
+          ctx.lineWidth = 1.6 * state.phone.scale;
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.fillStyle = state.fields.code.length >= 4 ? "#ffe5bf" : "#c7b09f";
+          ctx.font = `${11 * state.phone.scale}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+          ctx.textAlign = "center";
+          ctx.fillText("VERIFY DOCK", dockCenterX, dockCenterY - 14 * state.phone.scale);
+          ctx.fillStyle = "#fff8ef";
+          ctx.font = `600 ${16 * state.phone.scale}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+          ctx.fillText(maskCode(state.fields.code) || "tap to pour code", dockCenterX, dockCenterY + 10 * state.phone.scale);
+          ctx.textAlign = "left";
+
+          ctx.fillStyle = "#a7c0bd";
+          ctx.font = `${12 * state.phone.scale}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+          ctx.fillText(
+            `tilt ${String(state.tiltAngle).padStart(2, "0")}°  mix ${state.mixScore.toFixed(1)}  fps ${(1000 / state.avgFrameMs).toFixed(0)}`,
+            x + 20 * state.phone.scale,
+            y + h - 26 * state.phone.scale
+          );
+
+          ctx.fillStyle = "#7ea19d";
+          ctx.font = `${11 * state.phone.scale}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+          const orientationLabel =
+            state.orientationMode === "live"
+              ? "orientation live"
+              : state.orientationMode === "blocked"
+                ? "orientation blocked"
+                : state.orientationMode === "unsupported"
+                  ? "orientation unsupported"
+                  : "tap once to request orientation";
+          ctx.fillText(orientationLabel, x + 20 * state.phone.scale, y + h - 10 * state.phone.scale);
+
+          ctx.fillStyle = "rgba(255,255,255,0.06)";
+          ctx.fillRect(x + MID_X * state.phone.scale - 0.5, y + 126 * state.phone.scale, 1, h - 194 * state.phone.scale);
+        }
+
+        function drawRitualInterface() {
+          const x = state.phone.x;
+          const y = state.phone.y;
+          const w = state.phone.w * state.phone.scale;
+          const h = state.phone.h * state.phone.scale;
+          const topBandY = y + 98 * state.phone.scale;
+          const dockCenterX = x + w * 0.5;
+          const dockCenterY = y + h - 102 * state.phone.scale;
+          const dockRadius = 52 * state.phone.scale;
+
+          ctx.fillStyle = "#e8fff4";
+          ctx.font = `600 ${12 * state.phone.scale}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+          ctx.fillText("GRAVITY FLUID LOGIN", x + 20 * state.phone.scale, y + 26 * state.phone.scale);
+
+          ctx.fillStyle = "#7ea19d";
+          ctx.font = `${10 * state.phone.scale}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+          ctx.fillText("tap upper tide = email", x + 20 * state.phone.scale, y + 44 * state.phone.scale);
+          ctx.fillText("tap lower dock = code", x + 20 * state.phone.scale, y + 58 * state.phone.scale);
+          ctx.fillText("long press = shake membrane", x + 20 * state.phone.scale, y + 72 * state.phone.scale);
+
+          drawWaveBand(
+            x + 16 * state.phone.scale,
+            topBandY,
+            w - 32 * state.phone.scale,
+            72 * state.phone.scale,
+            "EMAIL CURRENT",
+            state.fields.email,
+            state.activeField === "email",
+            EMAIL_RE.test(state.fields.email),
+            {
+              activeA: "rgba(62, 224, 194, 0.2)",
+              activeB: "rgba(17, 82, 72, 0.34)",
+              idleA: "rgba(240, 247, 247, 0.05)",
+              idleB: "rgba(17, 32, 34, 0.28)",
+              edgeOk: "rgba(73, 255, 196, 0.48)",
+              edgeIdle: "rgba(255, 255, 255, 0.1)",
+              copyOk: "#b8ffe3",
+            }
+          );
+
+          ctx.save();
+          const dockGlow = ctx.createRadialGradient(
+            dockCenterX,
+            dockCenterY,
+            10,
+            dockCenterX,
+            dockCenterY,
+            dockRadius * 1.7
+          );
+          dockGlow.addColorStop(
+            0,
+            state.activeField === "code" ? "rgba(255, 154, 88, 0.28)" : "rgba(255, 154, 88, 0.1)"
+          );
+          dockGlow.addColorStop(1, "rgba(255, 154, 88, 0)");
+          ctx.fillStyle = dockGlow;
+          ctx.beginPath();
+          ctx.arc(dockCenterX, dockCenterY, dockRadius * 1.9, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(dockCenterX, dockCenterY, dockRadius, 0, Math.PI * 2);
+          ctx.fillStyle =
+            state.activeField === "code" ? "rgba(255, 137, 72, 0.2)" : "rgba(255, 255, 255, 0.05)";
+          ctx.fill();
+          ctx.strokeStyle =
+            state.fields.code.length >= 4 ? "rgba(255, 185, 132, 0.62)" : "rgba(255, 255, 255, 0.12)";
+          ctx.lineWidth = 1.6 * state.phone.scale;
+          ctx.stroke();
+
+          ctx.globalAlpha = 0.2;
+          ctx.strokeStyle = "#ffd7b0";
+          ctx.beginPath();
+          ctx.arc(dockCenterX, dockCenterY, dockRadius * 1.28, Math.PI * 0.18, Math.PI * 1.82);
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.fillStyle = state.fields.code.length >= 4 ? "#ffe5bf" : "#c7b09f";
+          ctx.font = `${11 * state.phone.scale}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+          ctx.textAlign = "center";
+          ctx.fillText("VERIFY DOCK", dockCenterX, dockCenterY - 14 * state.phone.scale);
+          ctx.fillStyle = "#fff8ef";
+          ctx.font = `600 ${16 * state.phone.scale}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+          ctx.fillText(maskCode(state.fields.code) || "tap to pour code", dockCenterX, dockCenterY + 10 * state.phone.scale);
+          ctx.textAlign = "left";
+
+          ctx.fillStyle = "#a7c0bd";
+          ctx.font = `${12 * state.phone.scale}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+          ctx.fillText(
+            `tilt ${String(state.tiltAngle).padStart(2, "0")} deg  mix ${state.mixScore.toFixed(1)}  px ${state.pixelFusionDensity.toFixed(2)}  fps ${(1000 / state.avgFrameMs).toFixed(0)}`,
+            x + 20 * state.phone.scale,
+            y + h - 26 * state.phone.scale
+          );
+
+          ctx.fillStyle = "#7ea19d";
+          ctx.font = `${11 * state.phone.scale}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+          const orientationLabel =
+            state.orientationMode === "live"
+              ? "orientation live"
+              : state.orientationMode === "blocked"
+                ? "orientation blocked"
+                : state.orientationMode === "unsupported"
+                  ? "orientation unsupported"
+                  : "tap once to request orientation";
+          ctx.fillText(orientationLabel, x + 20 * state.phone.scale, y + h - 10 * state.phone.scale);
+
+          ctx.fillStyle = "rgba(255,255,255,0.06)";
+          ctx.fillRect(x + MID_X * state.phone.scale - 0.5, y + 168 * state.phone.scale, 1, h - 282 * state.phone.scale);
+        }
+
+        function drawFusionBadge() {
+          const pulse = 0.5 + Math.sin((performance.now() - state.fusedAt) * 0.008) * 0.5;
+          const center = phoneToCanvas(MID_X, WORLD_H * 0.56);
+          ctx.save();
+          ctx.globalAlpha = 0.24 + pulse * 0.22;
+          const gradient = ctx.createRadialGradient(center.x, center.y, 8, center.x, center.y, 90 * state.phone.scale);
+          gradient.addColorStop(0, "rgba(255, 230, 140, 0.85)");
+          gradient.addColorStop(1, "rgba(255, 230, 140, 0)");
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(center.x, center.y, 90 * state.phone.scale, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = "#ffe19a";
+          ctx.lineWidth = 2.4 * state.phone.scale;
+          ctx.beginPath();
+          ctx.arc(center.x, center.y, (24 + pulse * 8) * state.phone.scale, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.fillStyle = "#fff4c6";
+          ctx.font = `700 ${18 * state.phone.scale}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+          ctx.textAlign = "center";
+          ctx.fillText("FUSION LOGIN", center.x, center.y - 8 * state.phone.scale);
+          ctx.font = `${12 * state.phone.scale}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+          ctx.fillText("two fluids reached trigger density", center.x, center.y + 16 * state.phone.scale);
+          ctx.restore();
+          ctx.textAlign = "left";
+        }
+
+        function drawPhoneShell() {
+          const x = state.phone.x;
+          const y = state.phone.y;
+          const w = state.phone.w * state.phone.scale;
+          const h = state.phone.h * state.phone.scale;
+
+          ctx.save();
+          roundRectPath(ctx, x - 10, y - 10, w + 20, h + 20, 46 * state.phone.scale);
+          ctx.fillStyle = "#0b1719";
+          ctx.fill();
+
+          roundRectPath(ctx, x, y, w, h, 38 * state.phone.scale);
+          const shell = ctx.createLinearGradient(x, y, x + w, y + h);
+          shell.addColorStop(0, "rgba(12, 27, 29, 0.98)");
+          shell.addColorStop(1, "rgba(6, 20, 22, 0.98)");
+          ctx.fillStyle = shell;
+          ctx.fill();
+          ctx.clip();
+
+          const haze = ctx.createRadialGradient(x + w * 0.22, y + h * 0.2, 10, x + w * 0.22, y + h * 0.2, w * 0.7);
+          haze.addColorStop(0, "rgba(44, 133, 120, 0.18)");
+          haze.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.fillStyle = haze;
+          ctx.fillRect(x, y, w, h);
+
+          const ember = ctx.createRadialGradient(x + w * 0.78, y + h * 0.78, 10, x + w * 0.78, y + h * 0.78, w * 0.56);
+          ember.addColorStop(0, "rgba(214, 123, 70, 0.18)");
+          ember.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.fillStyle = ember;
+          ctx.fillRect(x, y, w, h);
+
+          ctx.strokeStyle = "rgba(173, 251, 220, 0.08)";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x, y + h * 0.12, w, h * 0.001);
+
+          drawFluidGroup(0, "rgba(70, 236, 200, 0.9)", "rgba(70, 236, 200, 0.12)");
+          drawFluidGroup(1, "rgba(255, 136, 72, 0.88)", "rgba(255, 136, 72, 0.12)");
+          drawMembrane();
+          drawRitualInterface();
+          if (state.fused) {
+            drawFusionBadge();
+          }
+
+          ctx.restore();
+        }
+
+        function render() {
+          ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+          drawBackdrop();
+          drawPhoneShell();
+          measureFusionDensity();
+        }
+
+        function updateFrameMetrics(dtMs) {
+          state.frameHistory.push(dtMs);
+          if (state.frameHistory.length > 24) {
+            state.frameHistory.shift();
+          }
+          const total = state.frameHistory.reduce((sum, value) => sum + value, 0);
+          state.avgFrameMs = total / state.frameHistory.length;
+        }
+
+        function layoutPhone() {
+          const viewW = window.innerWidth;
+          const viewH = window.innerHeight;
+          const scale = Math.min(viewW / WORLD_W, viewH / WORLD_H) * 0.9;
+          state.phone.scale = scale;
+          state.phone.w = WORLD_W;
+          state.phone.h = WORLD_H;
+          state.phone.x = (viewW - WORLD_W * scale) * 0.5;
+          state.phone.y = (viewH - WORLD_H * scale) * 0.5;
+        }
+
+        function resize() {
+          canvas.width = Math.floor(window.innerWidth * DPR);
+          canvas.height = Math.floor(window.innerHeight * DPR);
+          canvas.style.width = `${window.innerWidth}px`;
+          canvas.style.height = `${window.innerHeight}px`;
+          layoutPhone();
+        }
+
+        function startLongPress(clientX, clientY) {
+          clearTimeout(state.press.longPressId);
+          state.press.longPressTriggered = false;
+          state.press.longPressId = window.setTimeout(() => {
+            state.press.longPressTriggered = true;
+            triggerPulse(8);
+          }, HOLD_MS);
+          state.press.startX = clientX;
+          state.press.startY = clientY;
+          state.press.active = true;
+        }
+
+        function endPress(clientX, clientY) {
+          if (!state.press.active) return;
+          clearTimeout(state.press.longPressId);
+          const moved = Math.hypot(clientX - state.press.startX, clientY - state.press.startY);
+          if (!state.press.longPressTriggered && moved < 18) {
+            const phonePoint = canvasToPhone(clientX, clientY);
+            if (
+              phonePoint.x >= 0 &&
+              phonePoint.x <= WORLD_W &&
+              phonePoint.y >= 0 &&
+              phonePoint.y <= WORLD_H
+            ) {
+              if (phonePoint.y < WORLD_H * 0.54) {
+                openField("email");
+              } else {
+                openField("code");
+              }
+            }
+          }
+          state.press.active = false;
+          state.press.longPressTriggered = false;
+        }
+
+        canvas.addEventListener("pointerdown", (event) => {
+          requestOrientationOnce();
+          startLongPress(event.clientX, event.clientY);
+        });
+        canvas.addEventListener("pointerup", (event) => endPress(event.clientX, event.clientY));
+        canvas.addEventListener("pointercancel", () => {
+          clearTimeout(state.press.longPressId);
+          state.press.active = false;
+          state.press.longPressTriggered = false;
+        });
+        canvas.addEventListener("pointermove", (event) => {
+          if (!state.press.active) return;
+          const moved = Math.hypot(event.clientX - state.press.startX, event.clientY - state.press.startY);
+          if (moved > 18) {
+            clearTimeout(state.press.longPressId);
+          }
+        });
+
+        let lastTs = performance.now();
+        function frame(ts) {
+          const dtMs = clamp(ts - lastTs, 10, 32);
+          lastTs = ts;
+          updateFrameMetrics(dtMs);
+          stepPhysics(dtMs);
+          maybeReduceBudget();
+          render();
+          requestAnimationFrame(frame);
+        }
+
+        resize();
+        rebuildSimulation(state.fluidCount);
+        requestAnimationFrame(frame);
+        window.addEventListener("resize", resize);
+
+        window.__gravityFluid = {
+          getState() {
+            return {
+              email: state.fields.email,
+              code: state.fields.code,
+              tiltAngle: state.tiltAngle,
+              mixScore: state.mixScore,
+              pixelFusionDensity: Number(state.pixelFusionDensity.toFixed(3)),
+              fused: state.fused,
+              fluidCount: state.fluidCount,
+              avgFrameMs: Number(state.avgFrameMs.toFixed(2)),
+              tornSprings: state.springs.filter((spring) => spring.torn).length,
+              vibrateHits: state.vibrateHits,
+              lastVibrationPattern: state.lastVibrationPattern,
+            };
+          },
+          debugSetTilt(deg) {
+            const radians = (deg * Math.PI) / 180;
+            state.targetGravity.x = Math.sin(radians) * state.particleGravity;
+            state.targetGravity.y = Math.max(0.14, Math.cos(radians) * state.particleGravity);
+            state.tiltAngle = deg;
+          },
+          debugPulse() {
+            triggerPulse(10);
+          },
+          debugFill(email, code) {
+            state.fields.email = String(email || "").trim().toLowerCase();
+            state.fields.code = String(code || "").trim().slice(0, 6);
+          },
+          setAutomationMode(value) {
+            state.automationMode = Boolean(value);
+          },
+          reset() {
+            state.seed += 1;
+            rebuildSimulation(state.fluidCount);
+          },
+        };
+      })();
+    </script>
+  </body>
+</html>

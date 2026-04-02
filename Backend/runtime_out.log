@@ -1,0 +1,554 @@
+Server is running on port 4000
+Root endpoint was called
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+User 13 joined group frontend-lab
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+User 13 joined thread 12
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+User 13 joined thread 12
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+User 13 joined group frontend-lab
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+User 13 joined thread 12
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+User 13 joined thread 12
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+User 13 joined thread 12
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+User 13 joined thread 12
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+User 13 joined thread 12
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+User 13 joined thread 12
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+User 13 joined thread 12
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+User 13 joined thread 12
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email',
+  avatar: 'AVATAR_MAX'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email',
+  avatar: 'AVATAR_MAX'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email',
+  avatar: 'AVATAR_MAX'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email',
+  avatar: 'AVATAR_MAX'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email',
+  avatar: 'AVATAR_MAX'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email',
+  avatar: 'AVATAR_MAX'
+}
+A user connected: {
+  id: 13,
+  email: 'ui-review@local.test',
+  name: 'UI Reviewer',
+  cleanId: 'ui_reviewer',
+  provider: 'email',
+  avatar: 'AVATAR_MAX'
+}
+User 13 joined thread 12
+Root endpoint was called
+Root endpoint was called
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+User 6 joined thread 13
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+User 6 joined thread 5
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+User 6 joined thread 13
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+User 6 joined thread 13
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+User 6 joined thread 13
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+User 6 joined thread 13
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+User 6 joined thread 13
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+User 6 joined thread 13
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+User 6 joined thread 13
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+User 6 joined thread 13
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+User 6 joined thread 13
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+A user connected: {
+  id: 6,
+  email: 'zjingxiang527@gmail.com',
+  name: 'Jeff',
+  cleanId: 'jeff',
+  provider: 'email'
+}
+User 6 joined thread 13
