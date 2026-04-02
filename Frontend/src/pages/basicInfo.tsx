@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { BACKEND_URL } from "../config";
 import "./basicInfo.css";
 
-const CLEAN_ID_REGEX = /^[a-z0-9_]{3,20}$/;
+const CLEAN_ID_REGEX = /^[a-z0-9_]{5,20}$/;
 
 type AvatarKey =
   | "AVATAR_LEO"
@@ -101,7 +101,7 @@ const BasicInfoPage = () => {
       return;
     }
     if (!CLEAN_ID_REGEX.test(normalizedCleanId)) {
-      setStatus("CleanID must be 3-20 characters: a-z, 0-9, or _.");
+      setStatus("Standard CleanID must be 5-20 characters: a-z, 0-9, or _.");
       return;
     }
 
@@ -256,7 +256,7 @@ const BasicInfoPage = () => {
             maxLength={20}
             required
           />
-          <p className="basic-hint">3-20 chars: lowercase letters, numbers, underscore.</p>
+          <p className="basic-hint">5-20 chars for now. Short 1-4 char claims unlock later through trust.</p>
 
           <button className="basic-submit" type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Saving..." : "Save and Continue"}

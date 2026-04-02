@@ -3,6 +3,15 @@ import { useNavigate } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
 import { BACKEND_URL } from "../config";
 import {
+  buildDerivedShortIdClaim,
+  CLEAN_ID_REGEX,
+  FALLBACK_SHORT_ID_CLAIM,
+  type CleanIdShortClaim,
+  getShortClaimRangeLabel,
+  getShortClaimTierLabel,
+  validateShortClaimInput,
+} from "../utils/cleanIdClaim";
+import {
   FALLBACK_CLEAN_ID_TRUST,
   type CleanIdTrustSnapshot,
   getTrustMetricLabel,
@@ -10,8 +19,6 @@ import {
 } from "../utils/cleanIdTrust";
 import { getNotificationPermission, requestNotificationPermission } from "../utils/notifications";
 import "./profile.css";
-
-const CLEAN_ID_REGEX = /^[a-z0-9_]{3,20}$/;
 
 type AvatarKey =
   | "AVATAR_LEO"
@@ -32,6 +39,7 @@ type ProfileUser = {
   cleanId: string;
   avatar: AvatarKey;
   trust: CleanIdTrustSnapshot;
+  shortIdClaim: CleanIdShortClaim;
 };
 
 type OwnedGroupSummary = {
@@ -87,6 +95,17 @@ const isStandalonePwa = () => {
   return mediaStandalone || navigatorStandalone;
 };
 
+const hydrateProfileUser = (user: ProfileUser): ProfileUser => ({
+  ...user,
+  shortIdClaim:
+    user.shortIdClaim ??
+    buildDerivedShortIdClaim({
+      cleanId: user.cleanId ?? "",
+      trustScore: user.trust?.score ?? 0,
+    }) ??
+    FALLBACK_SHORT_ID_CLAIM,
+});
+
 const ProfilePage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -127,10 +146,11 @@ const ProfilePage = () => {
         }
         const data = (await response.json()) as { user?: ProfileUser };
         if (!isMounted || !data.user) return;
-        setUser(data.user);
-        setNickname(data.user.name ?? "");
-        setCleanId(data.user.cleanId ?? "");
-        setAvatar(data.user.avatar ?? "AVATAR_LEO");
+        const nextUser = hydrateProfileUser(data.user);
+        setUser(nextUser);
+        setNickname(nextUser.name ?? "");
+        setCleanId(nextUser.cleanId ?? "");
+        setAvatar(nextUser.avatar ?? "AVATAR_LEO");
       } catch {
         if (isMounted) {
           setStatus("Unable to load profile.");
@@ -218,8 +238,13 @@ const ProfilePage = () => {
       setStatus("Nickname is required.");
       return;
     }
-    if (!CLEAN_ID_REGEX.test(normalizedCleanId)) {
-      setStatus("CleanID must be 3-20 chars: lowercase letters, numbers, underscore.");
+    const cleanIdValidation = validateShortClaimInput({
+      cleanId: normalizedCleanId,
+      currentCleanId: user.cleanId,
+      claim: user.shortIdClaim ?? FALLBACK_SHORT_ID_CLAIM,
+    });
+    if (cleanIdValidation) {
+      setStatus(cleanIdValidation);
       return;
     }
 
@@ -297,10 +322,11 @@ const ProfilePage = () => {
         return;
       }
 
-      setUser(refreshData.user as ProfileUser);
-      setNickname(refreshData.user.name ?? "");
-      setCleanId(refreshData.user.cleanId ?? "");
-      setAvatar(refreshData.user.avatar ?? "AVATAR_LEO");
+      const nextUser = hydrateProfileUser(refreshData.user as ProfileUser);
+      setUser(nextUser);
+      setNickname(nextUser.name ?? "");
+      setCleanId(nextUser.cleanId ?? "");
+      setAvatar(nextUser.avatar ?? "AVATAR_LEO");
       setStatus("Profile updated.");
       setIsEditing(false);
     } catch {
@@ -536,6 +562,24 @@ const ProfilePage = () => {
   const activeCleanId = user ? (isEditing ? cleanId : user.cleanId) : "";
   const selectedOwnedGroup = ownedGroups.find((group) => group.id === selectedGroupId) ?? null;
   const activeTrust = user?.trust ?? FALLBACK_CLEAN_ID_TRUST;
+  const activeShortIdClaim = user?.shortIdClaim ?? FALLBACK_SHORT_ID_CLAIM;
+  const shortClaimTierLabel = getShortClaimTierLabel(activeShortIdClaim);
+  const shortClaimRangeLabel = getShortClaimRangeLabel(activeShortIdClaim);
+  const activeCleanIdLength = activeCleanId.trim().length;
+  const cleanIdIntent =
+    activeCleanIdLength > 0 && activeCleanIdLength <= 2
+      ? "Ultra-short"
+      : activeCleanIdLength > 0 && activeCleanIdLength <= 4
+        ? "Short"
+        : "Standard";
+  const liveCleanIdValidation =
+    user && isEditing
+      ? validateShortClaimInput({
+          cleanId: normalizedCleanId,
+          currentCleanId: user.cleanId,
+          claim: activeShortIdClaim,
+        })
+      : null;
   const trustMetrics = [
     {
       label: "Score",
@@ -596,7 +640,12 @@ const ProfilePage = () => {
               />
               <div className="profile-summary-text">
                 <h2>{activeName}</h2>
-                <p className={`profile-cleanid profile-cleanid-${activeTrust.band}`}>@{activeCleanId}</p>
+                <div className="profile-summary-id-row">
+                  <p className={`profile-cleanid profile-cleanid-${activeTrust.band}`}>@{activeCleanId}</p>
+                  <span className={`profile-short-claim-badge profile-short-claim-badge-${activeShortIdClaim.tier}`}>
+                    {activeShortIdClaim.isCurrentShort ? "Short ID held" : activeShortIdClaim.pill}
+                  </span>
+                </div>
                 <span>{user.email}</span>
               </div>
               <div className="profile-summary-signal">
@@ -642,6 +691,48 @@ const ProfilePage = () => {
               </div>
               <p className="profile-trust-summary">{activeTrust.summary}</p>
               <p className="profile-hint">{activeTrust.detail}</p>
+              <section className={`profile-short-claim-card profile-short-claim-card-${activeShortIdClaim.tier}`}>
+                <div className="profile-short-claim-head">
+                  <div>
+                    <p className="profile-settings-eyebrow">Short ID Claim</p>
+                    <h4>{activeShortIdClaim.title}</h4>
+                  </div>
+                  <span className={`profile-short-claim-pill profile-short-claim-pill-${activeShortIdClaim.tier}`}>
+                    {shortClaimTierLabel}
+                  </span>
+                </div>
+                <div className="profile-short-claim-hero">
+                  <span className={`profile-short-claim-token profile-short-claim-token-${activeShortIdClaim.tier}`}>
+                    @{activeCleanId}
+                  </span>
+                  <div className="profile-short-claim-hero-copy">
+                    <strong>{activeShortIdClaim.isCurrentShort ? `${cleanIdIntent} handle occupied` : `${shortClaimRangeLabel} claim window`}</strong>
+                    <span>{activeShortIdClaim.detail}</span>
+                  </div>
+                </div>
+                <div className="profile-short-claim-grid">
+                  <div className="profile-short-claim-cell">
+                    <span>Claim window</span>
+                    <strong>{shortClaimRangeLabel}</strong>
+                  </div>
+                  <div className="profile-short-claim-cell">
+                    <span>Next unlock</span>
+                    <strong>
+                      {activeShortIdClaim.nextUnlockScore
+                        ? `${activeShortIdClaim.nextUnlockScore}+`
+                        : "Open now"}
+                    </strong>
+                  </div>
+                </div>
+                <p className="profile-short-claim-note">{activeShortIdClaim.scarcity}</p>
+                <div className="profile-short-claim-examples">
+                  {activeShortIdClaim.examples.map((example) => (
+                    <span key={example} className="profile-short-claim-example">
+                      @{example}
+                    </span>
+                  ))}
+                </div>
+              </section>
               <div className="profile-trust-metrics">
                 {trustMetrics.map((metric) => (
                   <div key={metric.label} className="profile-trust-metric">
@@ -786,8 +877,33 @@ const ProfilePage = () => {
                   required
                 />
                 <p className="profile-hint">
-                  Use 3-20 characters: lowercase letters, numbers, underscore.
+                  Use lowercase letters, numbers, or underscore. Standard IDs stay 5-20 characters; short claims unlock with trust.
                 </p>
+                <section className={`profile-claim-editor profile-claim-editor-${activeShortIdClaim.tier}`}>
+                  <div className="profile-claim-editor-head">
+                    <strong>{activeShortIdClaim.pill}</strong>
+                    <span>{shortClaimRangeLabel}</span>
+                  </div>
+                  <div className="profile-claim-editor-body">
+                    <span className={`profile-short-claim-token profile-short-claim-token-${activeShortIdClaim.tier}`}>
+                      @{normalizedCleanId || activeCleanId || "handle"}
+                    </span>
+                    <div className="profile-claim-editor-copy">
+                      <strong>{cleanIdIntent} handle</strong>
+                      <span>{liveCleanIdValidation || activeShortIdClaim.detail}</span>
+                    </div>
+                  </div>
+                  <div className="profile-claim-editor-foot">
+                    <span>
+                      {activeShortIdClaim.nextUnlockScore && !activeShortIdClaim.isCurrentShort
+                        ? `Next unlock at ${activeShortIdClaim.nextUnlockScore}+ trust score.`
+                        : "Your current claim window is already open."}
+                    </span>
+                    {activeShortIdClaim.nextUnlockLabel && (
+                      <span>{activeShortIdClaim.nextUnlockLabel}</span>
+                    )}
+                  </div>
+                </section>
 
                 <div className="profile-actions">
                   <button
@@ -798,7 +914,7 @@ const ProfilePage = () => {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="profile-primary-btn" disabled={isSaving}>
+                  <button type="submit" className="profile-primary-btn" disabled={isSaving || Boolean(liveCleanIdValidation)}>
                     {isSaving ? "Saving..." : "Save Changes"}
                   </button>
                 </div>

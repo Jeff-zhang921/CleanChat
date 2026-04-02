@@ -1,6 +1,7 @@
 import { NextFunction,Request,Response,Router } from "express";
 import { Avatar, PrismaClient } from "@prisma/client";
-import { buildCleanIdTrustSnapshots, fallbackCleanIdTrustSnapshot } from "../cleanIdTrust";
+import { buildCleanIdTrustSnapshots, fallbackCleanIdTrustSnapshot, type CleanIdTrustSnapshot } from "../cleanIdTrust";
+import { buildCleanIdShortClaim, validateRequestedCleanId } from "../cleanIdClaim";
 const router = Router();    
 const prisma = new PrismaClient();
 
@@ -18,6 +19,18 @@ function requireProfileSession(req: Request, res: Response, next: NextFunction) 
   res.locals.sessionUser = user;
   next();
 }
+
+const buildProfilePayload = <T extends { id: number; cleanId: string }>(
+  user: T,
+  trustSnapshots: Map<number, CleanIdTrustSnapshot>
+) => {
+  const trust = trustSnapshots.get(user.id) ?? fallbackCleanIdTrustSnapshot;
+  return {
+    ...user,
+    trust,
+    shortIdClaim: buildCleanIdShortClaim(user.cleanId, trust),
+  };
+};
 
 
 
@@ -41,10 +54,7 @@ router.get("/me",requireProfileSession,async (req,res)=>{
     }
     const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [user.id])
     res.json({
-      user: {
-        ...user,
-        trust: trustSnapshots.get(user.id) ?? fallbackCleanIdTrustSnapshot,
-      },
+      user: buildProfilePayload(user, trustSnapshots),
     })
 })
 router.patch("/me",requireProfileSession,async (req,res)=>{
@@ -96,10 +106,7 @@ router.patch("/me",requireProfileSession,async (req,res)=>{
 
       res.json({
         message: "Profile updated.",
-        user: {
-          ...updatedUser,
-          trust: trustSnapshots.get(updatedUser.id) ?? fallbackCleanIdTrustSnapshot,
-        },
+        user: buildProfilePayload(updatedUser, trustSnapshots),
       })
   } catch (error) {
     const details = error instanceof Error ? error.message : String(error)
@@ -179,12 +186,19 @@ router.patch("/clean-id",requireProfileSession,async (req,res)=>{
   }
 
   const cleanIdRaw = typeof req.body?.cleanId === "string" ? req.body.cleanId.trim().toLowerCase() : ""
-  const CLEAN_ID_REGEX = /^[a-z0-9_]{3,20}$/
-  if (!CLEAN_ID_REGEX.test(cleanIdRaw)) {
-    return res.status(400).json({ error: "Invalid cleanId" })
-  }
   if (cleanIdRaw === sessionUser.cleanId) {
     return res.json({ message: "cleanId unchanged", cleanId: cleanIdRaw })
+  }
+
+  const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [sessionUser.id])
+  const activeTrust = trustSnapshots.get(sessionUser.id) ?? fallbackCleanIdTrustSnapshot
+  const cleanIdValidation = validateRequestedCleanId({
+    requestedCleanId: cleanIdRaw,
+    currentCleanId: sessionUser.cleanId,
+    trust: activeTrust,
+  })
+  if (!cleanIdValidation.ok) {
+    return res.status(400).json({ error: cleanIdValidation.error })
   }
 
   const exists = await prisma.user.findUnique({ where: { cleanId: cleanIdRaw } })
@@ -197,7 +211,7 @@ router.patch("/clean-id",requireProfileSession,async (req,res)=>{
     data: { cleanId: cleanIdRaw },
     select: { id: true, email: true, name: true, cleanId: true, avatar: true },
   })
-  const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [updatedUser.id])
+  const nextTrustSnapshots = await buildCleanIdTrustSnapshots(prisma, [updatedUser.id])
 
   req.session.user = {
     ...sessionUser,
@@ -205,10 +219,7 @@ router.patch("/clean-id",requireProfileSession,async (req,res)=>{
   }
   res.json({
     message: "cleanId updated.",
-    user: {
-      ...updatedUser,
-      trust: trustSnapshots.get(updatedUser.id) ?? fallbackCleanIdTrustSnapshot,
-    },
+    user: buildProfilePayload(updatedUser, nextTrustSnapshots),
   })
 })
 
