@@ -3,11 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { io, type Socket } from "socket.io-client";
 import BottomNav from "../components/BottomNav";
 import { BACKEND_URL, SOCKET_URL } from "../config";
-import {
-  getNotificationPermission,
-  requestNotificationPermission,
-  showMessageNotification,
-} from "../utils/notifications";
+import { showMessageNotification } from "../utils/notifications";
 import "./ConversationPage.css";
 
 type AvatarKey =
@@ -159,18 +155,6 @@ const getConversationPreview = (body?: string | null) => {
 const getNotificationBody = (body: string) =>
   isImageMessageBody(body) ? "sent a photo" : body;
 
-const isIOSDevice = () =>
-  typeof navigator !== "undefined" && /iPad|iPhone|iPod/i.test(navigator.userAgent);
-
-const isStandalonePwa = () => {
-  if (typeof window === "undefined") return false;
-  const mediaStandalone = window.matchMedia("(display-mode: standalone)").matches;
-  const navigatorStandalone = (
-    window.navigator as Navigator & { standalone?: boolean }
-  ).standalone === true;
-  return mediaStandalone || navigatorStandalone;
-};
-
 const ConversationPage = () => {
   const navigate = useNavigate();
 
@@ -178,8 +162,6 @@ const ConversationPage = () => {
   const [threads, setThreads] = useState<ThreadResponse[]>([]);
   const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [status, setStatus] = useState("Loading...");
-  const [notificationPermission, setNotificationPermission] = useState(getNotificationPermission());
-  const [notificationStatus, setNotificationStatus] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [searchUsers, setSearchUsers] = useState<UserSummary[]>([]);
   const [searchStatus, setSearchStatus] = useState("");
@@ -188,48 +170,6 @@ const ConversationPage = () => {
   const meRef = useRef<SessionUser | null>(null);
   const threadsRef = useRef<ThreadResponse[]>([]);
   const groupsRef = useRef<GroupSummary[]>([]);
-
-  useEffect(() => {
-    const syncPermission = () => {
-      const permission = getNotificationPermission();
-      setNotificationPermission(permission);
-      if (permission === "granted") {
-        setNotificationStatus("");
-      }
-    };
-
-    const handleVisibility = () => {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") {
-        syncPermission();
-      }
-    };
-
-    syncPermission();
-    window.addEventListener("focus", syncPermission);
-    window.addEventListener("pageshow", syncPermission);
-    document.addEventListener("visibilitychange", handleVisibility);
-
-    let permissionStatus: PermissionStatus | null = null;
-    const permissionsApi = typeof navigator !== "undefined" ? navigator.permissions : undefined;
-    if (permissionsApi?.query) {
-      void permissionsApi
-        .query({ name: "notifications" as PermissionName })
-        .then((status) => {
-          permissionStatus = status;
-          permissionStatus.addEventListener("change", syncPermission);
-        })
-        .catch(() => undefined);
-    }
-
-    return () => {
-      window.removeEventListener("focus", syncPermission);
-      window.removeEventListener("pageshow", syncPermission);
-      document.removeEventListener("visibilitychange", handleVisibility);
-      if (permissionStatus) {
-        permissionStatus.removeEventListener("change", syncPermission);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     meRef.current = me;
@@ -389,10 +329,10 @@ const ConversationPage = () => {
     socket.on("inbox:new", handleIncomingMessage);
     socket.on("group:message:new", handleIncomingGroupMessage);
     socket.on("connect_error", () => {
-      setNotificationStatus("Realtime connection lost. Trying to reconnect...");
+      setStatus("Realtime connection lost. Trying to reconnect...");
     });
     socket.on("connect", () => {
-      setNotificationStatus("");
+      setStatus("");
     });
 
     return () => {
@@ -518,31 +458,6 @@ const ConversationPage = () => {
     );
   }, [conversations, searchTerm]);
 
-  const handleEnableNotifications = async () => {
-    const permission = await requestNotificationPermission();
-    setNotificationPermission(permission);
-
-    if (permission === "granted") {
-      setNotificationStatus("Notifications enabled.");
-      return;
-    }
-    if (permission === "denied") {
-      setNotificationStatus("Notifications blocked. Please allow notifications in browser settings.");
-      return;
-    }
-    if (permission === "unsupported") {
-      if (isIOSDevice() && !isStandalonePwa()) {
-        setNotificationStatus(
-          "iPhone Safari tab cannot enable web push. Add CleanChat to Home Screen, open from app icon, then enable notifications."
-        );
-        return;
-      }
-      setNotificationStatus("This browser does not support notifications.");
-      return;
-    }
-    setNotificationStatus("Notification permission not granted yet.");
-  };
-
   const handleOpenThread = (threadId: number, other: string, avatarUrl?: string) => {
     navigate("/chat", { state: { threadId, other, avatarUrl } });
   };
@@ -614,17 +529,7 @@ const ConversationPage = () => {
                 : "Direct chats and joined groups, sorted by latest activity."}
             </p>
           </div>
-          <button
-            type="button"
-            className="notify-button"
-            onClick={handleEnableNotifications}
-            disabled={notificationPermission === "granted"}
-          >
-            {notificationPermission === "granted" ? "Notifications On" : "Enable Notifications"}
-          </button>
         </header>
-
-        {notificationStatus && <div className="status-text">{notificationStatus}</div>}
 
         <div className="conversations-toolbar">
           <div className="search-field">

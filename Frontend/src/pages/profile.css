@@ -193,6 +193,58 @@
   gap: 0.55rem;
 }
 
+.profile-settings-card {
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--panel);
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.profile-settings-copy h3 {
+  margin: 0.2rem 0 0;
+  font-size: 1rem;
+}
+
+.profile-settings-eyebrow {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+
+.profile-settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.profile-permission-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.34rem 0.74rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.profile-permission-pill.active {
+  border-color: rgba(31, 138, 91, 0.24);
+  background: rgba(31, 138, 91, 0.1);
+  color: #21553d;
+}
+
 .profile-action-row {
   width: 100%;
   border: 1px solid var(--line);

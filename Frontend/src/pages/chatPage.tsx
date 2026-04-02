@@ -638,6 +638,10 @@ useEffect(() => {
   };
 }, [previewImageUrl]);
 
+const chatLabel = other || (chatMode === "group" ? "Group chat" : "Conversation");
+const avatarFallback = chatLabel.trim().charAt(0).toUpperCase() || "?";
+const isConnected = Boolean(socketRef.current?.connected);
+
   return (
     <div className='chat-shell'>
       <main className='chat-panel'>
@@ -653,20 +657,14 @@ useEffect(() => {
           </button>
           <span className='avatar'>
             {avatarUrl ? (
-              <img src={avatarUrl} alt={`${other || "User"} avatar`} />
+              <img src={avatarUrl} alt={`${chatLabel} avatar`} />
             ) : (
-              other ? other[0].toUpperCase() : "?"
+              avatarFallback
             )}
           </span>
-          <span>{other}</span>
+          <span className='chat-title'>{chatLabel}</span>
         </div>
         <div  className='chat-body' ref={messageListRef}>
-
-          {/* Somewhere near the top of the chat panel */}
-
-           <div className={`status-pill ${socketRef.current?.connected ? "online" : ""}`}>
-               {status}
-                </div>
 
           {/* this is the checkgate, check whetjer it is 0 or null... for threadid  if check pass, render the next thing*/}
           {((chatMode === "direct" && threadId) || (chatMode === "group" && groupId)) && (
@@ -728,7 +726,17 @@ useEffect(() => {
         </div>
 
 
-        <div className='chat-input'>
+        <footer className='chat-footer'>
+          <div className='chat-footer-context'>
+            <span className='chat-footer-avatar' aria-hidden='true'>
+              {avatarUrl ? <img src={avatarUrl} alt='' /> : avatarFallback}
+            </span>
+            <div className='chat-footer-copy'>
+              <strong>{chatLabel}</strong>
+              <span className={`status-pill ${isConnected ? "online" : ""}`}>{status}</span>
+            </div>
+          </div>
+          <div className='chat-input'>
           <input
             id="chat-photo-input"
             type="file"
@@ -784,7 +792,8 @@ useEffect(() => {
           >
             Send
           </button>
-        </div>
+          </div>
+        </footer>
         {previewImageUrl && (
           <div className="image-viewer-overlay" onClick={handleCloseImagePreview} role="presentation">
             <div

@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "../components/BottomNav";
 import { BACKEND_URL } from "../config";
+import { getNotificationPermission, requestNotificationPermission } from "../utils/notifications";
 import "./profile.css";
 
 const CLEAN_ID_REGEX = /^[a-z0-9_]{3,20}$/;
@@ -67,6 +68,18 @@ const avatarUrl = (avatar: AvatarKey) => {
   return option?.url ?? "https://api.dicebear.com/7.x/avataaars/svg?seed=Leo";
 };
 
+const isIOSDevice = () =>
+  typeof navigator !== "undefined" && /iPad|iPhone|iPod/i.test(navigator.userAgent);
+
+const isStandalonePwa = () => {
+  if (typeof window === "undefined") return false;
+  const mediaStandalone = window.matchMedia("(display-mode: standalone)").matches;
+  const navigatorStandalone = (
+    window.navigator as Navigator & { standalone?: boolean }
+  ).standalone === true;
+  return mediaStandalone || navigatorStandalone;
+};
+
 const ProfilePage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -89,6 +102,8 @@ const ProfilePage = () => {
   const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(false);
   const [updatingGroupId, setUpdatingGroupId] = useState<string | null>(null);
   const [processingJoinRequestKey, setProcessingJoinRequestKey] = useState<string | null>(null);
+  const [notificationPermission, setNotificationPermission] = useState(getNotificationPermission());
+  const [notificationStatus, setNotificationStatus] = useState("");
 
   const normalizedCleanId = useMemo(() => cleanId.trim().toLowerCase(), [cleanId]);
 
@@ -123,6 +138,48 @@ const ProfilePage = () => {
       isMounted = false;
     };
   }, [navigate]);
+
+  useEffect(() => {
+    const syncPermission = () => {
+      const permission = getNotificationPermission();
+      setNotificationPermission(permission);
+      if (permission === "granted") {
+        setNotificationStatus("");
+      }
+    };
+
+    const handleVisibility = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        syncPermission();
+      }
+    };
+
+    syncPermission();
+    window.addEventListener("focus", syncPermission);
+    window.addEventListener("pageshow", syncPermission);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    let permissionStatus: PermissionStatus | null = null;
+    const permissionsApi = typeof navigator !== "undefined" ? navigator.permissions : undefined;
+    if (permissionsApi?.query) {
+      void permissionsApi
+        .query({ name: "notifications" as PermissionName })
+        .then((status) => {
+          permissionStatus = status;
+          permissionStatus.addEventListener("change", syncPermission);
+        })
+        .catch(() => undefined);
+    }
+
+    return () => {
+      window.removeEventListener("focus", syncPermission);
+      window.removeEventListener("pageshow", syncPermission);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      if (permissionStatus) {
+        permissionStatus.removeEventListener("change", syncPermission);
+      }
+    };
+  }, []);
 
   const resetFormToUser = () => {
     if (!user) return;
@@ -260,6 +317,31 @@ const ProfilePage = () => {
       navigate("/login", { replace: true });
       setIsLoggingOut(false);
     }
+  };
+
+  const handleEnableNotifications = async () => {
+    const permission = await requestNotificationPermission();
+    setNotificationPermission(permission);
+
+    if (permission === "granted") {
+      setNotificationStatus("Notifications enabled.");
+      return;
+    }
+    if (permission === "denied") {
+      setNotificationStatus("Notifications blocked. Please allow notifications in browser settings.");
+      return;
+    }
+    if (permission === "unsupported") {
+      if (isIOSDevice() && !isStandalonePwa()) {
+        setNotificationStatus(
+          "iPhone Safari tab cannot enable web push. Add CleanChat to Home Screen, open from app icon, then enable notifications."
+        );
+        return;
+      }
+      setNotificationStatus("This browser does not support notifications.");
+      return;
+    }
+    setNotificationStatus("Notification permission not granted yet.");
   };
 
   const handleDeleteAccount = async () => {
@@ -442,167 +524,189 @@ const ProfilePage = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="profile-shell">
-        <main className="profile-card">
-          <p className="profile-loading">Loading profile...</p>
-        </main>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="profile-shell">
-        <main className="profile-card">
-          <p className="profile-loading">Profile not found.</p>
-        </main>
-      </div>
-    );
-  }
-
-  const activeAvatar = isEditing ? avatar : user.avatar;
-  const activeName = isEditing ? nickname : user.name;
-  const activeCleanId = isEditing ? cleanId : user.cleanId;
+  const activeAvatar = user ? (isEditing ? avatar : user.avatar) : "AVATAR_LEO";
+  const activeName = user ? (isEditing ? nickname : user.name) : "";
+  const activeCleanId = user ? (isEditing ? cleanId : user.cleanId) : "";
   const selectedOwnedGroup = ownedGroups.find((group) => group.id === selectedGroupId) ?? null;
 
   return (
     <div className="profile-shell">
       <main className="profile-card">
-        <header className="profile-header">
-          <div>
-            <p className="profile-step">Your Account</p>
-            <h1 className="profile-title">Profile</h1>
-          </div>
-          <button
-            type="button"
-            className="profile-link-btn"
-            onClick={handleBackToLogin}
-            disabled={isLoggingOut}
-          >
-            {isLoggingOut ? "Logging out..." : "Log Out"}
-          </button>
-        </header>
-
-        <section className="profile-summary">
-          <img
-            className="profile-avatar-main"
-            src={avatarUrl(activeAvatar)}
-            alt={`${activeName || "User"} avatar`}
-          />
-          <div className="profile-summary-text">
-            <h2>{activeName}</h2>
-            <p>@{activeCleanId}</p>
-            <span>{user.email}</span>
-          </div>
-        </section>
-
-        {!isEditing && (
-          <div className="profile-top-actions">
-            <button type="button" className="profile-action-row" onClick={startEdit}>
-              <span className="profile-action-row-title">Edit Profile</span>
-              <span className="profile-action-row-arrow" aria-hidden="true">
-                &gt;
-              </span>
-            </button>
-            <button
-              type="button"
-              className="profile-action-row"
-              onClick={() => void handleToggleGroupAccess()}
-            >
-              <span className="profile-action-row-title">
-                {showGroupAccess ? "Hide Group Access" : "Manage Group Access"}
-              </span>
-              <span className="profile-action-row-arrow" aria-hidden="true">
-                &gt;
-              </span>
-            </button>
-          </div>
-        )}
-
-        {isEditing && (
-          <form className="profile-form" onSubmit={handleSave}>
-            <fieldset className="profile-avatars">
-              <legend>Avatar</legend>
-              <div className="profile-avatar-grid">
-                {AVATAR_OPTIONS.map((item) => (
-                  <label
-                    key={item.key}
-                    className={`profile-avatar-option ${avatar === item.key ? "active" : ""}`}
-                  >
-                    <input
-                      type="radio"
-                      name="avatar"
-                      value={item.key}
-                      checked={avatar === item.key}
-                      onChange={() => setAvatar(item.key)}
-                    />
-                    <img
-                      src={item.url}
-                      alt={item.label}
-                    />
-                    <span>{item.label}</span>
-                  </label>
-                ))}
+        {loading ? (
+          <p className="profile-loading">Loading profile...</p>
+        ) : !user ? (
+          <p className="profile-loading">Profile not found.</p>
+        ) : (
+          <>
+            <header className="profile-header">
+              <div>
+                <p className="profile-step">Your Account</p>
+                <h1 className="profile-title">Profile</h1>
               </div>
-            </fieldset>
-
-            <label className="profile-label" htmlFor="nickname">
-              Nickname
-            </label>
-            <input
-              className="profile-input"
-              id="nickname"
-              type="text"
-              value={nickname}
-              onChange={(event) => setNickname(event.target.value)}
-              maxLength={40}
-              required
-            />
-
-            <label className="profile-label" htmlFor="cleanId">
-              CleanID
-            </label>
-            <input
-              className="profile-input"
-              id="cleanId"
-              type="text"
-              value={cleanId}
-              onChange={(event) =>
-                setCleanId(event.target.value.toLowerCase().replace(/\s+/g, "_"))
-              }
-              maxLength={20}
-              required
-            />
-            <p className="profile-hint">
-              Use 3-20 characters: lowercase letters, numbers, underscore.
-            </p>
-
-            <div className="profile-actions">
               <button
                 type="button"
-                className="profile-secondary-btn"
-                onClick={cancelEdit}
-                disabled={isSaving}
+                className="profile-link-btn"
+                onClick={handleBackToLogin}
+                disabled={isLoggingOut}
               >
-                Cancel
+                {isLoggingOut ? "Logging out..." : "Log Out"}
               </button>
-              <button type="submit" className="profile-primary-btn" disabled={isSaving}>
-                {isSaving ? "Saving..." : "Save Changes"}
-              </button>
-            </div>
-          </form>
-        )}
+            </header>
 
-        {status && (
-          <p className="profile-status" role="status">
-            {status}
-          </p>
-        )}
+            <section className="profile-summary">
+              <img
+                className="profile-avatar-main"
+                src={avatarUrl(activeAvatar)}
+                alt={`${activeName || "User"} avatar`}
+              />
+              <div className="profile-summary-text">
+                <h2>{activeName}</h2>
+                <p>@{activeCleanId}</p>
+                <span>{user.email}</span>
+              </div>
+            </section>
 
-        {!isEditing && showGroupAccess && (
-          <section className="profile-group-access">
+            {!isEditing && (
+              <div className="profile-top-actions">
+                <button type="button" className="profile-action-row" onClick={startEdit}>
+                  <span className="profile-action-row-title">Edit Profile</span>
+                  <span className="profile-action-row-arrow" aria-hidden="true">
+                    &gt;
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="profile-action-row"
+                  onClick={() => void handleToggleGroupAccess()}
+                >
+                  <span className="profile-action-row-title">
+                    {showGroupAccess ? "Hide Group Access" : "Manage Group Access"}
+                  </span>
+                  <span className="profile-action-row-arrow" aria-hidden="true">
+                    &gt;
+                  </span>
+                </button>
+              </div>
+            )}
+
+            {!isEditing && (
+              <section className="profile-settings-card">
+                <div className="profile-settings-copy">
+                  <p className="profile-settings-eyebrow">Notifications</p>
+                  <h3>Message alerts</h3>
+                  <p className="profile-hint">
+                    Turn browser notifications on here instead of showing that action on the chat list.
+                  </p>
+                </div>
+                <div className="profile-settings-actions">
+                  <span className={`profile-permission-pill ${notificationPermission === "granted" ? "active" : ""}`}>
+                    {notificationPermission === "granted"
+                      ? "On"
+                      : notificationPermission === "denied"
+                        ? "Blocked"
+                        : notificationPermission === "unsupported"
+                          ? "Unsupported"
+                          : "Off"}
+                  </span>
+                  <button
+                    type="button"
+                    className="profile-primary-btn"
+                    onClick={() => void handleEnableNotifications()}
+                    disabled={notificationPermission === "granted"}
+                  >
+                    {notificationPermission === "granted" ? "Notifications On" : "Enable Notifications"}
+                  </button>
+                </div>
+                {notificationStatus && (
+                  <p className="profile-status profile-notification-status" role="status">
+                    {notificationStatus}
+                  </p>
+                )}
+              </section>
+            )}
+
+            {isEditing && (
+              <form className="profile-form" onSubmit={handleSave}>
+                <fieldset className="profile-avatars">
+                  <legend>Avatar</legend>
+                  <div className="profile-avatar-grid">
+                    {AVATAR_OPTIONS.map((item) => (
+                      <label
+                        key={item.key}
+                        className={`profile-avatar-option ${avatar === item.key ? "active" : ""}`}
+                      >
+                        <input
+                          type="radio"
+                          name="avatar"
+                          value={item.key}
+                          checked={avatar === item.key}
+                          onChange={() => setAvatar(item.key)}
+                        />
+                        <img
+                          src={item.url}
+                          alt={item.label}
+                        />
+                        <span>{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <label className="profile-label" htmlFor="nickname">
+                  Nickname
+                </label>
+                <input
+                  className="profile-input"
+                  id="nickname"
+                  type="text"
+                  value={nickname}
+                  onChange={(event) => setNickname(event.target.value)}
+                  maxLength={40}
+                  required
+                />
+
+                <label className="profile-label" htmlFor="cleanId">
+                  CleanID
+                </label>
+                <input
+                  className="profile-input"
+                  id="cleanId"
+                  type="text"
+                  value={cleanId}
+                  onChange={(event) =>
+                    setCleanId(event.target.value.toLowerCase().replace(/\s+/g, "_"))
+                  }
+                  maxLength={20}
+                  required
+                />
+                <p className="profile-hint">
+                  Use 3-20 characters: lowercase letters, numbers, underscore.
+                </p>
+
+                <div className="profile-actions">
+                  <button
+                    type="button"
+                    className="profile-secondary-btn"
+                    onClick={cancelEdit}
+                    disabled={isSaving}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="profile-primary-btn" disabled={isSaving}>
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {status && (
+              <p className="profile-status" role="status">
+                {status}
+              </p>
+            )}
+
+            {!isEditing && showGroupAccess && (
+              <section className="profile-group-access">
             <h3>Group Join Verification</h3>
             <p className="profile-hint">
               Choose whether your groups need verification before others can join, and approve/reject requests.
@@ -704,41 +808,43 @@ const ProfilePage = () => {
                 )}
               </section>
             )}
-          </section>
-        )}
-
-        <section className="profile-danger-wrap">
-          {isDeleteConfirming && !isDeleting && (
-            <p className="profile-danger-hint">
-              Are you sure? This will permanently delete your account, profile, and all chats.
-              Click delete again to continue.
-            </p>
-          )}
-          <div className="profile-danger-actions">
-            <button
-              type="button"
-              className={`profile-danger-btn ${isDeleteConfirming ? "confirm" : ""}`}
-              onClick={handleDeleteAccount}
-              disabled={isDeleting || isSaving || isLoggingOut}
-            >
-              {isDeleting
-                ? "Deleting..."
-                : isDeleteConfirming
-                  ? "Delete Account (Confirm)"
-                  : "Delete Account"}
-            </button>
-            {isDeleteConfirming && !isDeleting && (
-              <button
-                type="button"
-                className="profile-secondary-btn"
-                onClick={() => setIsDeleteConfirming(false)}
-                disabled={isSaving || isLoggingOut}
-              >
-                Cancel
-              </button>
+              </section>
             )}
-          </div>
-        </section>
+
+            <section className="profile-danger-wrap">
+              {isDeleteConfirming && !isDeleting && (
+                <p className="profile-danger-hint">
+                  Are you sure? This will permanently delete your account, profile, and all chats.
+                  Click delete again to continue.
+                </p>
+              )}
+              <div className="profile-danger-actions">
+                <button
+                  type="button"
+                  className={`profile-danger-btn ${isDeleteConfirming ? "confirm" : ""}`}
+                  onClick={handleDeleteAccount}
+                  disabled={isDeleting || isSaving || isLoggingOut}
+                >
+                  {isDeleting
+                    ? "Deleting..."
+                    : isDeleteConfirming
+                      ? "Delete Account (Confirm)"
+                      : "Delete Account"}
+                </button>
+                {isDeleteConfirming && !isDeleting && (
+                  <button
+                    type="button"
+                    className="profile-secondary-btn"
+                    onClick={() => setIsDeleteConfirming(false)}
+                    disabled={isSaving || isLoggingOut}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </section>
+          </>
+        )}
       </main>
       <BottomNav />
     </div>
