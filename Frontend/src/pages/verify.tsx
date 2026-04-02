@@ -7,7 +7,7 @@ import {
   getPretextAuthStyles,
   usePretextCompact,
   usePretextPointer,
-} from "../pretext/auth";
+} from "./login";
 
 const CODE_LENGTH = 6;
 const PENDING_EMAIL_KEY = "cleanchat:pending-email";
@@ -42,6 +42,9 @@ const VerifyPage = () => {
   const location = useLocation();
   const emailFromState = ((location.state as VerifyLocationState)?.email || "").trim().toLowerCase();
   const [storedEmail, setStoredEmail] = useState(() => getPendingEmail());
+  const [code, setCode] = useState("");
+  const [status, setStatus] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const compact = usePretextCompact();
   const { pointer, bindings } = usePretextPointer();
 
@@ -54,17 +57,10 @@ const VerifyPage = () => {
     setStoredEmail(emailFromState);
   }, [emailFromState, storedEmail]);
 
-  const email = useMemo(
-    () => emailFromState || storedEmail,
-    [emailFromState, storedEmail]
-  );
-  const [code, setCode] = useState("");
-  const [status, setStatus] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const email = useMemo(() => emailFromState || storedEmail, [emailFromState, storedEmail]);
   const emailParts = useMemo(() => email.split("@"), [email]);
-  const codeProgress = email
-    ? Math.min(1, 0.32 + code.trim().length / CODE_LENGTH)
-    : 0.18;
+  const normalizedCode = code.trim();
+  const codeProgress = email ? Math.min(1, 0.24 + normalizedCode.length / CODE_LENGTH) : 0.12;
   const styles = getPretextAuthStyles(compact, pointer);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -75,7 +71,6 @@ const VerifyPage = () => {
       return;
     }
 
-    const normalizedCode = code.trim();
     if (normalizedCode.length !== CODE_LENGTH) {
       setStatus("Please enter the 6-digit code.");
       return;
@@ -117,86 +112,56 @@ const VerifyPage = () => {
 
   return (
     <div style={styles.shell} {...(compact ? {} : bindings)}>
-      <main style={styles.layout}>
-        <section style={styles.heroPanel}>
-          <div style={styles.heroGlowA} />
-          <div style={styles.heroGlowB} />
+      <main style={styles.frame}>
+        <section style={styles.card}>
+          <div style={styles.glowA} />
+          <div style={styles.glowB} />
 
-          <div style={styles.heroHeader}>
-            <p style={styles.heroKicker}>Code Receipt</p>
-            <span style={styles.heroBadge}>mailbox handshake</span>
+          <div style={styles.topRow}>
+            <p style={styles.kicker}>Step 2 of 2</p>
+            <span style={styles.badge}>Verify code</span>
           </div>
 
-          <h1 style={styles.heroTitle}>The lane is open. Now prove it is yours.</h1>
-          <p style={styles.heroCopy}>
-            Verification should feel like the second beat of the same experience, not a dead utility screen. Drop in
-            the code and the route resolves into your conversations.
-          </p>
+          <div style={styles.hero}>
+            <h1 style={styles.heroTitle}>Enter the 6-digit code.</h1>
+            <p style={styles.heroCopy}>
+              {email
+                ? `We sent the code to ${email}. Enter it here and the auth surface disappears.`
+                : "Return to login, request a code, then finish the handoff here."}
+            </p>
+          </div>
 
-          <div style={styles.heroTagRow}>
-            {["6 digits", "temporary entry", "quiet handoff"].map((item) => (
-              <span key={item} style={styles.heroTag}>
+          <div style={styles.chipRow}>
+            {[
+              `${normalizedCode.length}/${CODE_LENGTH} digits`,
+              email ? "mailbox linked" : "mailbox missing",
+              "one-time entry",
+            ].map((item) => (
+              <span key={item} style={styles.chip}>
                 {item}
               </span>
             ))}
           </div>
 
-          <div style={styles.heroGrid}>
-            <PretextMessageDeck
+          <div style={styles.divider} />
+
+          <div style={styles.signalRow}>
+            <PretextSignalOrb
+              progress={codeProgress}
               compact={compact}
               pointer={pointer}
-              emailLocal={emailParts[0] || ""}
-              emailDomain={emailParts[1] || ""}
+              heading={normalizedCode.length === CODE_LENGTH ? "All digits are present. Ready to enter." : "Waiting for the full 6-digit code."}
+              caption={
+                email
+                  ? "This only needs to happen once. After verification, you go straight to your conversations."
+                  : "The route is incomplete without the email from step one."
+              }
             />
-
-            <aside style={styles.sideCard}>
-              <p style={styles.sideLabel}>Verification Note</p>
-              <h2 style={styles.sideTitle}>One code, then the surface disappears.</h2>
-              <p style={styles.sideCopy}>
-                The whole point is speed: confirm the mailbox, step in, and leave the mechanics behind you.
-              </p>
-
-              <div style={styles.sideStatGrid}>
-                {[
-                  [String(CODE_LENGTH).padStart(2, "0"), "digits"],
-                  ["1", "mailbox"],
-                  ["0", "passwords"],
-                  ["now", "entry"],
-                ].map(([value, label]) => (
-                  <div key={label} style={styles.sideStat}>
-                    <span style={styles.sideStatValue}>{value}</span>
-                    <span style={styles.sideStatLabel}>{label}</span>
-                  </div>
-                ))}
-              </div>
-            </aside>
-          </div>
-        </section>
-
-        <section style={styles.panel}>
-          <p style={styles.step}>Step 2 of 2</p>
-          <PretextSignalOrb
-            progress={codeProgress}
-            compact={compact}
-            pointer={pointer}
-            heading={code.trim().length === CODE_LENGTH ? "All digits present. Resolve the lane." : "Awaiting full code."}
-            caption={
-              email
-                ? `Mailbox locked to ${email}. Finish the 6-digit sequence and we open the conversation surface.`
-                : "Return to login to request a new code before continuing."
-            }
-          />
-
-          <div>
-            <h2 style={styles.title}>Verify your code</h2>
-            <p style={styles.copy}>
-              {email ? `Code sent to ${email}.` : "Return to login to request a code."}
-            </p>
           </div>
 
           <form onSubmit={handleSubmit} style={styles.form}>
             <label style={styles.label} htmlFor="code">
-              Verification Code
+              Verification code
             </label>
             <input
               style={{
@@ -216,15 +181,12 @@ const VerifyPage = () => {
             />
 
             <div style={styles.helperRow}>
-              {[
-                `${code.trim().length}/${CODE_LENGTH} digits`,
-                emailParts[0] ? `entry ${emailParts[0]}` : "entry pending",
-                "mailbox verified",
-              ].map((item) => (
-                <span key={item} style={styles.helperPill}>
-                  {item}
-                </span>
-              ))}
+              <PretextMessageDeck
+                compact={compact}
+                pointer={pointer}
+                emailLocal={emailParts[0] || ""}
+                emailDomain={emailParts[1] || ""}
+              />
             </div>
 
             <button
