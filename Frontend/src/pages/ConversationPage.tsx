@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState, type HTMLAttributes, type RefObject } from "react";
 import { useNavigate } from "react-router-dom";
-import { Virtuoso } from "react-virtuoso";
+import { Virtuoso, type ListProps, type ScrollerProps } from "react-virtuoso";
 import { io, type Socket } from "socket.io-client";
 import BottomNav from "../components/BottomNav";
 import { DEFAULT_AVATAR_KEY, getAvatarToneClass, getAvatarUrl, type AvatarKey } from "../constants/avatarCatalog";
@@ -256,6 +256,110 @@ const SearchGlyph = () => (
       fill="currentColor"
     />
   </svg>
+);
+
+const ConversationsVirtuosoScroller = forwardRef<HTMLDivElement, ScrollerProps>((props, ref) => (
+  <div {...props} ref={ref} className="conversations-virtuoso-scroller" />
+));
+
+ConversationsVirtuosoScroller.displayName = "ConversationsVirtuosoScroller";
+
+const ConversationsVirtuosoList = forwardRef<HTMLDivElement, ListProps & HTMLAttributes<HTMLDivElement>>(
+  (props, ref) => <div {...props} ref={ref} className="conversations-virtuoso-list" />
+);
+
+ConversationsVirtuosoList.displayName = "ConversationsVirtuosoList";
+
+type ConversationStageChromeProps = {
+  hasQuery: boolean;
+  heroName: string;
+  isSearchOpen: boolean;
+  metaLabel: string;
+  searchInputRef: RefObject<HTMLInputElement | null>;
+  searchTerm: string;
+  onOpenSearch: () => void;
+  onCloseSearch: () => void;
+  onSearchChange: (value: string) => void;
+};
+
+const ConversationStageChrome = ({
+  hasQuery,
+  heroName,
+  isSearchOpen,
+  metaLabel,
+  searchInputRef,
+  searchTerm,
+  onOpenSearch,
+  onCloseSearch,
+  onSearchChange,
+}: ConversationStageChromeProps) => (
+  <div className="conversations-stage-header">
+    <header className="conversations-hero">
+      <div className="conversations-title-wrap">
+        <p className="eyebrow">{heroName}</p>
+        <h1 className="page-title">Conversations</h1>
+        <p className="page-copy">
+          {hasQuery ? "Find people by CleanID." : "Direct chats and joined groups in one quiet list."}
+        </p>
+      </div>
+    </header>
+
+    <div className={`conversations-toolbar ${isSearchOpen ? "search-open" : ""}`}>
+      {!isSearchOpen && (
+        <button
+          type="button"
+          className="search-launcher"
+          aria-label="Open search"
+          onClick={onOpenSearch}
+        >
+          <SearchGlyph />
+        </button>
+      )}
+      <div className={`search-shell ${isSearchOpen ? "expanded" : ""}`}>
+        <div className="search-field">
+          <label className="sr-only" htmlFor="conversation-search">
+            Search by CleanID
+          </label>
+          <div className="search-input-wrap">
+            <span className="search-icon">
+              <SearchGlyph />
+            </span>
+            <input
+              ref={searchInputRef as RefObject<HTMLInputElement>}
+              id="conversation-search"
+              type="text"
+              placeholder="Search everyone by CleanID"
+              value={searchTerm}
+              onChange={(event) => onSearchChange(event.target.value)}
+              onFocus={onOpenSearch}
+              onBlur={() => {
+                if (!searchTerm.trim()) {
+                  onCloseSearch();
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  onCloseSearch();
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="search-dismiss"
+              aria-label="Close search"
+              onClick={onCloseSearch}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="conversations-meta">
+      <span>{hasQuery ? `People | ${metaLabel}` : metaLabel}</span>
+    </div>
+  </div>
 );
 
 const ConversationPage = () => {
@@ -603,17 +707,6 @@ const ConversationPage = () => {
     });
   }, [threads, groups, me]);
 
-  const filteredConversations = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-    if (!query) return conversations;
-    return conversations.filter(
-      (item) =>
-        item.cleanId.toLowerCase().includes(query) ||
-        item.name.toLowerCase().includes(query) ||
-        item.subline.toLowerCase().includes(query)
-    );
-  }, [conversations, searchTerm]);
-
   const skeletonCards = useMemo<ConversationSkeletonCard[]>(() => {
     if (conversations.length === 0) {
       return FALLBACK_SKELETON_CARDS;
@@ -695,7 +788,6 @@ const ConversationPage = () => {
   const hasQuery = searchTerm.trim().length > 0;
   const isSearchOpen = isSearchExpanded || hasQuery;
   const heroName = me?.name || me?.cleanId || me?.email || "CleanChat";
-  const heroTrust = me?.trust ?? null;
   const metaCount = hasQuery ? searchUsers.length : conversations.length;
   const metaLabel = isInitialLoading && !hasQuery && metaCount === 0
     ? "Syncing conversations"
@@ -710,6 +802,7 @@ const ConversationPage = () => {
     main: listOverscan,
     reverse: listOverscan,
   } as const;
+  const searchResultStatus = searchStatus || "No users found.";
 
   const renderSearchUserCard = (_index: number, user: UserSummary) => {
     const hasThread = threadByUserId.has(user.id);
@@ -792,210 +885,147 @@ const ConversationPage = () => {
     </div>
   );
 
+  const renderStageChrome = () => (
+    <ConversationStageChrome
+      hasQuery={hasQuery}
+      heroName={heroName}
+      isSearchOpen={isSearchOpen}
+      metaLabel={metaLabel}
+      searchInputRef={searchInputRef}
+      searchTerm={searchTerm}
+      onOpenSearch={openSearch}
+      onCloseSearch={closeSearch}
+      onSearchChange={setSearchTerm}
+    />
+  );
+
   return (
     <div className="conversations-page">
       <div className="conversations-shell">
-        <header className="conversations-hero">
-          <div className="conversations-title-wrap">
-            <p className="eyebrow">{heroName}</p>
-            <h1 className="page-title">Messages</h1>
-            <p className="page-copy">
-              {hasQuery
-                ? "Search people by CleanID and jump straight into a conversation."
-                : "Direct chats and joined groups, sorted by latest activity."}
-            </p>
-            {heroTrust && (
-              <div className={`conversations-signal-strip conversations-signal-strip-${heroTrust.band}`}>
-                <div className="conversations-signal-top">
-                  <span className={`conversation-trust-chip conversation-trust-chip-${heroTrust.band}`}>
-                    {getTrustToneLabel(heroTrust)}
-                  </span>
-                  <strong>{heroTrust.score}</strong>
-                </div>
-                <div className="conversations-signal-mark-row">
-                  <span className={`conversation-cleanid conversation-cleanid-${heroTrust.band}`}>@{me?.cleanId}</span>
-                  <span className="conversations-signal-copy">{heroTrust.summary}</span>
-                </div>
-              </div>
-            )}
-          </div>
-        </header>
-
-        <div className={`conversations-toolbar ${isSearchOpen ? "search-open" : ""}`}>
-          {!isSearchOpen && (
-            <button
-              type="button"
-              className="search-launcher"
-              aria-label="Open search"
-              onClick={openSearch}
-            >
-              <SearchGlyph />
-            </button>
-          )}
-          <div className={`search-shell ${isSearchOpen ? "expanded" : ""}`}>
-            <div className="search-field">
-              <label className="sr-only" htmlFor="conversation-search">
-                Search by CleanID
-              </label>
-              <div className="search-input-wrap">
-                <span className="search-icon">
-                  <SearchGlyph />
-                </span>
-                <input
-                  ref={searchInputRef}
-                  id="conversation-search"
-                  type="text"
-                  placeholder="Search everyone by CleanID"
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  onFocus={openSearch}
-                  onBlur={() => {
-                    if (!searchTerm.trim()) {
-                      setIsSearchExpanded(false);
-                    }
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                      closeSearch();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="search-dismiss"
-                  aria-label="Close search"
-                  onClick={closeSearch}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="conversations-meta">
-          <h2>{hasQuery ? "People" : "Recent activity"}</h2>
-          <span>{metaLabel}</span>
-        </div>
-
         <div className="conversations-stage">
-
-        {isInitialLoading && !hasQuery && (
-          <section className="conversations-list conversations-list-loading" aria-label="Loading conversations">
-            {skeletonCards.map((item) => (
-              <article key={`loading-${item.id}`} className="conversation-card conversation-card-skeleton" aria-hidden="true">
-                <div className="avatar avatar-skeleton">
-                  <span className="skeleton-surface avatar-skeleton-core" />
-                </div>
-                <div className="conversation-body">
-                  <div className="conversation-top">
-                    <span className="skeleton-surface conversation-title-skeleton" style={{ width: item.nameWidth }} />
-                    <span className="role role-skeleton">
-                      <span className="skeleton-surface role-skeleton-core" />
-                    </span>
-                    <span className="skeleton-surface time-skeleton" />
-                  </div>
-                  <div className="conversation-preview-skeleton">
-                    <span className="skeleton-surface preview-skeleton-line" style={{ width: item.previewWidth }} />
-                    <span
-                      className="skeleton-surface preview-skeleton-line preview-skeleton-line-short"
-                      style={{ width: item.previewSecondaryWidth }}
-                    />
-                  </div>
-                  <div className="conversation-identity-row">
-                    <span
-                      className={`conversation-subline conversation-cleanid conversation-cleanid-skeleton ${item.chatType === "group" ? "conversation-cleanid-skeleton-group" : ""}`}
+          {isInitialLoading && !hasQuery && (
+            <div className="conversations-scroll-shell" aria-label="Loading conversations">
+              <div className="conversations-scroll-content">
+                {renderStageChrome()}
+                <section className="conversations-list conversations-list-loading">
+                  {skeletonCards.map((item) => (
+                    <article
+                      key={`loading-${item.id}`}
+                      className="conversation-card conversation-card-skeleton"
+                      aria-hidden="true"
                     >
-                      <span className="skeleton-surface cleanid-skeleton-core" style={{ width: item.sublineWidth }} />
-                    </span>
-                    {item.hasTrust && (
-                      <span className="conversation-trust-chip conversation-trust-chip-skeleton">
-                        <span className="skeleton-surface trust-skeleton-core" />
-                      </span>
-                    )}
+                      <div className="avatar avatar-skeleton">
+                        <span className="skeleton-surface avatar-skeleton-core" />
+                      </div>
+                      <div className="conversation-body">
+                        <div className="conversation-top">
+                          <span className="skeleton-surface conversation-title-skeleton" style={{ width: item.nameWidth }} />
+                          <span className="role role-skeleton">
+                            <span className="skeleton-surface role-skeleton-core" />
+                          </span>
+                          <span className="skeleton-surface time-skeleton" />
+                        </div>
+                        <div className="conversation-preview-skeleton">
+                          <span className="skeleton-surface preview-skeleton-line" style={{ width: item.previewWidth }} />
+                          <span
+                            className="skeleton-surface preview-skeleton-line preview-skeleton-line-short"
+                            style={{ width: item.previewSecondaryWidth }}
+                          />
+                        </div>
+                        <div className="conversation-identity-row">
+                          <span
+                            className={`conversation-subline conversation-cleanid conversation-cleanid-skeleton ${item.chatType === "group" ? "conversation-cleanid-skeleton-group" : ""}`}
+                          >
+                            <span className="skeleton-surface cleanid-skeleton-core" style={{ width: item.sublineWidth }} />
+                          </span>
+                          {item.hasTrust && (
+                            <span className="conversation-trust-chip conversation-trust-chip-skeleton">
+                              <span className="skeleton-surface trust-skeleton-core" />
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </section>
+              </div>
+            </div>
+          )}
+
+          {!isInitialLoading && status && (
+            <div className="conversations-scroll-shell">
+              <div className="conversations-scroll-content">
+                {renderStageChrome()}
+                <div className="status-text">{status}</div>
+              </div>
+            </div>
+          )}
+
+          {!isInitialLoading && !status && hasQuery && searchUsers.length === 0 && (
+            <div className="conversations-scroll-shell">
+              <div className="conversations-scroll-content">
+                {renderStageChrome()}
+                <div className="status-text">{searchResultStatus}</div>
+              </div>
+            </div>
+          )}
+
+          {!isInitialLoading && !status && hasQuery && searchUsers.length > 0 && (
+            <section className="conversations-list-shell" aria-label="Search results">
+              <Virtuoso
+                className="conversations-virtuoso"
+                data={searchUsers}
+                computeItemKey={(_index, user) => `user-${user.id}`}
+                defaultItemHeight={116}
+                increaseViewportBy={viewportIncrease}
+                overscan={listOverscanWindow}
+                minOverscanItemCount={{ top: 12, bottom: 12 }}
+                skipAnimationFrameInResizeObserver
+                components={{
+                  Scroller: ConversationsVirtuosoScroller,
+                  List: ConversationsVirtuosoList,
+                  Header: renderStageChrome,
+                }}
+                itemContent={renderSearchUserCard}
+              />
+            </section>
+          )}
+
+          {!isInitialLoading && !status && !hasQuery && conversations.length === 0 && (
+            <div className="conversations-scroll-shell">
+              <div className="conversations-scroll-content">
+                {renderStageChrome()}
+                <section className="conversations-empty-state">
+                  <div className="conversations-empty-mark">
+                    <span className="conversation-cleanid conversation-cleanid-steady">@{me?.cleanId ?? "cleanid"}</span>
                   </div>
-                </div>
-              </article>
-            ))}
-          </section>
-        )}
-
-        {!isInitialLoading && status && <div className="status-text">{status}</div>}
-
-        {!isInitialLoading && !status && hasQuery && (
-          <>
-            {searchStatus && <div className="status-text">{searchStatus}</div>}
-            {!searchStatus && searchUsers.length === 0 && (
-              <div className="status-text">No users found.</div>
-            )}
-
-            {searchUsers.length > 0 && (
-              <section className="conversations-list-shell" aria-label="Search results">
-                <Virtuoso
-                  className="conversations-virtuoso"
-                  data={searchUsers}
-                  computeItemKey={(_index, user) => `user-${user.id}`}
-                  defaultItemHeight={116}
-                  increaseViewportBy={viewportIncrease}
-                  overscan={listOverscanWindow}
-                  minOverscanItemCount={{ top: 12, bottom: 12 }}
-                  skipAnimationFrameInResizeObserver
-                  itemContent={renderSearchUserCard}
-                />
-              </section>
-            )}
-          </>
-        )}
-
-        {!isInitialLoading && !status && !hasQuery && conversations.length === 0 && (
-          <section className={`conversations-empty-state ${heroTrust ? `conversations-empty-state-${heroTrust.band}` : ""}`}>
-            <div className="conversations-empty-mark">
-              <span className={`conversation-cleanid conversation-cleanid-${heroTrust?.band ?? "blurred"}`}>
-                @{me?.cleanId ?? "cleanid"}
-              </span>
-              {heroTrust && (
-                <span className={`conversation-trust-chip conversation-trust-chip-${heroTrust.band}`}>
-                  {getTrustToneLabel(heroTrust)}
-                </span>
-              )}
-            </div>
-            <h3>No conversations yet</h3>
-            <p>
-              Start with a CleanID search or join a group. Healthy back-and-forth is what sharpens your identity
-              signal here.
-            </p>
-            <div className="conversations-empty-grid">
-              <div className="conversations-empty-cell">
-                <span>Start clean</span>
-                <strong>Search by CleanID</strong>
-              </div>
-              <div className="conversations-empty-cell">
-                <span>Stay trusted</span>
-                <strong>{heroTrust?.summary ?? "Build consistent conversations."}</strong>
+                  <h3>No conversations yet</h3>
+                  <p>Search by CleanID or join a group when you're ready.</p>
+                </section>
               </div>
             </div>
-          </section>
-        )}
+          )}
 
-        {!isInitialLoading && !status && !hasQuery && conversations.length > 0 && filteredConversations.length === 0 && (
-          <div className="status-text">No conversations match "{searchTerm.trim()}".</div>
-        )}
-
-        {!isInitialLoading && !status && !hasQuery && (
-          <section className="conversations-list-shell" aria-label="Recent conversations">
-            <Virtuoso
-              className="conversations-virtuoso"
-              data={filteredConversations}
-              computeItemKey={(_index, item) => item.id}
-              defaultItemHeight={118}
-              increaseViewportBy={viewportIncrease}
-              overscan={listOverscanWindow}
-              minOverscanItemCount={{ top: 12, bottom: 12 }}
-              skipAnimationFrameInResizeObserver
-              itemContent={renderConversationCard}
-            />
-          </section>
-        )}
+          {!isInitialLoading && !status && !hasQuery && conversations.length > 0 && (
+            <section className="conversations-list-shell" aria-label="Conversations">
+              <Virtuoso
+                className="conversations-virtuoso"
+                data={conversations}
+                computeItemKey={(_index, item) => item.id}
+                defaultItemHeight={118}
+                increaseViewportBy={viewportIncrease}
+                overscan={listOverscanWindow}
+                minOverscanItemCount={{ top: 12, bottom: 12 }}
+                skipAnimationFrameInResizeObserver
+                components={{
+                  Scroller: ConversationsVirtuosoScroller,
+                  List: ConversationsVirtuosoList,
+                  Header: renderStageChrome,
+                }}
+                itemContent={renderConversationCard}
+              />
+            </section>
+          )}
         </div>
       </div>
       <BottomNav />
