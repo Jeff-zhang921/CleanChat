@@ -13,7 +13,14 @@ import {
 import{sessionMiddleware} from '../session';
 const prisma=new PrismaClient();
 
-const defaultOrigins = ["http://localhost:5173", "http://localhost:5273"];
+const defaultOrigins = [
+  "http://localhost:4173",
+  "http://localhost:5173",
+  "http://localhost:5273",
+  "http://127.0.0.1:4173",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5273",
+];
 const envOrigins = (process.env.FRONTEND_URLS ?? process.env.FRONTEND_URL ?? "")
   .split(",")
   .map((origin) => origin.trim())
