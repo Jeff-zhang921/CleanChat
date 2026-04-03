@@ -19,6 +19,50 @@ const isStandalonePwa = () => {
   return mediaStandalone || navigatorStandalone;
 };
 
+const ProfileSettingsLoadingState = ({ onBack }: { onBack: () => void }) => (
+  <div className="profile-settings-shell">
+    <main className="profile-settings-page">
+      <header className="profile-settings-nav">
+        <button type="button" className="profile-settings-back-button" onClick={onBack}>
+          <span aria-hidden="true">{"\u2190"}</span>
+          <span>Back</span>
+        </button>
+      </header>
+
+      <section className="profile-settings-header profile-settings-header-loading" aria-hidden="true">
+        <span className="profile-settings-skeleton profile-settings-eyebrow-skeleton" />
+        <span className="profile-settings-skeleton profile-settings-title-skeleton" />
+        <span className="profile-settings-skeleton profile-settings-copy-skeleton" />
+        <span className="profile-settings-skeleton profile-settings-copy-skeleton profile-settings-copy-skeleton-short" />
+      </section>
+
+      <section className="profile-settings-card profile-settings-card-soft profile-settings-card-loading" aria-hidden="true">
+        <div className="profile-settings-copy">
+          <span className="profile-settings-skeleton profile-settings-eyebrow-skeleton" />
+          <span className="profile-settings-skeleton profile-settings-name-skeleton" />
+          <span className="profile-settings-skeleton profile-settings-inline-skeleton" />
+          <span className="profile-settings-skeleton profile-settings-copy-skeleton" />
+        </div>
+      </section>
+
+      {[0, 1, 2].map((item) => (
+        <section key={item} className="profile-settings-card profile-settings-card-loading" aria-hidden="true">
+          <div className="profile-settings-copy">
+            <span className="profile-settings-skeleton profile-settings-eyebrow-skeleton" />
+            <span className="profile-settings-skeleton profile-settings-name-skeleton" />
+            <span className="profile-settings-skeleton profile-settings-copy-skeleton" />
+            <span className="profile-settings-skeleton profile-settings-copy-skeleton profile-settings-copy-skeleton-short" />
+          </div>
+          <div className="profile-settings-actions profile-settings-actions-loading">
+            <span className="profile-settings-skeleton profile-settings-pill-skeleton" />
+            <span className="profile-settings-skeleton profile-settings-button-skeleton" />
+          </div>
+        </section>
+      ))}
+    </main>
+  </div>
+);
+
 const ProfileSettingsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -212,19 +256,7 @@ const ProfileSettingsPage = () => {
   };
 
   if (loading && !user) {
-    return (
-      <div className="profile-settings-shell">
-        <main className="profile-settings-page">
-          <header className="profile-settings-nav">
-            <button type="button" className="profile-settings-back-button" onClick={handleBack}>
-              <span aria-hidden="true">{"\u2190"}</span>
-              <span>Back</span>
-            </button>
-          </header>
-          <p className="profile-settings-loading">Loading settings...</p>
-        </main>
-      </div>
-    );
+    return <ProfileSettingsLoadingState onBack={handleBack} />;
   }
 
   if (!user) {

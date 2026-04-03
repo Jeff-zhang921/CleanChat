@@ -61,6 +61,51 @@ const isStandalonePwa = () => {
   return mediaStandalone || navigatorStandalone;
 };
 
+const ProfileLoadingState = () => (
+  <>
+    <header className="profile-header profile-header-skeleton" aria-hidden="true">
+      <div className="profile-header-skeleton-copy">
+        <span className="profile-skeleton-surface profile-step-skeleton" />
+        <span className="profile-skeleton-surface profile-title-skeleton" />
+      </div>
+    </header>
+
+    <section className="profile-entry-card profile-entry-card-loading" aria-hidden="true">
+      <div className="profile-entry-identity">
+        <div className="profile-avatar-main profile-avatar-skeleton">
+          <span className="profile-skeleton-surface profile-avatar-skeleton-core" />
+        </div>
+        <div className="profile-summary-text profile-entry-copy profile-loading-copy">
+          <span className="profile-skeleton-surface profile-entry-kicker-skeleton" />
+          <span className="profile-skeleton-surface profile-name-skeleton" />
+          <span className="profile-skeleton-surface profile-cleanid-skeleton" />
+          <span className="profile-skeleton-surface profile-meta-skeleton" />
+          <span className="profile-skeleton-surface profile-meta-skeleton profile-meta-skeleton-short" />
+        </div>
+      </div>
+
+      <div className="profile-aura-skeleton">
+        <span className="profile-skeleton-surface profile-aura-label-skeleton" />
+        <span className="profile-skeleton-surface profile-aura-title-skeleton" />
+        <span className="profile-skeleton-surface profile-aura-copy-skeleton" />
+        <span className="profile-skeleton-surface profile-aura-copy-skeleton profile-aura-copy-skeleton-short" />
+      </div>
+    </section>
+
+    <div className="profile-top-actions profile-top-actions-loading" aria-hidden="true">
+      {[0, 1, 2].map((item) => (
+        <article key={item} className="profile-action-row profile-action-row-skeleton">
+          <span className="profile-action-row-copy">
+            <span className="profile-skeleton-surface profile-action-title-skeleton" />
+            <span className="profile-skeleton-surface profile-action-note-skeleton" />
+          </span>
+          <span className="profile-skeleton-surface profile-action-arrow-skeleton" />
+        </article>
+      ))}
+    </div>
+  </>
+);
+
 const ProfilePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -603,7 +648,7 @@ const ProfilePage = () => {
     <div className="profile-shell">
       <main className="profile-card">
         {loading ? (
-          <p className="profile-loading">Loading profile...</p>
+          <ProfileLoadingState />
         ) : !user ? (
           <p className="profile-loading">Profile not found.</p>
         ) : (

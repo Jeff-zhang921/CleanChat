@@ -1570,6 +1570,146 @@
   gap: 0.45rem;
 }
 
+.profile-header-skeleton {
+  align-items: flex-start;
+}
+
+.profile-header-skeleton-copy {
+  display: grid;
+  gap: 0.45rem;
+  min-width: min(100%, 16rem);
+}
+
+.profile-entry-card-loading,
+.profile-top-actions-loading {
+  pointer-events: none;
+}
+
+.profile-loading-copy {
+  display: grid;
+  gap: 0.38rem;
+}
+
+.profile-avatar-skeleton {
+  display: grid;
+  place-items: center;
+  background: rgba(252, 249, 244, 0.92);
+}
+
+.profile-avatar-skeleton-core {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.profile-aura-skeleton {
+  border-radius: 1.45rem;
+  padding: 0.95rem;
+  display: grid;
+  gap: 0.42rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.profile-action-row-skeleton:hover {
+  transform: none;
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: var(--ghost-button-shadow);
+}
+
+.profile-step-skeleton {
+  width: 7.6rem;
+  height: 0.76rem;
+  border-radius: 999px;
+}
+
+.profile-title-skeleton {
+  width: min(11.5rem, 56vw);
+  height: 2.15rem;
+  border-radius: 0.9rem;
+}
+
+.profile-entry-kicker-skeleton {
+  width: 4.5rem;
+  height: 0.72rem;
+  border-radius: 999px;
+}
+
+.profile-name-skeleton {
+  width: min(10rem, 52vw);
+  height: 1.28rem;
+  border-radius: 999px;
+}
+
+.profile-cleanid-skeleton {
+  width: 5.8rem;
+  height: 1.9rem;
+  border-radius: 999px;
+}
+
+.profile-meta-skeleton {
+  width: min(12rem, 60vw);
+  height: 0.82rem;
+  border-radius: 999px;
+}
+
+.profile-meta-skeleton-short {
+  width: min(8rem, 42vw);
+}
+
+.profile-aura-label-skeleton {
+  width: 3.8rem;
+  height: 0.72rem;
+  border-radius: 999px;
+}
+
+.profile-aura-title-skeleton {
+  width: min(8.5rem, 40vw);
+  height: 1.2rem;
+  border-radius: 999px;
+}
+
+.profile-aura-copy-skeleton {
+  width: min(9.8rem, 48vw);
+  height: 0.82rem;
+  border-radius: 999px;
+}
+
+.profile-aura-copy-skeleton-short {
+  width: min(6.2rem, 30vw);
+}
+
+.profile-action-title-skeleton {
+  width: min(9rem, 42vw);
+  height: 1.05rem;
+  border-radius: 999px;
+}
+
+.profile-action-note-skeleton {
+  width: min(16rem, 74vw);
+  height: 0.84rem;
+  border-radius: 999px;
+  margin-top: 0.32rem;
+}
+
+.profile-action-arrow-skeleton {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.profile-skeleton-surface {
+  position: relative;
+  overflow: hidden;
+  display: block;
+  background:
+    linear-gradient(112deg, rgba(255, 255, 255, 0.3) 8%, rgba(255, 255, 255, 0.72) 18%, rgba(255, 255, 255, 0.34) 33%),
+    rgba(236, 232, 224, 0.82);
+  background-size: 220% 100%;
+  animation: profile-skeleton-shimmer 1.8s linear infinite;
+}
+
 .profile-loading {
   margin: 0;
   color: var(--muted);
@@ -1599,6 +1739,16 @@
   50% {
     opacity: 1;
     transform: scale(1.03);
+  }
+}
+
+@keyframes profile-skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
   }
 }
 

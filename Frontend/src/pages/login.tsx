@@ -213,10 +213,7 @@ export const getPretextAuthStyles = (compact: boolean, pointer: PointerState) =>
   signalRow: {
     position: "relative",
     zIndex: 1,
-    display: "grid",
-    gridTemplateColumns: compact ? "1fr" : "5.6rem minmax(0, 1fr)",
-    gap: compact ? "0.85rem" : "1rem",
-    alignItems: "center",
+    display: "block",
   } satisfies CSSProperties,
   form: {
     position: "relative",
@@ -307,103 +304,116 @@ export const getPretextAuthStyles = (compact: boolean, pointer: PointerState) =>
   } satisfies CSSProperties,
 }) as const;
 
-export const PretextSignalOrb = ({
+export const PretextSignalPanel = ({
   progress,
   compact,
-  pointer,
   heading,
   caption,
 }: {
   progress: number;
   compact: boolean;
-  pointer: PointerState;
   heading: string;
   caption: string;
 }) => {
   const normalized = clampUnit(progress);
-  const radius = 34;
-  const circumference = 2 * Math.PI * radius;
-  const dash = circumference * (0.18 + normalized * 0.68);
+  const phaseLabel =
+    normalized >= 0.72 ? "Ready" : normalized >= 0.38 ? "Preparing" : "Idle";
 
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: compact ? "1fr" : "5.6rem minmax(0, 1fr)",
-        gap: compact ? "0.8rem" : "0.95rem",
-        alignItems: "center",
+        gap: compact ? "0.7rem" : "0.82rem",
+        padding: compact ? "0.92rem 0.94rem" : "1rem 1.04rem",
+        borderRadius: compact ? "1.06rem" : "1.18rem",
+        border: `1px solid ${authPalette.line}`,
+        background:
+          "linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.2))",
+        boxShadow:
+          "inset 0 1px 0 rgba(255, 255, 255, 0.42), 0 16px 34px rgba(24, 34, 24, 0.05)",
+        backdropFilter: "blur(12px) saturate(1.02)",
       }}
     >
       <div
         style={{
-          position: "relative",
-          width: "5.4rem",
-          height: "5.4rem",
-          justifySelf: compact ? "start" : "center",
-          transform: compact ? "none" : `${cardShift(pointer, 0.35)} scale(1)`,
-          transition: "transform 180ms ease",
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: "0.8rem",
         }}
       >
-        <svg viewBox="0 0 96 96" width="100%" height="100%" aria-hidden="true">
-          <defs>
-            <linearGradient id="auth-meter" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#1f7a52" />
-              <stop offset="100%" stopColor="#c67d58" />
-            </linearGradient>
-          </defs>
-          <circle cx="48" cy="48" r={radius} fill="none" stroke="rgba(44, 57, 44, 0.09)" strokeWidth="8" />
-          <circle
-            cx="48"
-            cy="48"
-            r={radius}
-            fill="none"
-            stroke="url(#auth-meter)"
-            strokeWidth="8"
-            strokeLinecap="round"
-            strokeDasharray={`${dash} ${circumference}`}
-            transform="rotate(-90 48 48)"
-          />
-          <circle cx="48" cy="48" r="23" fill="rgba(255, 250, 244, 0.9)" />
-        </svg>
-
         <div
+          style={{
+            display: "grid",
+            gap: "0.26rem",
+            minWidth: 0,
+          }}
+        >
+          <span
+            style={{
+              fontSize: "0.74rem",
+              fontWeight: 700,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: authPalette.accent,
+            }}
+          >
+            Entry status
+          </span>
+          <strong
+            style={{
+              fontSize: compact ? "0.98rem" : "1.04rem",
+              lineHeight: 1.24,
+              color: authPalette.ink,
+              maxWidth: "26ch",
+            }}
+          >
+            {heading}
+          </strong>
+          <span style={{ color: authPalette.muted, lineHeight: 1.55, fontSize: "0.9rem", maxWidth: "34ch" }}>
+            {caption}
+          </span>
+        </div>
+        <span
+          style={{
+            flexShrink: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: "1.95rem",
+            padding: "0.32rem 0.68rem",
+            borderRadius: "999px",
+            border: `1px solid ${authPalette.line}`,
+            background: "rgba(255, 255, 255, 0.58)",
+            color: authPalette.inkSoft,
+            fontSize: "0.78rem",
+            fontWeight: 700,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {phaseLabel}
+        </span>
+      </div>
+
+      <div
+        style={{
+          position: "relative",
+          height: "0.38rem",
+          borderRadius: "999px",
+          overflow: "hidden",
+          background: "rgba(54, 68, 55, 0.08)",
+        }}
+      >
+        <span
           style={{
             position: "absolute",
             inset: 0,
-            display: "grid",
-            placeItems: "center",
-            fontFamily: "\"Space Grotesk\", sans-serif",
-            fontSize: "1.15rem",
-            fontWeight: 700,
-            color: authPalette.ink,
+            width: `${Math.max(18, Math.round(normalized * 100))}%`,
+            borderRadius: "inherit",
+            background: "linear-gradient(90deg, rgba(31, 122, 82, 0.78), rgba(198, 125, 88, 0.6))",
+            boxShadow: "0 0 12px rgba(31, 122, 82, 0.12)",
           }}
-        >
-          {Math.round(normalized * 100)}%
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gap: "0.24rem" }}>
-        <span
-          style={{
-            fontSize: "0.74rem",
-            fontWeight: 700,
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-            color: authPalette.accent,
-          }}
-        >
-          Entry status
-        </span>
-        <strong
-          style={{
-            fontSize: compact ? "1rem" : "1.05rem",
-            lineHeight: 1.2,
-            color: authPalette.ink,
-          }}
-        >
-          {heading}
-        </strong>
-        <span style={{ color: authPalette.muted, lineHeight: 1.55, fontSize: "0.9rem" }}>{caption}</span>
+        />
       </div>
     </div>
   );
@@ -569,10 +579,9 @@ const LoginPage = () => {
           <div style={styles.divider} />
 
           <div style={styles.signalRow}>
-            <PretextSignalOrb
+            <PretextSignalPanel
               progress={emailProgress}
               compact={compact}
-              pointer={pointer}
               heading={emailReady ? "Address looks good. Ready to send the code." : "Waiting for a clean email address."}
               caption={
                 emailReady

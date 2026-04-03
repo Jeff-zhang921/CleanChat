@@ -860,6 +860,26 @@ button.conversation-card {
   .conversations-shell {
     gap: 0.85rem;
     padding: 0.78rem;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+
+  .conversations-stage {
+    flex: none;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .conversations-scroll-shell,
+  .conversations-list-shell,
+  .conversations-virtuoso {
+    flex: none;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .conversations-scroll-shell {
+    padding-bottom: 0.4rem;
   }
 
   .conversations-hero,

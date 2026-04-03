@@ -72,6 +72,11 @@
   padding-top: clamp(1rem, 4vw, 2.8rem);
 }
 
+.profile-settings-header-loading,
+.profile-settings-card-loading {
+  pointer-events: none;
+}
+
 .profile-settings-eyebrow {
   margin: 0;
   font-size: 0.74rem;
@@ -180,6 +185,63 @@
   padding: 0.2rem 0;
 }
 
+.profile-settings-actions-loading {
+  justify-content: flex-start;
+}
+
+.profile-settings-skeleton {
+  position: relative;
+  overflow: hidden;
+  display: block;
+  border-radius: 999px;
+  background:
+    linear-gradient(112deg, rgba(255, 255, 255, 0.3) 8%, rgba(255, 255, 255, 0.72) 18%, rgba(255, 255, 255, 0.34) 33%),
+    rgba(236, 232, 224, 0.82);
+  background-size: 220% 100%;
+  animation: profile-settings-shimmer 1.8s linear infinite;
+}
+
+.profile-settings-eyebrow-skeleton {
+  width: 6.4rem;
+  height: 0.76rem;
+}
+
+.profile-settings-title-skeleton {
+  width: min(16rem, 82vw);
+  height: 2.9rem;
+  border-radius: 1.1rem;
+}
+
+.profile-settings-name-skeleton {
+  width: min(10rem, 56vw);
+  height: 1.8rem;
+}
+
+.profile-settings-inline-skeleton {
+  width: 5.2rem;
+  height: 1rem;
+}
+
+.profile-settings-copy-skeleton {
+  width: min(18rem, 88vw);
+  height: 1rem;
+}
+
+.profile-settings-copy-skeleton-short {
+  width: min(13rem, 66vw);
+}
+
+.profile-settings-pill-skeleton {
+  width: 4.2rem;
+  height: 2rem;
+}
+
+.profile-settings-button-skeleton {
+  width: min(12rem, 56vw);
+  height: 2.9rem;
+  border-radius: 999px;
+}
+
 @keyframes profile-settings-enter {
   0% {
     opacity: 0;
@@ -201,6 +263,16 @@
   100% {
     opacity: 0;
     transform: translateX(30px);
+  }
+}
+
+@keyframes profile-settings-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
   }
 }
 

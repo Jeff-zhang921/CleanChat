@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { BACKEND_URL } from "../config";
 import {
   PretextMessageDeck,
-  PretextSignalOrb,
+  PretextSignalPanel,
   getPretextAuthStyles,
   usePretextCompact,
   usePretextPointer,
@@ -146,10 +146,9 @@ const VerifyPage = () => {
           <div style={styles.divider} />
 
           <div style={styles.signalRow}>
-            <PretextSignalOrb
+            <PretextSignalPanel
               progress={codeProgress}
               compact={compact}
-              pointer={pointer}
               heading={normalizedCode.length === CODE_LENGTH ? "All digits are present. Ready to enter." : "Waiting for the full 6-digit code."}
               caption={
                 email
