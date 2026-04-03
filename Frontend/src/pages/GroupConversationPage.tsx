@@ -628,6 +628,14 @@ const GroupConversationPage = () => {
           </div>
         )}
       </div>
+      <button
+        type="button"
+        className="group-action create groups-fab"
+        aria-label="Create group"
+        onClick={() => setIsCreatePanelOpen(true)}
+      >
+        <span aria-hidden="true">+</span>
+      </button>
       {isCreatePanelOpen && (
         <div className="groups-create-overlay" role="presentation" onClick={() => setIsCreatePanelOpen(false)}>
           <div

@@ -340,6 +340,10 @@
   gap: 0.75rem;
 }
 
+.conversations-list-static .conversations-virtual-item {
+  padding-bottom: 0;
+}
+
 .conversations-stage {
   display: flex;
   flex-direction: column;

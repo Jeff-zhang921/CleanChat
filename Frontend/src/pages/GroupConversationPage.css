@@ -34,6 +34,10 @@
   flex-shrink: 0;
 }
 
+.groups-fab {
+  display: none;
+}
+
 .groups-sections {
   display: grid;
   gap: 1rem;
@@ -446,6 +450,47 @@
   .groups-create-head {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .groups-create-trigger {
+    display: none;
+  }
+
+  .groups-fab {
+    position: fixed;
+    right: 1rem;
+    bottom: calc(var(--bottom-nav-height) + 0.85rem);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.35rem;
+    height: 3.35rem;
+    border-radius: 999px;
+    padding: 0;
+    font-size: 1.65rem;
+    line-height: 1;
+    z-index: 42;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      0 18px 34px rgba(15, 21, 36, 0.16);
+  }
+
+  .groups-create-overlay {
+    align-items: end;
+    padding: 0;
+  }
+
+  .groups-create-modal {
+    width: 100%;
+    max-height: min(84dvh, 46rem);
+    border-radius: 1.2rem 1.2rem 0 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    padding:
+      0.95rem
+      0.9rem
+      max(calc(0.9rem + env(safe-area-inset-bottom, 0px)), 1rem);
+    overflow-y: auto;
   }
 
   .groups-page .group-avatar-options {

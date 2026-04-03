@@ -5,6 +5,7 @@ import { io, type Socket } from "socket.io-client";
 import BottomNav from "../components/BottomNav";
 import { DEFAULT_AVATAR_KEY, getAvatarToneClass, getAvatarUrl, type AvatarKey } from "../constants/avatarCatalog";
 import { BACKEND_URL, SOCKET_URL } from "../config";
+import { useCompactViewport } from "../hooks/useCompactViewport";
 import { useViewportOverscan } from "../hooks/useViewportOverscan";
 import {
   FALLBACK_CLEAN_ID_TRUST,
@@ -365,6 +366,7 @@ const ConversationStageChrome = ({
 const ConversationPage = () => {
   const navigate = useNavigate();
   const listOverscan = useViewportOverscan();
+  const isCompactViewport = useCompactViewport();
   const initialCacheRef = useRef<ConversationsCache | null>(readConversationsCache());
   const shouldShowReturnSkeletonRef = useRef(hasConversationReturnIntent());
   const initialCache = initialCacheRef.current;
@@ -973,23 +975,35 @@ const ConversationPage = () => {
           )}
 
           {shouldRenderSearchResults && (
-            <section className="conversations-list-shell" aria-label="Search results">
-              <Virtuoso
-                className="conversations-virtuoso"
-                data={searchUsers}
-                computeItemKey={(_index, user) => `user-${user.id}`}
-                defaultItemHeight={116}
-                increaseViewportBy={viewportIncrease}
-                overscan={listOverscanWindow}
-                minOverscanItemCount={{ top: 12, bottom: 12 }}
-                skipAnimationFrameInResizeObserver
-                components={{
-                  Scroller: ConversationsVirtuosoScroller,
-                  List: ConversationsVirtuosoList,
-                }}
-                itemContent={renderSearchUserCard}
-              />
-            </section>
+            isCompactViewport ? (
+              <div className="conversations-scroll-shell" data-testid="conversations-scroll-shell">
+                <div className="conversations-scroll-content">
+                  <section className="conversations-list conversations-list-static" aria-label="Search results">
+                    {searchUsers.map((user, index) => (
+                      <div key={`user-${user.id}`}>{renderSearchUserCard(index, user)}</div>
+                    ))}
+                  </section>
+                </div>
+              </div>
+            ) : (
+              <section className="conversations-list-shell" aria-label="Search results">
+                <Virtuoso
+                  className="conversations-virtuoso"
+                  data={searchUsers}
+                  computeItemKey={(_index, user) => `user-${user.id}`}
+                  defaultItemHeight={116}
+                  increaseViewportBy={viewportIncrease}
+                  overscan={listOverscanWindow}
+                  minOverscanItemCount={{ top: 12, bottom: 12 }}
+                  skipAnimationFrameInResizeObserver
+                  components={{
+                    Scroller: ConversationsVirtuosoScroller,
+                    List: ConversationsVirtuosoList,
+                  }}
+                  itemContent={renderSearchUserCard}
+                />
+              </section>
+            )
           )}
 
           {shouldShowEmptyState && (
@@ -1007,23 +1021,35 @@ const ConversationPage = () => {
           )}
 
           {shouldRenderConversations && (
-            <section className="conversations-list-shell" aria-label="Conversations">
-              <Virtuoso
-                className="conversations-virtuoso"
-                data={conversations}
-                computeItemKey={(_index, item) => item.id}
-                defaultItemHeight={118}
-                increaseViewportBy={viewportIncrease}
-                overscan={listOverscanWindow}
-                minOverscanItemCount={{ top: 12, bottom: 12 }}
-                skipAnimationFrameInResizeObserver
-                components={{
-                  Scroller: ConversationsVirtuosoScroller,
-                  List: ConversationsVirtuosoList,
-                }}
-                itemContent={renderConversationCard}
-              />
-            </section>
+            isCompactViewport ? (
+              <div className="conversations-scroll-shell" data-testid="conversations-scroll-shell">
+                <div className="conversations-scroll-content">
+                  <section className="conversations-list conversations-list-static" aria-label="Conversations">
+                    {conversations.map((item, index) => (
+                      <div key={item.id}>{renderConversationCard(index, item)}</div>
+                    ))}
+                  </section>
+                </div>
+              </div>
+            ) : (
+              <section className="conversations-list-shell" aria-label="Conversations">
+                <Virtuoso
+                  className="conversations-virtuoso"
+                  data={conversations}
+                  computeItemKey={(_index, item) => item.id}
+                  defaultItemHeight={118}
+                  increaseViewportBy={viewportIncrease}
+                  overscan={listOverscanWindow}
+                  minOverscanItemCount={{ top: 12, bottom: 12 }}
+                  skipAnimationFrameInResizeObserver
+                  components={{
+                    Scroller: ConversationsVirtuosoScroller,
+                    List: ConversationsVirtuosoList,
+                  }}
+                  itemContent={renderConversationCard}
+                />
+              </section>
+            )
           )}
         </div>
       </div>
