@@ -747,6 +747,7 @@ const ChatPage = () => {
             <span className="chat-kicker">{chatKicker}</span>
             <span className="chat-title">{chatLabel}</span>
           </div>
+          <span className={`status-pill chat-bar-status ${statusTone}`}>{statusLabel}</span>
         </div>
 
         <div className={`chat-body ${showHistorySkeleton ? "loading" : "ready"}`}>
@@ -844,16 +845,6 @@ const ChatPage = () => {
         </div>
 
         <footer className="chat-footer">
-          <div className={`chat-footer-context ${isComposerEngaged ? "compact" : ""}`}>
-            <span className="chat-footer-avatar" aria-hidden="true">
-              {avatarUrl ? <img className={avatarToneClass || undefined} src={avatarUrl} alt="" /> : avatarFallback}
-            </span>
-            <div className="chat-footer-copy">
-              <span className="chat-footer-kicker">{chatKicker}</span>
-              <strong>{chatLabel}</strong>
-              <span className={`status-pill ${statusTone}`}>{statusLabel}</span>
-            </div>
-          </div>
           <div className={`chat-input ${isComposerEngaged ? "engaged" : ""}`}>
             <input
               id="chat-photo-input"

@@ -38,6 +38,8 @@
   display: grid;
   gap: 1rem;
   padding-bottom: 0.2rem;
+  position: relative;
+  z-index: 1;
 }
 
 .conversations-hero {
@@ -719,6 +721,10 @@ button.conversation-card {
   animation: conversation-card-enter 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.conversations-inline-status {
+  margin-bottom: 0.05rem;
+}
+
 .conversations-empty-state {
   border: 1px solid var(--line);
   border-radius: 1rem;
@@ -807,6 +813,42 @@ button.conversation-card {
 
   100% {
     background-position: -20% 0;
+  }
+}
+
+@media (min-width: 1100px) {
+  .conversations-shell {
+    width: min(100%, 61rem);
+    padding:
+      clamp(1.2rem, 2.5vw, 2rem)
+      clamp(1.35rem, 2.8vw, 2.5rem)
+      clamp(1.35rem, 2.8vw, 2rem)
+      calc(clamp(6.75rem, 7vw, 8rem) + clamp(1.1rem, 1.8vw, 1.8rem));
+  }
+
+  .conversations-title-wrap {
+    max-width: 34rem;
+  }
+
+  .conversations-stage-header {
+    gap: 0.85rem;
+  }
+
+  .conversations-meta {
+    padding-top: 0.1rem;
+  }
+
+  .conversations-list-shell {
+    max-width: 53.5rem;
+  }
+
+  .conversations-virtual-item {
+    padding-bottom: 0.68rem;
+  }
+
+  .conversation-card {
+    border-radius: 1.12rem;
+    padding: 1rem 1.08rem;
   }
 }
 

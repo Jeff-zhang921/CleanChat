@@ -6,6 +6,65 @@
   scroll-padding-bottom: 1rem;
 }
 
+.groups-stage-bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.groups-stage-copy {
+  display: grid;
+  gap: 0.24rem;
+}
+
+.groups-stage-copy h2 {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.02rem;
+}
+
+.groups-stage-copy span {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.groups-create-trigger {
+  flex-shrink: 0;
+}
+
+.groups-sections {
+  display: grid;
+  gap: 1rem;
+  padding-bottom: 1rem;
+}
+
+.groups-section {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.groups-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.groups-section-head h3 {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1rem;
+}
+
+.groups-section-head p {
+  margin: 0.18rem 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
 .groups-page .group-create-panel {
   border: 1px solid var(--line);
   border-radius: 1rem;
@@ -227,6 +286,7 @@
   white-space: normal;
 }
 
+.groups-create-overlay,
 .groups-delete-overlay,
 .groups-avatar-overlay {
   position: fixed;
@@ -242,6 +302,11 @@
   z-index: 61;
 }
 
+.groups-create-overlay {
+  z-index: 62;
+}
+
+.groups-create-modal,
 .groups-avatar-modal,
 .groups-delete-modal {
   width: min(100%, 34rem);
@@ -254,11 +319,59 @@
   gap: 0.75rem;
 }
 
+.groups-create-modal {
+  width: min(100%, 44rem);
+  border-color: rgba(255, 255, 255, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(249, 245, 238, 0.92)),
+    rgba(255, 255, 255, 0.9);
+}
+
 .groups-delete-modal {
   width: min(100%, 31rem);
   border-color: #e4d6d8;
 }
 
+.groups-create-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.groups-create-head h3 {
+  margin: 0.2rem 0 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.14rem;
+}
+
+.groups-create-head p {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.groups-create-modal .group-create-panel {
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+}
+
+.groups-create-modal .group-create-grid {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.groups-create-modal .group-create-grid > input {
+  grid-column: 1 / -1;
+}
+
+.groups-create-modal .group-action.create {
+  justify-self: end;
+}
+
+.groups-create-modal h3,
 .groups-avatar-modal h3,
 .groups-delete-modal h3 {
   margin: 0;
@@ -313,6 +426,14 @@
   gap: 0.45rem;
 }
 
+@media (min-width: 1100px) {
+  .groups-page .conversations-shell {
+    width: min(100%, 64rem);
+    padding-left: calc(clamp(6.75rem, 7vw, 8rem) + clamp(1.1rem, 1.8vw, 1.8rem));
+    padding-right: clamp(1.25rem, 2.6vw, 2.4rem);
+  }
+}
+
 @media (max-width: 860px) {
   .groups-page .group-create-grid {
     grid-template-columns: 1fr;
@@ -320,6 +441,13 @@
 }
 
 @media (max-width: 760px) {
+  .groups-stage-bar,
+  .groups-section-head,
+  .groups-create-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .groups-page .group-avatar-options {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.38rem;
@@ -399,7 +527,8 @@
   }
 
   .groups-delete-modal,
-  .groups-avatar-modal {
+  .groups-avatar-modal,
+  .groups-create-modal {
     padding: 0.85rem;
     gap: 0.65rem;
     border-radius: 0.9rem;

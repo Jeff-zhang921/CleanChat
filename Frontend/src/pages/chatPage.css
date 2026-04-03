@@ -137,6 +137,7 @@
   min-width: 0;
   display: grid;
   gap: 0.16rem;
+  flex: 1 1 auto;
   animation: chat-heading-enter 420ms var(--motion-smooth-local) both;
 }
 
@@ -155,6 +156,15 @@
   white-space: nowrap;
   font-size: 1.02rem;
   font-weight: 800;
+}
+
+.chat-bar-status {
+  margin-left: auto;
+  flex-shrink: 0;
+  max-width: 11rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chat-body {
@@ -246,7 +256,7 @@
 }
 
 .chat-bubble {
-  max-width: min(78%, 34rem);
+  max-width: min(78%, 32rem);
   padding: 0.78rem 0.94rem;
   border-radius: 1.16rem;
   display: flex;
@@ -403,7 +413,7 @@
   position: sticky;
   bottom: 0;
   z-index: 5;
-  padding: 0.48rem 0 0;
+  padding: 0.72rem 0 0;
   background: linear-gradient(180deg, rgba(247, 241, 231, 0), rgba(247, 241, 231, 0.8) 18%, rgba(247, 241, 231, 0.96) 100%);
   backdrop-filter: blur(18px);
   will-change: transform, opacity;
@@ -518,7 +528,7 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 0.72rem;
   align-items: center;
-  width: min(100%, 64rem);
+  width: 100%;
   margin: 0 auto;
   padding: 0.82rem;
   border: 1px solid rgba(221, 215, 202, 0.98);
@@ -644,14 +654,39 @@
   animation: send-button-pop 360ms var(--motion-smooth-local);
 }
 
-.chat-shell.composer-engaged .chat-bar .avatar,
-.chat-shell.composer-engaged .chat-footer-avatar {
+.chat-shell.composer-engaged .chat-bar .avatar {
   transform: scale(0.97);
 }
 
-.chat-shell.history-loading .chat-bar .avatar,
-.chat-shell.history-loading .chat-footer-avatar {
+.chat-shell.history-loading .chat-bar .avatar {
   animation: chat-avatar-breathe 1.6s ease-in-out infinite;
+}
+
+@media (min-width: 1100px) {
+  .chat-shell {
+    padding:
+      0
+      clamp(1.2rem, 3vw, 2.6rem)
+      max(calc(0.9rem + env(safe-area-inset-bottom, 0px)), 1rem);
+  }
+
+  .chat-panel {
+    width: min(100%, 60rem);
+  }
+
+  .chat-bar,
+  .chat-body,
+  .chat-footer {
+    width: min(100%, 54rem);
+  }
+
+  .chat-bar {
+    padding-top: 1rem;
+  }
+
+  .chat-bubble {
+    max-width: min(70%, 29rem);
+  }
 }
 
 .image-viewer-overlay {
@@ -823,6 +858,11 @@
   .chat-kicker,
   .chat-footer-kicker {
     letter-spacing: 0.1em;
+  }
+
+  .chat-bar-status {
+    padding: 0.34rem 0.56rem;
+    font-size: 0.66rem;
   }
 
   .chat-footer {

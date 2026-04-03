@@ -24,7 +24,7 @@
 }
 
 .profile-card {
-  width: min(100%, 68rem);
+  width: min(100%, 60rem);
   margin: 0 auto;
   padding: 0;
   flex: 1;
@@ -1295,6 +1295,50 @@
   font-size: 0.96rem;
   color: rgba(24, 34, 24, 0.52);
   line-height: 1;
+}
+
+@media (min-width: 1100px) {
+  .profile-shell {
+    padding:
+      clamp(1.2rem, 2.6vw, 2rem)
+      clamp(1.35rem, 2.8vw, 2.5rem)
+      clamp(1.35rem, 2.8vw, 2rem)
+      calc(clamp(6.75rem, 7vw, 8rem) + clamp(1.1rem, 1.8vw, 1.8rem));
+  }
+
+  .profile-card {
+    width: min(100%, 58rem);
+  }
+
+  .profile-entry-card {
+    grid-template-columns: minmax(0, 1.32fr) minmax(15rem, 17rem);
+    gap: 1.1rem;
+    padding: 1.15rem;
+  }
+
+  .profile-top-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.8rem;
+  }
+
+  .profile-action-row {
+    min-height: 8.8rem;
+    padding: 1rem 1rem 1.05rem;
+    border-radius: 1.28rem;
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 1rem;
+  }
+
+  .profile-action-row-copy {
+    gap: 0.38rem;
+  }
+
+  .profile-action-row-arrow {
+    justify-self: end;
+    margin-top: auto;
+    font-size: 1.02rem;
+  }
 }
 
 .profile-primary-btn,

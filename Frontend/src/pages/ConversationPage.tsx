@@ -259,7 +259,7 @@ const SearchGlyph = () => (
 );
 
 const ConversationsVirtuosoScroller = forwardRef<HTMLDivElement, ScrollerProps>((props, ref) => (
-  <div {...props} ref={ref} className="conversations-virtuoso-scroller" />
+  <div {...props} ref={ref} className="conversations-virtuoso-scroller" data-testid="conversations-list-scroller" />
 ));
 
 ConversationsVirtuosoScroller.displayName = "ConversationsVirtuosoScroller";
@@ -803,6 +803,13 @@ const ConversationPage = () => {
     reverse: listOverscan,
   } as const;
   const searchResultStatus = searchStatus || "No users found.";
+  const hasConversationResults = conversations.length > 0;
+  const hasSearchResults = searchUsers.length > 0;
+  const shouldShowInlineStatus = !isInitialLoading && Boolean(status);
+  const shouldShowSearchEmpty = !isInitialLoading && hasQuery && !hasSearchResults;
+  const shouldShowEmptyState = !isInitialLoading && !hasQuery && !hasConversationResults;
+  const shouldRenderSearchResults = !isInitialLoading && hasQuery && hasSearchResults;
+  const shouldRenderConversations = !isInitialLoading && !hasQuery && hasConversationResults;
 
   const renderSearchUserCard = (_index: number, user: UserSummary) => {
     const hasThread = threadByUserId.has(user.id);
@@ -814,6 +821,7 @@ const ConversationPage = () => {
         <button
           type="button"
           className="conversation-card"
+          data-conversation-user-id={user.id}
           onClick={() => {
             if (openingUserId !== user.id) {
               handleOpenUser(user);
@@ -848,6 +856,7 @@ const ConversationPage = () => {
       <button
         type="button"
         className="conversation-card"
+        data-conversation-id={item.id}
         onClick={() => {
           if (item.chatType === "group" && item.groupId) {
             handleOpenGroup(item.groupId, item.name, item.avatarUrl);
@@ -885,28 +894,31 @@ const ConversationPage = () => {
     </div>
   );
 
-  const renderStageChrome = () => (
-    <ConversationStageChrome
-      hasQuery={hasQuery}
-      heroName={heroName}
-      isSearchOpen={isSearchOpen}
-      metaLabel={metaLabel}
-      searchInputRef={searchInputRef}
-      searchTerm={searchTerm}
-      onOpenSearch={openSearch}
-      onCloseSearch={closeSearch}
-      onSearchChange={setSearchTerm}
-    />
-  );
-
   return (
     <div className="conversations-page">
       <div className="conversations-shell">
         <div className="conversations-stage">
+          <ConversationStageChrome
+            hasQuery={hasQuery}
+            heroName={heroName}
+            isSearchOpen={isSearchOpen}
+            metaLabel={metaLabel}
+            searchInputRef={searchInputRef}
+            searchTerm={searchTerm}
+            onOpenSearch={openSearch}
+            onCloseSearch={closeSearch}
+            onSearchChange={setSearchTerm}
+          />
+
+          {shouldShowInlineStatus && (
+            <div className="status-text conversations-inline-status" role="status">
+              {status}
+            </div>
+          )}
+
           {isInitialLoading && !hasQuery && (
-            <div className="conversations-scroll-shell" aria-label="Loading conversations">
+            <div className="conversations-scroll-shell" data-testid="conversations-scroll-shell" aria-label="Loading conversations">
               <div className="conversations-scroll-content">
-                {renderStageChrome()}
                 <section className="conversations-list conversations-list-loading">
                   {skeletonCards.map((item) => (
                     <article
@@ -952,25 +964,15 @@ const ConversationPage = () => {
             </div>
           )}
 
-          {!isInitialLoading && status && (
-            <div className="conversations-scroll-shell">
+          {shouldShowSearchEmpty && (
+            <div className="conversations-scroll-shell" data-testid="conversations-scroll-shell">
               <div className="conversations-scroll-content">
-                {renderStageChrome()}
-                <div className="status-text">{status}</div>
-              </div>
-            </div>
-          )}
-
-          {!isInitialLoading && !status && hasQuery && searchUsers.length === 0 && (
-            <div className="conversations-scroll-shell">
-              <div className="conversations-scroll-content">
-                {renderStageChrome()}
                 <div className="status-text">{searchResultStatus}</div>
               </div>
             </div>
           )}
 
-          {!isInitialLoading && !status && hasQuery && searchUsers.length > 0 && (
+          {shouldRenderSearchResults && (
             <section className="conversations-list-shell" aria-label="Search results">
               <Virtuoso
                 className="conversations-virtuoso"
@@ -984,17 +986,15 @@ const ConversationPage = () => {
                 components={{
                   Scroller: ConversationsVirtuosoScroller,
                   List: ConversationsVirtuosoList,
-                  Header: renderStageChrome,
                 }}
                 itemContent={renderSearchUserCard}
               />
             </section>
           )}
 
-          {!isInitialLoading && !status && !hasQuery && conversations.length === 0 && (
-            <div className="conversations-scroll-shell">
+          {shouldShowEmptyState && (
+            <div className="conversations-scroll-shell" data-testid="conversations-scroll-shell">
               <div className="conversations-scroll-content">
-                {renderStageChrome()}
                 <section className="conversations-empty-state">
                   <div className="conversations-empty-mark">
                     <span className="conversation-cleanid conversation-cleanid-steady">@{me?.cleanId ?? "cleanid"}</span>
@@ -1006,7 +1006,7 @@ const ConversationPage = () => {
             </div>
           )}
 
-          {!isInitialLoading && !status && !hasQuery && conversations.length > 0 && (
+          {shouldRenderConversations && (
             <section className="conversations-list-shell" aria-label="Conversations">
               <Virtuoso
                 className="conversations-virtuoso"
@@ -1020,7 +1020,6 @@ const ConversationPage = () => {
                 components={{
                   Scroller: ConversationsVirtuosoScroller,
                   List: ConversationsVirtuosoList,
-                  Header: renderStageChrome,
                 }}
                 itemContent={renderConversationCard}
               />

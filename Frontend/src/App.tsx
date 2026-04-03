@@ -29,12 +29,12 @@ const backdropPalettes = {
   },
   app: {
     base:
-      'radial-gradient(90rem 52rem at 0% -8%, rgba(61, 132, 102, 0.13), rgba(61, 132, 102, 0)), radial-gradient(66rem 44rem at 100% 100%, rgba(217, 142, 96, 0.14), rgba(217, 142, 96, 0)), radial-gradient(50rem 36rem at 55% 10%, rgba(255, 249, 240, 0.65), rgba(255, 249, 240, 0)), linear-gradient(145deg, #f8f2e7 0%, #f3ebdc 48%, #f7f2e9 100%)',
-    line: 'rgba(59, 72, 59, 0.08)',
+      'radial-gradient(88rem 48rem at 12% -12%, rgba(61, 132, 102, 0.08), rgba(61, 132, 102, 0)), radial-gradient(54rem 34rem at 100% 100%, rgba(217, 142, 96, 0.09), rgba(217, 142, 96, 0)), linear-gradient(145deg, #f8f2e7 0%, #f3ebdc 52%, #f7f2e9 100%)',
+    line: 'rgba(59, 72, 59, 0.03)',
     glow: 'rgba(255, 252, 245, 0.8)',
-    orbitA: 'rgba(34, 124, 90, 0.16)',
-    orbitB: 'rgba(216, 134, 88, 0.14)',
-    orbitC: 'rgba(117, 101, 83, 0.12)',
+    orbitA: 'rgba(34, 124, 90, 0.11)',
+    orbitB: 'rgba(216, 134, 88, 0.09)',
+    orbitC: 'rgba(117, 101, 83, 0.08)',
   },
 } as const;
 
@@ -47,6 +47,7 @@ const layerStyle: CSSProperties = {
 
 const PretextBackdrop = ({ variant }: { variant: PretextBackdropVariant }) => {
   const palette = backdropPalettes[variant];
+  const isAppVariant = variant === 'app';
 
   return (
     <div
@@ -63,12 +64,12 @@ const PretextBackdrop = ({ variant }: { variant: PretextBackdropVariant }) => {
       <div
         style={{
           ...layerStyle,
-          opacity: 0.75,
+          opacity: isAppVariant ? 0.22 : 0.75,
           backgroundImage: `
             linear-gradient(${palette.line} 1px, transparent 1px),
             linear-gradient(90deg, ${palette.line} 1px, transparent 1px)
           `,
-          backgroundSize: 'min(7vw, 84px) min(7vw, 84px)',
+          backgroundSize: isAppVariant ? 'min(10vw, 124px) min(10vw, 124px)' : 'min(7vw, 84px) min(7vw, 84px)',
           maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.75), rgba(0,0,0,0.18))',
           WebkitMaskImage: 'linear-gradient(180deg, rgba(0,0,0,0.75), rgba(0,0,0,0.18))',
         }}
@@ -96,66 +97,76 @@ const PretextBackdrop = ({ variant }: { variant: PretextBackdropVariant }) => {
           </radialGradient>
         </defs>
 
-        <g opacity="0.92">
-          <circle cx="260" cy="160" r="180" fill={palette.orbitA} filter="url(#pretext-blur-b)">
-            <animate attributeName="cx" values="240;320;240" dur="22s" repeatCount="indefinite" />
-            <animate attributeName="cy" values="170;130;170" dur="26s" repeatCount="indefinite" />
-          </circle>
-          <circle cx="1300" cy="260" r="210" fill={palette.orbitB} filter="url(#pretext-blur-b)">
-            <animate attributeName="cx" values="1280;1360;1280" dur="28s" repeatCount="indefinite" />
-            <animate attributeName="cy" values="240;300;240" dur="32s" repeatCount="indefinite" />
-          </circle>
-          <circle cx="850" cy="840" r="220" fill={palette.orbitC} filter="url(#pretext-blur-b)">
-            <animate attributeName="cx" values="840;760;840" dur="24s" repeatCount="indefinite" />
-            <animate attributeName="cy" values="840;780;840" dur="30s" repeatCount="indefinite" />
-          </circle>
-        </g>
+        {isAppVariant ? (
+          <g opacity="0.62">
+            <circle cx="260" cy="160" r="180" fill={palette.orbitA} filter="url(#pretext-blur-b)" />
+            <circle cx="1300" cy="260" r="210" fill={palette.orbitB} filter="url(#pretext-blur-b)" />
+            <circle cx="850" cy="840" r="220" fill={palette.orbitC} filter="url(#pretext-blur-b)" />
+          </g>
+        ) : (
+          <>
+            <g opacity="0.92">
+              <circle cx="260" cy="160" r="180" fill={palette.orbitA} filter="url(#pretext-blur-b)">
+                <animate attributeName="cx" values="240;320;240" dur="22s" repeatCount="indefinite" />
+                <animate attributeName="cy" values="170;130;170" dur="26s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="1300" cy="260" r="210" fill={palette.orbitB} filter="url(#pretext-blur-b)">
+                <animate attributeName="cx" values="1280;1360;1280" dur="28s" repeatCount="indefinite" />
+                <animate attributeName="cy" values="240;300;240" dur="32s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="850" cy="840" r="220" fill={palette.orbitC} filter="url(#pretext-blur-b)">
+                <animate attributeName="cx" values="840;760;840" dur="24s" repeatCount="indefinite" />
+                <animate attributeName="cy" values="840;780;840" dur="30s" repeatCount="indefinite" />
+              </circle>
+            </g>
 
-        <g opacity="0.5">
-          <path
-            d="M96 790c168-156 364-242 590-258 238-18 454 38 818 182"
-            fill="none"
-            stroke={palette.orbitA}
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeDasharray="12 18"
-          >
-            <animate attributeName="stroke-dashoffset" values="0;-180" dur="18s" repeatCount="indefinite" />
-          </path>
-          <path
-            d="M70 278c170 72 348 102 540 86 210-18 430-92 720-248"
-            fill="none"
-            stroke={palette.orbitB}
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            strokeDasharray="8 24"
-          >
-            <animate attributeName="stroke-dashoffset" values="0;240" dur="24s" repeatCount="indefinite" />
-          </path>
-          <path
-            d="M364 84c56 138 186 252 354 312 132 48 320 54 544 16"
-            fill="none"
-            stroke={palette.orbitC}
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeDasharray="4 16"
-          >
-            <animate attributeName="stroke-dashoffset" values="0;-120" dur="20s" repeatCount="indefinite" />
-          </path>
-        </g>
+            <g opacity="0.5">
+              <path
+                d="M96 790c168-156 364-242 590-258 238-18 454 38 818 182"
+                fill="none"
+                stroke={palette.orbitA}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeDasharray="12 18"
+              >
+                <animate attributeName="stroke-dashoffset" values="0;-180" dur="18s" repeatCount="indefinite" />
+              </path>
+              <path
+                d="M70 278c170 72 348 102 540 86 210-18 430-92 720-248"
+                fill="none"
+                stroke={palette.orbitB}
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeDasharray="8 24"
+              >
+                <animate attributeName="stroke-dashoffset" values="0;240" dur="24s" repeatCount="indefinite" />
+              </path>
+              <path
+                d="M364 84c56 138 186 252 354 312 132 48 320 54 544 16"
+                fill="none"
+                stroke={palette.orbitC}
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeDasharray="4 16"
+              >
+                <animate attributeName="stroke-dashoffset" values="0;-120" dur="20s" repeatCount="indefinite" />
+              </path>
+            </g>
 
-        <g opacity="0.85">
-          <circle cx="330" cy="250" r="3.5" fill="#245f45">
-            <animateMotion dur="19s" repeatCount="indefinite" rotate="auto">
-              <mpath href="#pretext-path-a" />
-            </animateMotion>
-          </circle>
-          <circle cx="1170" cy="208" r="4" fill="#c96f4a">
-            <animateMotion dur="24s" repeatCount="indefinite" rotate="auto-reverse">
-              <mpath href="#pretext-path-b" />
-            </animateMotion>
-          </circle>
-        </g>
+            <g opacity="0.85">
+              <circle cx="330" cy="250" r="3.5" fill="#245f45">
+                <animateMotion dur="19s" repeatCount="indefinite" rotate="auto">
+                  <mpath href="#pretext-path-a" />
+                </animateMotion>
+              </circle>
+              <circle cx="1170" cy="208" r="4" fill="#c96f4a">
+                <animateMotion dur="24s" repeatCount="indefinite" rotate="auto-reverse">
+                  <mpath href="#pretext-path-b" />
+                </animateMotion>
+              </circle>
+            </g>
+          </>
+        )}
 
         <path
           id="pretext-path-a"

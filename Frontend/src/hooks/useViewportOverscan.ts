@@ -1,20 +1,25 @@
 import { useEffect, useState } from "react";
 
 const DEFAULT_VIEWPORT_HEIGHT = 844;
+const MIN_OVERSCAN_PX = 960;
+const MAX_OVERSCAN_PX = 1200;
+
+const resolveOverscan = (viewportHeight: number, multiplier: number) =>
+  Math.min(MAX_OVERSCAN_PX, Math.max(MIN_OVERSCAN_PX, Math.ceil(viewportHeight * multiplier)));
 
 export const useViewportOverscan = (multiplier = 2.5) => {
   const [overscan, setOverscan] = useState(() => {
     if (typeof window === "undefined") {
-      return Math.ceil(DEFAULT_VIEWPORT_HEIGHT * multiplier);
+      return resolveOverscan(DEFAULT_VIEWPORT_HEIGHT, multiplier);
     }
-    return Math.ceil(window.innerHeight * multiplier);
+    return resolveOverscan(window.innerHeight, multiplier);
   });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const updateOverscan = () => {
-      setOverscan(Math.ceil(window.innerHeight * multiplier));
+      setOverscan(resolveOverscan(window.innerHeight, multiplier));
     };
 
     updateOverscan();
