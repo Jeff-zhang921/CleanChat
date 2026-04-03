@@ -16,14 +16,6 @@ CleanChat is a full-stack chat app built around low-friction entry, calm identit
 
 **Live:** [cleanchat.pages.dev](https://cleanchat.pages.dev)
 
-## Behold The Layout
-
-### Desktop
-<img alt="CleanChat desktop demo" src="Docs/clean.gif" />
-
-### Mobile
-<img alt="CleanChat mobile demo" src="Docs/cleans.gif" />
-
 ## Why It Hits Different
 
 - **Passwordless from the first screen.** Users enter an email, verify a code, and get straight into chat.
