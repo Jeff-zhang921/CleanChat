@@ -352,6 +352,26 @@
     box-shadow var(--motion-quick-local) var(--motion-smooth-local);
   transform: translateZ(0);
   backface-visibility: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.chat-bubble * {
+  -webkit-touch-callout: none;
+}
+
+.chat-bubble.is-selectable-text,
+.chat-bubble.is-selectable-text p,
+.chat-bubble.is-selectable-text .chat-quote-inline-sender,
+.chat-bubble.is-selectable-text .chat-quote-inline-body {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.chat-bubble.is-selectable-text::selection,
+.chat-bubble.is-selectable-text *::selection {
+  background: rgba(36, 92, 63, 0.28);
 }
 
 .chat-row:hover .chat-bubble {

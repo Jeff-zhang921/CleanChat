@@ -93,7 +93,10 @@ const MessageContextMenu = ({
         onClose();
         return;
       }
-      if (!target.closest(".message-context-menu")) {
+      if (
+        !target.closest(".message-context-menu") &&
+        !target.closest(".chat-bubble.is-selectable-text")
+      ) {
         onClose();
       }
     };
@@ -119,11 +122,20 @@ const MessageContextMenu = ({
     return null;
   }
 
+  const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 0;
+  const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 0;
+  const horizontalInset = 24;
+  const clampedAnchorX =
+    viewportWidth > 0
+      ? Math.min(Math.max(anchorX, horizontalInset), viewportWidth - horizontalInset)
+      : anchorX;
+  const openBelow = viewportHeight > 0 && anchorY < 110;
+
   return (
     <div
-      className="message-context-menu"
+      className={`message-context-menu ${openBelow ? "is-flipped" : ""}`}
       role="menu"
-      style={{ left: `${anchorX}px`, top: `${anchorY}px` }}
+      style={{ left: `${clampedAnchorX}px`, top: `${anchorY}px` }}
       onPointerDown={(event) => event.stopPropagation()}
     >
       <button

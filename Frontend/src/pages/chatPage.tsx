@@ -4,6 +4,7 @@ import {
   type ChangeEvent,
   type PointerEvent as ReactPointerEvent,
   type MouseEvent as ReactMouseEvent,
+  type SyntheticEvent as ReactSyntheticEvent,
   useEffect,
   useMemo,
   useRef,
@@ -365,6 +366,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [isClosing, setIsClosing] = useState(false);
   const [contextMenu, setContextMenu] = useState<MessageContextMenuState | null>(null);
+  const [selectableMessageId, setSelectableMessageId] = useState<number | null>(null);
   const [quoteDraft, setQuoteDraft] = useState<QuoteDraft | null>(null);
   const { toast, showToast } = useToast();
 
@@ -387,6 +389,62 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
 
   const showMiniToast = (nextMessage: string) => {
     showToast(nextMessage, { durationMs: 200 });
+  };
+
+  const clearTextSelection = () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.getSelection()?.removeAllRanges();
+  };
+
+  const getSelectedTextFromMessage = (messageId: number) => {
+    if (typeof window === "undefined") {
+      return "";
+    }
+
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+      return "";
+    }
+
+    const selectedText = selection.toString().trim();
+    if (!selectedText) {
+      return "";
+    }
+
+    const bubble = document.querySelector<HTMLElement>(`.chat-bubble[data-message-id="${messageId}"]`);
+    if (!bubble) {
+      return "";
+    }
+
+    const normalizeSelectionNode = (node: Node | null) => {
+      if (!node) {
+        return null;
+      }
+      if (node.nodeType === Node.TEXT_NODE) {
+        return node.parentElement;
+      }
+      return node instanceof Element ? node : null;
+    };
+
+    const anchorElement = normalizeSelectionNode(selection.anchorNode);
+    const focusElement = normalizeSelectionNode(selection.focusNode);
+    if (!anchorElement || !focusElement) {
+      return "";
+    }
+
+    if (!bubble.contains(anchorElement) || !bubble.contains(focusElement)) {
+      return "";
+    }
+
+    return selectedText;
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu(null);
+    setSelectableMessageId(null);
+    clearTextSelection();
   };
 
   const getMessagePlainText = (msg: ChatMessage) => {
@@ -834,7 +892,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     setMessageBody("");
     setQuoteDraft(null);
     setStatus("");
-    setContextMenu(null);
+    closeContextMenu();
     refocusMessageInput();
     return true;
   };
@@ -932,6 +990,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
 
   const openContextMenuAt = (targetMessage: ChatMessage, element: HTMLElement) => {
     const rect = element.getBoundingClientRect();
+    setSelectableMessageId(targetMessage.id);
     setContextMenu({
       messageId: targetMessage.id,
       anchorX: rect.left + rect.width / 2,
@@ -945,6 +1004,10 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     }
 
     if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+
+    if (contextMenu?.messageId === targetMessage.id || selectableMessageId === targetMessage.id) {
       return;
     }
 
@@ -983,25 +1046,33 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     openContextMenuAt(targetMessage, event.currentTarget);
   };
 
+  const handleMessageSelectCapture = (event: ReactSyntheticEvent<HTMLElement>, targetMessage: ChatMessage) => {
+    if (selectableMessageId === targetMessage.id) {
+      return;
+    }
+    event.preventDefault();
+  };
+
   const handleCopyFromContextMenu = async () => {
     if (!activeContextMessage) {
-      setContextMenu(null);
+      closeContextMenu();
       return;
     }
 
-    const text = getMessagePlainText(activeContextMessage);
+    const selectedText = getSelectedTextFromMessage(activeContextMessage.id);
+    const text = selectedText || getMessagePlainText(activeContextMessage);
     try {
       await navigator.clipboard.writeText(text);
       showMiniToast(t("chat.copyDone"));
     } catch {
       showMiniToast(t("chat.copyFailed"));
     }
-    setContextMenu(null);
+    closeContextMenu();
   };
 
   const handleQuoteFromContextMenu = () => {
     if (!activeContextMessage) {
-      setContextMenu(null);
+      closeContextMenu();
       return;
     }
 
@@ -1010,7 +1081,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       senderName: resolveQuoteSenderName(activeContextMessage),
       preview: getMessagePreviewText(activeContextMessage),
     });
-    setContextMenu(null);
+    closeContextMenu();
     refocusMessageInput();
   };
 
@@ -1020,11 +1091,11 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       activeContextMessage.senderId !== me?.id ||
       isRecalledMessageBody(activeContextMessage.body)
     ) {
-      setContextMenu(null);
+      closeContextMenu();
       return;
     }
 
-    setContextMenu(null);
+    closeContextMenu();
     handleDeleteMessage(activeContextMessage, { bypassConfirm: true, withToast: true });
   };
 
@@ -1157,6 +1228,13 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       setContextMenu(null);
     }
   }, [contextMenu, message]);
+
+  useEffect(() => {
+    if (selectableMessageId !== null && !message.some((item) => item.id === selectableMessageId)) {
+      setSelectableMessageId(null);
+      clearTextSelection();
+    }
+  }, [message, selectableMessageId]);
 
   useEffect(() => {
     if (quoteDraft && !message.some((item) => item.id === quoteDraft.parentMessageId)) {
@@ -1409,7 +1487,10 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
           </div>
         </div>
 
-        <div className={`chat-body ${showHistorySkeleton ? "loading" : "ready"}`}>
+        <div
+          className={`chat-body ${showHistorySkeleton ? "loading" : "ready"}`}
+          onContextMenuCapture={(event) => event.preventDefault()}
+        >
           {showHistorySkeleton && (
             <div className="chat-history-skeleton" aria-hidden="true">
               {historySkeletonRows.map((row, index) => (
@@ -1477,13 +1558,15 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
                   <div className="chat-virtuoso-item">
                     <div className={`chat-row ${isMe ? "me" : "them"}`}>
                       <div
-                        className={`chat-bubble ${isMe ? "bubble-me" : "bubble-them"}`}
+                        className={`chat-bubble ${isMe ? "bubble-me" : "bubble-them"} ${selectableMessageId === msg.id ? "is-selectable-text" : ""}`}
+                        data-message-id={msg.id}
                         onPointerDown={(event) => handleMessagePointerDown(event, msg)}
                         onPointerMove={handleMessagePointerMove}
                         onPointerUp={handleMessagePointerEnd}
                         onPointerCancel={handleMessagePointerEnd}
                         onPointerLeave={handleMessagePointerEnd}
                         onContextMenu={(event) => handleMessageContextMenu(event, msg)}
+                        onSelectCapture={(event) => handleMessageSelectCapture(event, msg)}
                       >
                         {chatMode === "group" && !isMe && msg.senderName && (
                           <p className="group-sender">{msg.senderName}</p>
@@ -1631,7 +1714,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
           onRecall={handleRecallFromContextMenu}
           onCopy={handleCopyFromContextMenu}
           onQuote={handleQuoteFromContextMenu}
-          onClose={() => setContextMenu(null)}
+          onClose={closeContextMenu}
         />
 
         {toast.message && (
