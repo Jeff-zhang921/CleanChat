@@ -1,10 +1,10 @@
 import { useEffect } from "react";
+import { useMenuPosition, type MenuAnchorRect } from "../hooks/useMenuPosition";
 import "./MessageContextMenu.css";
 
 type MessageContextMenuProps = {
   open: boolean;
-  anchorX: number;
-  anchorY: number;
+  anchorRect: MenuAnchorRect | null;
   canRecall: boolean;
   labels: {
     recall: string;
@@ -73,8 +73,7 @@ const QuoteGlyph = () => (
 
 const MessageContextMenu = ({
   open,
-  anchorX,
-  anchorY,
+  anchorRect,
   canRecall,
   labels,
   onRecall,
@@ -82,6 +81,13 @@ const MessageContextMenu = ({
   onQuote,
   onClose,
 }: MessageContextMenuProps) => {
+  const { menuRef, style, placement } = useMenuPosition({
+    open,
+    anchorRect,
+    viewportPadding: 14,
+    offset: 10,
+  });
+
   useEffect(() => {
     if (!open) {
       return;
@@ -109,12 +115,10 @@ const MessageContextMenu = ({
 
     window.addEventListener("pointerdown", handlePointerDown);
     window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("scroll", onClose, true);
 
     return () => {
       window.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("scroll", onClose, true);
     };
   }, [onClose, open]);
 
@@ -122,20 +126,12 @@ const MessageContextMenu = ({
     return null;
   }
 
-  const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 0;
-  const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 0;
-  const horizontalInset = 24;
-  const clampedAnchorX =
-    viewportWidth > 0
-      ? Math.min(Math.max(anchorX, horizontalInset), viewportWidth - horizontalInset)
-      : anchorX;
-  const openBelow = viewportHeight > 0 && anchorY < 110;
-
   return (
     <div
-      className={`message-context-menu ${openBelow ? "is-flipped" : ""}`}
+      ref={menuRef}
+      className={`message-context-menu ${placement === "below" ? "is-flipped" : ""}`}
       role="menu"
-      style={{ left: `${clampedAnchorX}px`, top: `${anchorY}px` }}
+      style={style}
       onPointerDown={(event) => event.stopPropagation()}
     >
       <button

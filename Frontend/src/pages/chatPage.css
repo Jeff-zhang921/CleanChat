@@ -9,7 +9,7 @@
   --bubble-them: #f3efe6;
   --bubble-padding-y: 8px;
   --bubble-padding-x: 12px;
-  --bubble-font-size: 15px;
+  --bubble-font-size: 17px;
   --bubble-max-width: 78%;
   --time-separator-font-size: 12px;
   --time-separator-color: #a4aab6;
@@ -429,6 +429,11 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.chat-message-content {
+  font-size: 17px;
+  line-height: 1.5;
 }
 
 .group-sender {

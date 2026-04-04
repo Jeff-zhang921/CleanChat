@@ -82,8 +82,14 @@ type QuoteDraft = {
 
 type MessageContextMenuState = {
   messageId: number;
-  anchorX: number;
-  anchorY: number;
+  anchorRect: {
+    top: number;
+    left: number;
+    right: number;
+    bottom: number;
+    width: number;
+    height: number;
+  };
 };
 
 const IMAGE_MESSAGE_PREFIX = "IMG::";
@@ -990,11 +996,18 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
 
   const openContextMenuAt = (targetMessage: ChatMessage, element: HTMLElement) => {
     const rect = element.getBoundingClientRect();
+    clearTextSelection();
     setSelectableMessageId(targetMessage.id);
     setContextMenu({
       messageId: targetMessage.id,
-      anchorX: rect.left + rect.width / 2,
-      anchorY: rect.top,
+      anchorRect: {
+        top: rect.top,
+        left: rect.left,
+        right: rect.right,
+        bottom: rect.bottom,
+        width: rect.width,
+        height: rect.height,
+      },
     });
   };
 
@@ -1228,6 +1241,28 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       setContextMenu(null);
     }
   }, [contextMenu, message]);
+
+  useEffect(() => {
+    if (selectableMessageId === null || !contextMenu || typeof document === "undefined") {
+      return;
+    }
+
+    const handleSelectionChange = () => {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+        return;
+      }
+
+      if (!getSelectedTextFromMessage(selectableMessageId)) {
+        closeContextMenu();
+      }
+    };
+
+    document.addEventListener("selectionchange", handleSelectionChange);
+    return () => {
+      document.removeEventListener("selectionchange", handleSelectionChange);
+    };
+  }, [contextMenu, selectableMessageId]);
 
   useEffect(() => {
     if (selectableMessageId !== null && !message.some((item) => item.id === selectableMessageId)) {
@@ -1585,7 +1620,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
                             />
                           </button>
                         ) : (
-                          <p>{msg.body}</p>
+                          <p className="chat-message-content">{msg.body}</p>
                         )}
                         {(msg.quotePreview || msg.quoteSenderName || msg.parentMessageId) && (
                           <div className="chat-quote-inline" aria-label={t("chat.quoteAction")}>
@@ -1699,8 +1734,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
 
         <MessageContextMenu
           open={Boolean(contextMenu && activeContextMessage)}
-          anchorX={contextMenu?.anchorX ?? 0}
-          anchorY={contextMenu?.anchorY ?? 0}
+          anchorRect={contextMenu?.anchorRect ?? null}
           canRecall={Boolean(
             activeContextMessage &&
               activeContextMessage.senderId === me?.id &&
