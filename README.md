@@ -1,4 +1,4 @@
-﻿# CleanChat
+# CleanChat
 
 <p align="left">
   <img src="Frontend/public/icons/icon-192.png" alt="CleanChat App Icon" width="72" height="72" />
@@ -26,19 +26,19 @@
 [![Playwright](https://img.shields.io/badge/Playwright-Visual_Audit-2EAD33?style=flat-square&logo=playwright&logoColor=white)](https://playwright.dev/)
 [![ESLint](https://img.shields.io/badge/ESLint-9.39-4B32C3?style=flat-square&logo=eslint&logoColor=white)](https://eslint.org/)
 
-⚠️ Warning: Virtual List Performance Issue (Pending Fix) - 快速滑动下的白屏/错位问题尚在攻坚中。
+Warning: Virtual list performance issue (pending fix) - white-screen and misalignment during fast scrolling are still under investigation.
 
 ---
 
-## 目录
+## Table of Contents
 
-- [1. 深度技术诊断 (Deep Technical Audit)](#1-深度技术诊断-deep-technical-audit)
-  - [1.1 Session 稳定性与 JWT 续期](#11-session-稳定性与-jwt-续期)
-  - [1.2 Notification 系统级唤醒链路](#12-notification-系统级唤醒链路)
-  - [1.3 Zero-Remount Rendering 诊断](#13-zero-remount-rendering-诊断)
+- [1. Deep Technical Audit](#1-deep-technical-audit)
+  - [1.1 Session Stability and JWT Lifecycle](#11-session-stability-and-jwt-lifecycle)
+  - [1.2 Notification Wake Chain](#12-notification-wake-chain)
+  - [1.3 Zero-Remount Rendering Diagnosis](#13-zero-remount-rendering-diagnosis)
 - [2. Architecture + Anatomy (Unified)](#2-architecture--anatomy-unified)
-- [3. Hybrid View Stack 内存管理逻辑](#3-hybrid-view-stack-内存管理逻辑)
-- [4. PWA Push Wake 流程详解](#4-pwa-push-wake-流程详解)
+- [3. Hybrid View Stack Memory Management](#3-hybrid-view-stack-memory-management)
+- [4. PWA Push Wake Flow](#4-pwa-push-wake-flow)
 - [5. Performance Benchmarks](#5-performance-benchmarks)
 - [6. Project Structure](#6-project-structure)
 - [7. Getting Started](#7-getting-started)
@@ -49,31 +49,31 @@
 
 ---
 
-## 1. 深度技术诊断 (Deep Technical Audit)
+## 1. Deep Technical Audit
 
-### 1.1 Session 稳定性与 JWT 续期
+### 1.1 Session Stability and JWT Lifecycle
 
-#### 底层问题诊断
+#### Root Cause Analysis
 
-当前典型风险是「单一长期 JWT + localStorage」。这会引发三类问题：
+The main risk pattern is a single long-lived JWT stored in localStorage. It creates three categories of issues:
 
-1. 安全面：长期 Access Token 泄露窗口过大。
-2. 稳定面：Token 过期后 Socket 与 API 可能同时失效，触发连锁重登。
-3. 体验面：App 进程被杀后，若仅依赖内存态凭证，恢复链路脆弱。
+1. Security risk: a leaked token has a large abuse window.
+2. Stability risk: when the token expires, Socket and API can fail at the same time, causing forced re-login cascades.
+3. UX risk: after process kill or cold restart, session restoration is fragile if it only depends on volatile runtime state.
 
-#### 修复方案（已落地）
+#### Applied Fixes
 
-1. 统一回归单令牌：仅保留 Bearer JWT，不再引入 Refresh Token / Cookie 续期链路。
-2. 前端 fetch 与 axios 统一注入 Authorization 头，鉴权行为保持一致。
-3. 登录页启动恢复仅检测本地 token 与 /auth/me，401/403 立即清理并回到登录。
-4. Socket 连接仅使用本地 JWT，遇到 Not authenticated 直接判定会话失效并提示重登。
-5. 后端删除 RefreshSession 相关模型和路由，部署环境仅要求 JWT_SECRET。
+1. Returned to a single-token architecture: Bearer JWT only, with no Refresh Token or cookie rotation flow.
+2. Unified frontend auth behavior: both fetch and axios inject the same Authorization header.
+3. Login page startup restore now checks local token plus /auth/me only; on 401/403 it clears token and returns to login.
+4. Socket authentication uses local JWT only; if Not authenticated is returned, session is treated as expired immediately.
+5. Backend refresh-session model and routes were removed; production now requires only JWT_SECRET.
 
-#### 为什么这能保持稳态体验
+#### Why This Is Stable in Production
 
-- 单令牌链路短而确定，故障面收敛，生产排障路径更清晰。
-- 会话失效行为一致：API 与 Socket 都返回重新登录，不会出现“部分在线”的漂移态。
-- 反向代理仍保持 /api/_ 与 /socket.io/_ 同源访问，网络路径稳定。
+- The auth path is short and deterministic, which reduces failure surface and simplifies incident debugging.
+- Session expiry behavior is consistent across API and Socket, avoiding partial-online drift states.
+- Reverse proxy still keeps /api/_ and /socket.io/_ same-origin from the browser perspective.
 
 ```mermaid
 sequenceDiagram
@@ -92,7 +92,7 @@ sequenceDiagram
   end
 ```
 
-#### 对应实现文件
+#### Implementation Files
 
 - Backend/src/auth.ts
 - Backend/src/routes/auth.ts
@@ -105,25 +105,25 @@ sequenceDiagram
 
 ---
 
-### 1.2 Notification 系统级唤醒链路
+### 1.2 Notification Wake Chain
 
-#### 底层逻辑
+#### Core Mechanism
 
-Web Push 的关键不是页面线程，而是 Browser Push Service + Service Worker 进程。
+The key to Web Push is not the page thread, but the browser push service and service worker process.
 
-即使浏览器 UI 关闭：
+Even when the browser UI is closed:
 
-1. 推送服务仍可将消息投递给浏览器后台通道。
-2. 浏览器唤起 Service Worker 执行 push 事件。
-3. SW 调用 showNotification 交给操作系统通知中心。
-4. 用户点击通知后，SW 通过 clients.openWindow / navigate 定向拉起 chat 路由。
+1. Push service can still deliver payloads to the browser background channel.
+2. Browser wakes the service worker and dispatches the push event.
+3. Service worker calls showNotification and hands it to the OS notification center.
+4. On notification click, service worker routes users via clients.openWindow or navigate.
 
-#### 修复与强化点
+#### Hardening Improvements
 
-1. 后端 VAPID 发送链路完成：离线用户触发 sendPushToUser。
-2. 登录成功后立即执行权限申请 + push subscription + 后端绑定。
-3. Profile 页面支持重新绑定订阅，避免换设备或换浏览器后静默失效。
-4. SW 点击回调支持 /chat/:threadId 与 /chat/group/:groupId 精准路由。
+1. Backend VAPID delivery chain is implemented: sendPushToUser is triggered for offline recipients.
+2. Right after login verification, frontend requests permission, subscribes, and binds subscription to backend.
+3. Profile page supports subscription rebinding to recover from device or browser changes.
+4. Notification click handler supports accurate deep-links for both direct and group chat paths.
 
 ```mermaid
 sequenceDiagram
@@ -142,7 +142,7 @@ sequenceDiagram
   SW->>App: focus/navigate /chat/:id or /chat/group/:groupId
 ```
 
-#### 对应实现文件
+#### Implementation Files
 
 - Backend/src/push.ts
 - Backend/src/socket/index.ts
@@ -156,24 +156,24 @@ sequenceDiagram
 
 ---
 
-### 1.3 Zero-Remount Rendering 诊断
+### 1.3 Zero-Remount Rendering Diagnosis
 
-#### 目标
+#### Goal
 
-返回列表时达到“物理层即时可见”，而不是“重挂载后再恢复”。
+Get physically instant list visibility on return, instead of remounting and rehydrating first.
 
-#### 机制
+#### Mechanism
 
-1. 不死根视图（Immortal Root Views）常驻挂载。
-2. 即抛详情页（Ephemeral Detail Views）按需挂载并在关闭时彻底销毁。
-3. 详情页打开时，根层仅进入 dormancy（aria-hidden + pointer-events: none），不 unmount。
-4. 状态更新在 dormant 期间继续推进，返回时无需二次 hydration。
+1. Immortal root views stay mounted.
+2. Ephemeral detail views mount on demand and are fully destroyed on close.
+3. When detail opens, root enters dormancy only (aria-hidden + pointer-events: none) and is not unmounted.
+4. State updates continue during dormancy, so return path does not need second hydration.
 
-#### 结果
+#### Result
 
-- 返回响应接近 0ms 体感。
-- 列表滚动位置可保持。
-- 交互上下文不会因路由切换被重置。
+- Return latency feels near 0ms.
+- List scroll position remains stable.
+- Interaction context is not reset by route transitions.
 
 ---
 
@@ -236,58 +236,58 @@ flowchart TB
   R1 --> D1
 ```
 
-### 目录与职责映射
+### Directory and Responsibility Map
 
-| 层级       | 目录/文件                                  | 职责                           |
-| ---------- | ------------------------------------------ | ------------------------------ |
-| 视图编排层 | Frontend/src/App.tsx                       | Root/Detail 生命周期与路由编排 |
-| 根视图层   | Frontend/src/pages/ConversationPage.tsx 等 | 常驻视图，保持上下文           |
-| 详情视图层 | Frontend/src/pages/chatPage.tsx 等         | 即抛详情，退出即释放           |
-| 会话层     | Frontend/src/utils/auth.ts, apiClient.ts   | Bearer JWT 注入与失效处理      |
-| 推送层     | Backend/src/push.ts + Frontend/src/sw.js   | 离线通知与深链唤醒             |
-| 鉴权层     | Backend/src/auth.ts, routes/auth.ts        | JWT 签发与校验                 |
-| 数据层     | prisma/schema.prisma                       | User/PushSubscription          |
-
----
-
-## 3. Hybrid View Stack 内存管理逻辑
-
-1. 常驻视图池
-   - conversation/group/profile/settings 仅初始化一次，后续不销毁。
-2. 详情页对象生命周期
-   - chat/profile-edit/purity/vault 进入时 mount，退出时 unmount。
-3. Dormant 模式
-   - 根层保留 DOM 与状态，但停止交互命中，避免“隐藏态误触”。
-4. 观测器与订阅清理
-   - 详情页离开时清理 socket listener、observer、临时 timer。
-5. 代价与收益
-   - 代价：常驻内存增加。
-   - 收益：返回路径无重建、无骨架闪烁、滚动位置可预测。
+| Layer                    | Directory/File                               | Responsibility                                |
+| ------------------------ | -------------------------------------------- | --------------------------------------------- |
+| View orchestration layer | Frontend/src/App.tsx                         | Root/detail lifecycle and route orchestration |
+| Root view layer          | Frontend/src/pages/ConversationPage.tsx etc. | Always-on views that preserve context         |
+| Detail view layer        | Frontend/src/pages/chatPage.tsx etc.         | Disposable detail surfaces                    |
+| Session layer            | Frontend/src/utils/auth.ts, apiClient.ts     | Bearer JWT injection and expiry handling      |
+| Push layer               | Backend/src/push.ts + Frontend/src/sw.js     | Offline notifications and deep-link wake      |
+| Auth layer               | Backend/src/auth.ts, routes/auth.ts          | JWT issuing and verification                  |
+| Data layer               | prisma/schema.prisma                         | User and PushSubscription models              |
 
 ---
 
-## 4. PWA Push Wake 流程详解
+## 3. Hybrid View Stack Memory Management
 
-1. 登录链路完成后（verify 页面）触发 permission + subscribe。
-2. 订阅对象（endpoint + keys）写入 Backend /profile/push/subscription。
-3. 消息发送时，后端判断 recipient 离线，调用 Web Push 发送。
-4. Push Service 投递后，SW push 事件执行 showNotification。
-5. 用户点击通知，SW notificationclick 解析 payload，跳转：
-   - 直聊：/chat/:threadId
-   - 群聊：/chat/group/:groupId
-6. 若已有窗口，优先 focus + navigate；否则 openWindow 新开。
+1. Always-mounted view pool
+   - conversation/group/profile/settings initialize once and remain alive.
+2. Detail view lifecycle
+   - chat/profile-edit/purity/vault mount on entry and unmount on exit.
+3. Dormant mode
+   - root keeps DOM and state but blocks interaction hit targets to prevent hidden-state clicks.
+4. Observer and subscription cleanup
+   - on detail exit, socket listeners, observers, and timers are released.
+5. Cost and benefit
+   - Cost: higher baseline memory due to always-mounted roots.
+   - Benefit: no return-path rebuild, no skeleton flash, predictable scroll persistence.
+
+---
+
+## 4. PWA Push Wake Flow
+
+1. After login verification completes, permission + subscription are requested.
+2. Subscription payload (endpoint + keys) is written to backend via /profile/push/subscription.
+3. On message send, backend checks if recipient is offline and sends Web Push.
+4. After push service delivery, service worker push event calls showNotification.
+5. On click, service worker parses payload and routes to:
+   - Direct chat: /chat/:threadId
+   - Group chat: /chat/group/:groupId
+6. If an app window exists, focus + navigate first; otherwise open a new window.
 
 ---
 
 ## 5. Performance Benchmarks
 
-| 指标             | 目标          | 当前策略                          | 验证路径                                               |
-| ---------------- | ------------- | --------------------------------- | ------------------------------------------------------ |
-| 路由返回感知延迟 | 0ms 体感      | Root 常驻 + Detail 即抛           | Frontend/tests/hybrid-view-stack.spec.ts               |
-| 视口贴合率       | 100% 贴边无缝 | profile 壳层尺寸与动画去 scale    | Frontend/tests/profile-native-shell.spec.ts            |
-| 消息到达可见性   | 后台即更新    | dormant 状态下 silent reorder     | Frontend/src/pages/ConversationPage.tsx                |
-| 离线通知可达率   | 系统级唤醒    | VAPID + SW push + click deep link | Backend/src/push.ts, Frontend/src/sw.js                |
-| 会话恢复稳定性   | 行为一致      | 单令牌校验 + 明确重登             | Backend/src/routes/auth.ts, Frontend/src/utils/auth.ts |
+| Metric                           | Target              | Current Strategy                            | Verification Path                                      |
+| -------------------------------- | ------------------- | ------------------------------------------- | ------------------------------------------------------ |
+| Route return latency             | 0ms perceived       | Root stays mounted + disposable detail      | Frontend/tests/hybrid-view-stack.spec.ts               |
+| Viewport edge-fit rate           | 100% edge-to-edge   | Profile shell sizing and animation de-scale | Frontend/tests/profile-native-shell.spec.ts            |
+| Message visibility in background | Always updated      | Silent reorder while dormant                | Frontend/src/pages/ConversationPage.tsx                |
+| Offline notification reach       | System-level wake   | VAPID + SW push + click deep-link           | Backend/src/push.ts, Frontend/src/sw.js                |
+| Session restore stability        | Consistent behavior | Single-token validation + explicit re-login | Backend/src/routes/auth.ts, Frontend/src/utils/auth.ts |
 
 ---
 
@@ -361,23 +361,23 @@ npm run dev -- --host 127.0.0.1 --port 5273
 
 ## 8. Environment Variables
 
-| 变量                  | 作用域               | 示例                                         | 用途                    |
-| --------------------- | -------------------- | -------------------------------------------- | ----------------------- |
-| DATABASE_URL          | Backend              | postgresql://user:pass@host:5432/db          | Prisma 连接             |
-| JWT_SECRET            | Backend              | replace_with_strong_secret                   | JWT 签名                |
-| ACCESS_TOKEN_TTL      | Backend              | 1y                                           | JWT 过期策略            |
-| LOGIN_CODE_SECRET     | Backend              | replace_with_strong_secret                   | 验证码哈希              |
-| SMTP_USER             | Backend              | mailer@example.com                           | SMTP 用户名             |
-| SMTP_PASS             | Backend              | app_password                                 | SMTP 密码               |
-| SMTP_FROM             | Backend              | CleanChat <no-reply@example.com>             | 邮件发件人              |
-| FRONTEND_URLS         | Backend              | http://127.0.0.1:5273,https://your.pages.dev | CORS 白名单             |
-| VAPID_PUBLIC_KEY      | Backend              | base64url_public_key                         | Web Push 公钥           |
-| VAPID_PRIVATE_KEY     | Backend              | base64url_private_key                        | Web Push 私钥           |
-| VAPID_SUBJECT         | Backend              | mailto:no-reply@example.com                  | VAPID Subject           |
-| KOYEB_ORIGIN          | Cloudflare Functions | https://your-service.koyeb.app               | /api 与 /socket.io 上游 |
-| VITE_API_URL          | Frontend             | /api                                         | API 基地址              |
-| VITE_SOCKET_URL       | Frontend             | /                                            | Socket 基地址           |
-| VITE_VAPID_PUBLIC_KEY | Frontend (optional)  | base64url_public_key                         | 前端直配 VAPID 公钥     |
+| Variable              | Scope                | Example                                      | Purpose                          |
+| --------------------- | -------------------- | -------------------------------------------- | -------------------------------- |
+| DATABASE_URL          | Backend              | postgresql://user:pass@host:5432/db          | Prisma connection                |
+| JWT_SECRET            | Backend              | replace_with_strong_secret                   | JWT signing secret               |
+| ACCESS_TOKEN_TTL      | Backend              | 1y                                           | JWT expiration policy            |
+| LOGIN_CODE_SECRET     | Backend              | replace_with_strong_secret                   | Login-code hashing secret        |
+| SMTP_USER             | Backend              | mailer@example.com                           | SMTP username                    |
+| SMTP_PASS             | Backend              | app_password                                 | SMTP password                    |
+| SMTP_FROM             | Backend              | CleanChat <no-reply@example.com>             | Outbound sender identity         |
+| FRONTEND_URLS         | Backend              | http://127.0.0.1:5273,https://your.pages.dev | CORS allowlist                   |
+| VAPID_PUBLIC_KEY      | Backend              | base64url_public_key                         | Web Push public key              |
+| VAPID_PRIVATE_KEY     | Backend              | base64url_private_key                        | Web Push private key             |
+| VAPID_SUBJECT         | Backend              | mailto:no-reply@example.com                  | VAPID subject                    |
+| KOYEB_ORIGIN          | Cloudflare Functions | https://your-service.koyeb.app               | Upstream for /api and /socket.io |
+| VITE_API_URL          | Frontend             | /api                                         | API base URL                     |
+| VITE_SOCKET_URL       | Frontend             | /                                            | Socket base URL                  |
+| VITE_VAPID_PUBLIC_KEY | Frontend (optional)  | base64url_public_key                         | Optional client VAPID key        |
 
 ---
 
@@ -394,15 +394,13 @@ npx playwright test --config=playwright.conversations.config.ts
 
 ## 10. Deployment and Reverse Proxy Notes
 
-1. 前端生产环境推荐使用同源代理：
+1. In production, same-origin proxying is recommended:
    - /api/\* -> Backend
    - /socket.io/\* -> Backend
-2. 这样浏览器视角保持同源：
-
-- Authorization Header 与 Socket 路径一致
-- 降低跨域策略复杂度
-
-3. Backend 已启用 trust proxy 条件配置，兼容反代后的真实来源判定。
+2. This keeps browser-side networking same-origin:
+   - Authorization header and Socket path behavior stay predictable
+   - Cross-origin policy complexity is reduced
+3. Backend uses conditional trust proxy configuration for accurate source detection behind reverse proxies.
 
 ---
 
