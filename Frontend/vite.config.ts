@@ -6,8 +6,14 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.js",
       registerType: "autoUpdate",
       includeAssets: ["vite.svg"],
+      injectManifest: {
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+      },
       manifest: {
         name: "CleanChat",
         short_name: "CleanChat",
@@ -40,6 +46,7 @@ export default defineConfig({
       },
       devOptions: {
         enabled: true,
+        type: "module",
       },
     }),
   ],

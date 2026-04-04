@@ -1,4 +1,4 @@
-import { forwardRef, type CSSProperties, type ChangeEvent, useEffect, useRef, useState } from "react";
+import { forwardRef, type CSSProperties, type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso, type ListProps, type ScrollerProps, type VirtuosoHandle } from "react-virtuoso";
 import { useLocation, useNavigate } from "react-router-dom";
 import { io, type Socket } from "socket.io-client";
@@ -7,6 +7,7 @@ import { BACKEND_URL, SOCKET_URL } from "../config";
 import { useViewportOverscan } from "../hooks/useViewportOverscan";
 import { getNotificationPermission, showMessageNotification } from "../utils/notifications";
 import { getAuthToken } from "../utils/auth";
+import { clearGroupUnread, clearThreadUnread } from "../utils/unreadCounts";
 import "./chatPage.css";
 
 type ChatMessage = {
@@ -68,6 +69,17 @@ const getImageUrlFromMessage = (body: string) => {
 const formatNotificationBody = (body: string) =>
   getImageUrlFromMessage(body) ? "sent a photo" : body;
 
+const parsePositiveInt = (value: string | null) => {
+  if (!value) {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+};
+
 const ChatVirtuosoScroller = forwardRef<HTMLDivElement, ScrollerProps>((props, ref) => (
   <div {...props} ref={ref} className="chat-virtuoso-scroller" />
 ));
@@ -85,22 +97,57 @@ const ChatPage = () => {
   const navigate = useNavigate();
   const messageOverscan = useViewportOverscan();
   const locationState = (location.state as ChatLocationState | null) ?? null;
+  const deepLinkState = useMemo<ChatLocationState>(() => {
+    const params = new URLSearchParams(location.search);
+    const threadId = parsePositiveInt(params.get("threadId"));
+    const groupIdCandidate = params.get("groupId");
+    const groupId = typeof groupIdCandidate === "string" && groupIdCandidate.trim()
+      ? groupIdCandidate.trim()
+      : undefined;
+
+    if (!threadId && !groupId) {
+      return {};
+    }
+
+    const chatType = params.get("chatType") === "group" || groupId ? "group" : "direct";
+    const title = params.get("title") ?? params.get("other") ?? undefined;
+
+    return {
+      chatType,
+      threadId: threadId ?? undefined,
+      groupId,
+      other: title,
+      fromPath: "/conversations",
+    };
+  }, [location.search]);
+  const resolvedState = useMemo<ChatLocationState>(
+    () => ({
+      ...deepLinkState,
+      ...locationState,
+      other: locationState?.other ?? deepLinkState.other,
+      threadId: locationState?.threadId ?? deepLinkState.threadId,
+      groupId: locationState?.groupId ?? deepLinkState.groupId,
+      chatType: locationState?.chatType ?? deepLinkState.chatType,
+      fromPath: locationState?.fromPath ?? deepLinkState.fromPath,
+    }),
+    [deepLinkState, locationState]
+  );
   const initialChatMode: ChatMode =
-    locationState?.chatType === "group" || typeof locationState?.groupId === "string"
+    resolvedState.chatType === "group" || typeof resolvedState.groupId === "string"
       ? "group"
       : "direct";
-  const other = locationState?.other ?? "";
-  const avatarUrl = locationState?.avatarUrl ?? "";
-  const avatarToneClass = locationState?.avatarKey ? getAvatarToneClass(locationState.avatarKey) : "";
-  const fromPath = locationState?.fromPath === "/groups" ? "/groups" : "/conversations";
+  const other = resolvedState.other ?? "";
+  const avatarUrl = resolvedState.avatarUrl ?? "";
+  const avatarToneClass = resolvedState.avatarKey ? getAvatarToneClass(resolvedState.avatarKey) : "";
+  const fromPath = resolvedState.fromPath === "/groups" ? "/groups" : "/conversations";
 
   const socketRef = useRef<Socket | null>(null);
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const messageInputRef = useRef<HTMLInputElement | null>(null);
   const threadIdRef = useRef<number | null>(null);
   const groupIdRef = useRef<string | null>(
-    initialChatMode === "group" && typeof locationState?.groupId === "string"
-      ? locationState.groupId
+    initialChatMode === "group" && typeof resolvedState.groupId === "string"
+      ? resolvedState.groupId
       : null
   );
   const chatModeRef = useRef<ChatMode>(initialChatMode);
@@ -114,8 +161,8 @@ const ChatPage = () => {
   const [status, setStatus] = useState("Not connected");
   const [threadId, setThreadId] = useState<number | null>(null);
   const [groupId, setGroupId] = useState<string | null>(
-    initialChatMode === "group" && typeof locationState?.groupId === "string"
-      ? locationState.groupId
+    initialChatMode === "group" && typeof resolvedState.groupId === "string"
+      ? resolvedState.groupId
       : null
   );
   const [chatMode, setChatMode] = useState<ChatMode>(initialChatMode);
@@ -282,7 +329,15 @@ const ChatPage = () => {
         getNotificationPermission() === "granted"
       ) {
         const title = other || "New message";
-        showMessageNotification(title, formatNotificationBody(msg.body), `thread-${msg.threadId}`);
+        showMessageNotification(title, formatNotificationBody(msg.body), {
+          tag: `thread-${msg.threadId}`,
+          target: msg.threadId
+            ? {
+                chatType: "direct",
+                threadId: msg.threadId,
+              }
+            : { url: "/conversations" },
+        });
       }
     });
 
@@ -310,7 +365,15 @@ const ChatPage = () => {
         getNotificationPermission() === "granted"
       ) {
         const title = other || "Group message";
-        showMessageNotification(title, formatNotificationBody(msg.body), `group-${msg.groupId ?? "room"}`);
+        showMessageNotification(title, formatNotificationBody(msg.body), {
+          tag: `group-${msg.groupId ?? "room"}`,
+          target: msg.groupId
+            ? {
+                chatType: "group",
+                groupId: msg.groupId,
+              }
+            : { url: "/conversations" },
+        });
       }
     });
 
@@ -373,6 +436,18 @@ const ChatPage = () => {
     }
   }, [groupId, chatMode]);
 
+  useEffect(() => {
+    if (chatMode === "direct" && threadId) {
+      clearThreadUnread(threadId);
+    }
+  }, [chatMode, threadId]);
+
+  useEffect(() => {
+    if (chatMode === "group" && groupId) {
+      clearGroupUnread(groupId);
+    }
+  }, [chatMode, groupId]);
+
   const createThreadForHostId = async (rawHostId: number) => {
     setChatMode("direct");
     setGroupId(null);
@@ -411,8 +486,8 @@ const ChatPage = () => {
   };
 
   useEffect(() => {
-    const state = location.state as ChatLocationState | null;
-    if (!state || autoThreadRef.current) return;
+    const state = resolvedState;
+    if (autoThreadRef.current) return;
     if ((state.chatType === "group" || typeof state.groupId === "string") && typeof state.groupId === "string") {
       autoThreadRef.current = true;
       setChatMode("group");
@@ -435,7 +510,7 @@ const ChatPage = () => {
       setGroupId(null);
       void createThreadForHostId(state.hostId);
     }
-  }, [location.state]);
+  }, [resolvedState]);
 
   const handleSendMessage = () => {
     if (!socketRef.current || !socketRef.current.connected) {

@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useMemo, useRef, useState, type HTMLAttributes, type RefObject } from "react";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Virtuoso, type ListProps, type ScrollerProps } from "react-virtuoso";
 import { io, type Socket } from "socket.io-client";
@@ -14,6 +15,15 @@ import {
 } from "../utils/cleanIdTrust";
 import { getAuthToken } from "../utils/auth";
 import { showMessageNotification } from "../utils/notifications";
+import {
+  clearUnreadCount,
+  getGroupUnreadKey,
+  getThreadUnreadKey,
+  incrementUnreadCount,
+  persistUnreadCounts,
+  readUnreadCounts,
+  type ConversationUnreadCounts,
+} from "../utils/unreadCounts";
 import "./ConversationPage.css";
 
 type UserSummary = {
@@ -61,6 +71,7 @@ type ConversationItem = {
   sortAt?: string | null;
   subline: string;
   trust?: CleanIdTrustSnapshot;
+  unreadCount: number;
 };
 
 type RealtimeMessage = {
@@ -251,6 +262,41 @@ const getConversationPreview = (body?: string | null) => {
 const getNotificationBody = (body: string) =>
   isImageMessageBody(body) ? "sent a photo" : body;
 
+const FLIP_LAYOUT_TRANSITION = {
+  layout: {
+    type: "spring",
+    stiffness: 360,
+    damping: 32,
+    mass: 0.74,
+  },
+} as const;
+
+const formatUnreadCount = (count: number) => (count > 99 ? "99+" : String(count));
+
+const UnreadIndicator = ({ unreadCount }: { unreadCount: number }) => {
+  if (unreadCount <= 0) {
+    return <span className="conversation-unread-placeholder" aria-hidden="true" />;
+  }
+
+  if (unreadCount === 1) {
+    return (
+      <span
+        className="conversation-unread-indicator conversation-unread-dot"
+        aria-label="1 unread message"
+      />
+    );
+  }
+
+  return (
+    <span
+      className="conversation-unread-indicator conversation-unread-capsule"
+      aria-label={`${unreadCount} unread messages`}
+    >
+      {formatUnreadCount(unreadCount)}
+    </span>
+  );
+};
+
 const SearchGlyph = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
     <path
@@ -384,11 +430,38 @@ const ConversationPage = () => {
   const [searchUsers, setSearchUsers] = useState<UserSummary[]>([]);
   const [searchStatus, setSearchStatus] = useState("");
   const [openingUserId, setOpeningUserId] = useState<number | null>(null);
+  const [unreadCounts, setUnreadCounts] = useState<ConversationUnreadCounts>(() => readUnreadCounts());
   const socketRef = useRef<Socket | null>(null);
   const meRef = useRef<SessionUser | null>(null);
   const threadsRef = useRef<ThreadResponse[]>([]);
   const groupsRef = useRef<GroupSummary[]>([]);
+  const unreadCountsRef = useRef<ConversationUnreadCounts>(readUnreadCounts());
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  const updateUnreadCounts = (updater: (current: ConversationUnreadCounts) => ConversationUnreadCounts) => {
+    setUnreadCounts((current) => {
+      const next = updater(current);
+      unreadCountsRef.current = next;
+      persistUnreadCounts(next);
+      return next;
+    });
+  };
+
+  const incrementThreadUnread = (threadId: number) => {
+    updateUnreadCounts((current) =>
+      incrementUnreadCount(current, getThreadUnreadKey(threadId), 1)
+    );
+  };
+
+  const incrementGroupUnread = (groupId: string) => {
+    updateUnreadCounts((current) =>
+      incrementUnreadCount(current, getGroupUnreadKey(groupId), 1)
+    );
+  };
+
+  const clearConversationUnread = (conversationId: string) => {
+    updateUnreadCounts((current) => clearUnreadCount(current, conversationId));
+  };
 
   useEffect(() => {
     if (!me) return;
@@ -416,6 +489,10 @@ const ConversationPage = () => {
   useEffect(() => {
     groupsRef.current = groups;
   }, [groups]);
+
+  useEffect(() => {
+    unreadCountsRef.current = unreadCounts;
+  }, [unreadCounts]);
 
   useEffect(() => {
     if (!isSearchExpanded) return;
@@ -550,6 +627,8 @@ const ConversationPage = () => {
       const currentUser = meRef.current;
       if (!currentUser || message.senderId === currentUser.id) return;
 
+      incrementThreadUnread(message.threadId);
+
       const targetThread = threadsRef.current.find((item) => item.id === message.threadId);
       let senderName = "CleanChat";
       if (!targetThread) {
@@ -559,7 +638,13 @@ const ConversationPage = () => {
         senderName = sender.cleanId || sender.name || sender.email;
       }
 
-      showMessageNotification(senderName, getNotificationBody(message.body), `thread-${message.threadId}`);
+      showMessageNotification(senderName, getNotificationBody(message.body), {
+        tag: `thread-${message.threadId}`,
+        target: {
+          chatType: "direct",
+          threadId: message.threadId,
+        },
+      });
     };
 
     const handleIncomingGroupMessage = (message: GroupRealtimeMessage) => {
@@ -583,10 +668,18 @@ const ConversationPage = () => {
       const currentUser = meRef.current;
       if (!currentUser || message.senderId === currentUser.id) return;
 
+      incrementGroupUnread(message.groupId);
+
       const targetGroup = groupsRef.current.find((item) => item.id === message.groupId);
       const groupName = targetGroup?.name ?? "Group";
       const senderName = message.senderName || "Someone";
-      showMessageNotification(groupName, `${senderName}: ${getNotificationBody(message.body)}`, `group-${message.groupId}`);
+      showMessageNotification(groupName, `${senderName}: ${getNotificationBody(message.body)}`, {
+        tag: `group-${message.groupId}`,
+        target: {
+          chatType: "group",
+          groupId: message.groupId,
+        },
+      });
     };
 
     socket.on("inbox:new", handleIncomingMessage);
@@ -605,6 +698,77 @@ const ConversationPage = () => {
       socketRef.current = null;
     };
   }, [me]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || import.meta.env.PROD) return;
+
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        chatType?: "direct" | "group";
+        threadId?: number;
+        groupId?: string;
+        senderId?: number;
+        senderName?: string;
+        body?: string;
+        createdAt?: string;
+      }>;
+
+      const detail = customEvent.detail;
+      if (!detail) return;
+
+      const now = detail.createdAt ?? new Date().toISOString();
+      const body = detail.body ?? "New message";
+
+      if ((detail.chatType === "group" || typeof detail.groupId === "string") && detail.groupId) {
+        setGroups((prev) =>
+          prev.map((group) =>
+            group.id === detail.groupId
+              ? {
+                  ...group,
+                  lastMessagePreview: body,
+                  lastMessageAt: now,
+                }
+              : group
+          )
+        );
+        incrementGroupUnread(detail.groupId);
+        return;
+      }
+
+      if (typeof detail.threadId !== "number") {
+        return;
+      }
+
+      setThreads((prev) => {
+        const next = prev.map((thread) => {
+          if (thread.id !== detail.threadId) {
+            return thread;
+          }
+
+          return {
+            ...thread,
+            lastMessageAt: now,
+            updatedAt: now,
+            Messages: [
+              {
+                id: Date.now(),
+                body,
+                senderId: detail.senderId ?? 0,
+                createdAt: now,
+              },
+            ],
+          };
+        });
+        return sortThreadsByLatestActivity(next);
+      });
+      incrementThreadUnread(detail.threadId);
+    };
+
+    window.addEventListener("cleanchat:simulate-inbox", handler as EventListener);
+    return () => {
+      window.removeEventListener("cleanchat:simulate-inbox", handler as EventListener);
+    };
+  }, [incrementGroupUnread, incrementThreadUnread]);
 
   useEffect(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -686,6 +850,7 @@ const ConversationPage = () => {
         sortAt: lastActivityTime,
         subline: `@${other.cleanId}`,
         trust: other.trust ?? FALLBACK_CLEAN_ID_TRUST,
+        unreadCount: unreadCounts[getThreadUnreadKey(item.id)] ?? 0,
       };
     });
 
@@ -703,6 +868,7 @@ const ConversationPage = () => {
         time: formatTime(group.lastMessageAt || undefined),
         sortAt: group.lastMessageAt,
         subline: `${group.memberCount} members`,
+        unreadCount: unreadCounts[getGroupUnreadKey(group.id)] ?? 0,
       }));
 
     return [...directItems, ...joinedGroupItems].sort((a, b) => {
@@ -710,7 +876,7 @@ const ConversationPage = () => {
       const bTime = toTimestamp(b.sortAt);
       return bTime - aTime;
     });
-  }, [threads, groups, me]);
+  }, [threads, groups, me, unreadCounts]);
 
   const skeletonCards = useMemo<ConversationSkeletonCard[]>(() => {
     if (conversations.length === 0) {
@@ -729,10 +895,12 @@ const ConversationPage = () => {
   }, [conversations]);
 
   const handleOpenThread = (threadId: number, other: string, avatarUrl?: string, avatarKey?: AvatarKey) => {
+    clearConversationUnread(getThreadUnreadKey(threadId));
     navigate("/chat", { state: { threadId, other, avatarUrl, avatarKey, fromPath: "/conversations" } });
   };
 
   const handleOpenGroup = (groupId: string, groupName: string, avatarUrl: string) => {
+    clearConversationUnread(getGroupUnreadKey(groupId));
     navigate("/chat", {
       state: { chatType: "group", groupId, other: groupName, avatarUrl, fromPath: "/conversations" },
     });
@@ -857,11 +1025,19 @@ const ConversationPage = () => {
   };
 
   const renderConversationCard = (_index: number, item: ConversationItem) => (
-    <div className="conversations-virtual-item">
-      <button
+    <motion.div
+      key={item.id}
+      className="conversations-virtual-item"
+      layout
+      transition={FLIP_LAYOUT_TRANSITION}
+      initial={false}
+    >
+      <motion.button
         type="button"
         className="conversation-card"
         data-conversation-id={item.id}
+        layout
+        transition={FLIP_LAYOUT_TRANSITION}
         onClick={() => {
           if (item.chatType === "group" && item.groupId) {
             handleOpenGroup(item.groupId, item.name, item.avatarUrl);
@@ -877,9 +1053,14 @@ const ConversationPage = () => {
         </div>
         <div className="conversation-body">
           <div className="conversation-top">
-            <h3>{item.name}</h3>
-            <p className="role">{item.role}</p>
-            <span className="time">{item.time}</span>
+            <div className="conversation-heading">
+              <h3>{item.name}</h3>
+              <p className="role">{item.role}</p>
+            </div>
+            <div className="conversation-meta-stack">
+              <span className="time">{item.time}</span>
+              <UnreadIndicator unreadCount={item.unreadCount} />
+            </div>
           </div>
           <p className="preview">{item.preview}</p>
           <div className="conversation-identity-row">
@@ -895,8 +1076,8 @@ const ConversationPage = () => {
             )}
           </div>
         </div>
-      </button>
-    </div>
+      </motion.button>
+    </motion.div>
   );
 
   return (
@@ -1024,35 +1205,17 @@ const ConversationPage = () => {
           )}
 
           {shouldRenderConversations && (
-            isCompactViewport ? (
-              <div className="conversations-scroll-shell" data-testid="conversations-scroll-shell">
-                <div className="conversations-scroll-content">
-                  <section className="conversations-list conversations-list-static" aria-label="Conversations">
-                    {conversations.map((item, index) => (
-                      <div key={item.id}>{renderConversationCard(index, item)}</div>
-                    ))}
+            <div className="conversations-scroll-shell" data-testid="conversations-scroll-shell">
+              <div className="conversations-scroll-content">
+                <MotionConfig reducedMotion="user">
+                  <section className="conversations-list conversations-list-static conversations-list-fluid" aria-label="Conversations">
+                    <AnimatePresence initial={false}>
+                      {conversations.map((item, index) => renderConversationCard(index, item))}
+                    </AnimatePresence>
                   </section>
-                </div>
+                </MotionConfig>
               </div>
-            ) : (
-              <section className="conversations-list-shell" aria-label="Conversations">
-                <Virtuoso
-                  className="conversations-virtuoso"
-                  data={conversations}
-                  computeItemKey={(_index, item) => item.id}
-                  defaultItemHeight={118}
-                  increaseViewportBy={viewportIncrease}
-                  overscan={listOverscanWindow}
-                  minOverscanItemCount={{ top: 12, bottom: 12 }}
-                  skipAnimationFrameInResizeObserver
-                  components={{
-                    Scroller: ConversationsVirtuosoScroller,
-                    List: ConversationsVirtuosoList,
-                  }}
-                  itemContent={renderConversationCard}
-                />
-              </section>
-            )
+            </div>
           )}
         </div>
       </div>

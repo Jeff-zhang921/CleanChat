@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { BACKEND_URL } from "../config";
 import { clearAuthToken } from "../utils/auth";
-import { getNotificationPermission, requestNotificationPermission } from "../utils/notifications";
+import {
+  getNotificationPermission,
+  isAndroid13Plus,
+  requestNotificationPermission,
+} from "../utils/notifications";
 import { hydrateProfileUser, type ProfileRouteState, type ProfileUser } from "../utils/profileUser";
 import "./profileSettings.css";
 
@@ -189,7 +193,11 @@ const ProfileSettingsPage = () => {
       return;
     }
     if (permission === "denied") {
-      setNotificationStatus("Notifications blocked. Please allow notifications in browser settings.");
+      setNotificationStatus(
+        isAndroid13Plus()
+          ? "Notifications blocked. Android 13+ requires allowing the system notification prompt for CleanChat."
+          : "Notifications blocked. Please allow notifications in browser settings."
+      );
       return;
     }
     if (permission === "unsupported") {
