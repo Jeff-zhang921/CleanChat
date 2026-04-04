@@ -8,7 +8,7 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { BACKEND_URL } from "../config";
-import { clearAuthToken, getAuthToken } from "../utils/auth";
+import { clearAuthToken, getAuthToken, refreshAccessToken } from "../utils/auth";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PENDING_EMAIL_KEY = "cleanchat:pending-email";
@@ -498,17 +498,23 @@ const LoginPage = () => {
 
   useEffect(() => {
     let isMounted = true;
-    const token = getAuthToken();
-    if (!token) {
-      return () => {
-        isMounted = false;
-      };
-    }
 
     const restoreSession = async () => {
       if (!isMounted) {
         return;
       }
+
+      const currentToken = getAuthToken();
+      if (!currentToken) {
+        const refreshedToken = await refreshAccessToken();
+        if (!refreshedToken) {
+          if (isMounted) {
+            setStatus("");
+          }
+          return;
+        }
+      }
+
       setIsRestoringSession(true);
       setStatus("Restoring your session...");
 
@@ -527,11 +533,15 @@ const LoginPage = () => {
           }
 
           if (response.status === 401 || response.status === 403) {
-            if (isMounted) {
-              clearAuthToken();
-              setStatus("");
+            const refreshedToken = await refreshAccessToken();
+            if (!refreshedToken) {
+              if (isMounted) {
+                clearAuthToken();
+                setStatus("");
+              }
+              return;
             }
-            return;
+            continue;
           }
         } catch {
           // Retry while backend wakes from cold start.

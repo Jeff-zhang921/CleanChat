@@ -1,6 +1,7 @@
 import express, { NextFunction, Request, Response } from "express";
 
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import profileRouter from "./src/routes/profile";
 import chatRouter from "./src/routes/chat";
 import authRouter from "./src/routes/auth";
@@ -39,6 +40,7 @@ app.use(
     credentials: true,
   }),
 );
+app.use(cookieParser());
 app.use(express.json());
 app.use("/auth", authRouter);
 app.use("/profile", profileRouter);

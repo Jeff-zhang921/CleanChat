@@ -6,7 +6,7 @@ import { getAvatarToneClass, type AvatarKey } from "../constants/avatarCatalog";
 import { BACKEND_URL, SOCKET_URL } from "../config";
 import { useViewportOverscan } from "../hooks/useViewportOverscan";
 import { getNotificationPermission, showMessageNotification } from "../utils/notifications";
-import { getAuthToken } from "../utils/auth";
+import { ensureAccessToken } from "../utils/auth";
 import { clearGroupUnread, clearThreadUnread } from "../utils/unreadCounts";
 import "./chatPage.css";
 
@@ -309,11 +309,17 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     }
   };
 
-  const connectSocket = () => {
+  const connectSocket = async () => {
     if (socketRef.current) return;
 
+    const token = await ensureAccessToken();
+    if (!token) {
+      setStatus("Session expired. Please login again.");
+      return;
+    }
+
     const socket = io(SOCKET_URL, {
-      auth: { token: getAuthToken() },
+      auth: { token },
     });
     socketRef.current = socket;
 
@@ -334,8 +340,22 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       }
     });
 
-    socket.on("connect_error", () => {
+    socket.on("connect_error", (error) => {
       setStatus("Socket connection error.");
+      if (error?.message !== "Not authenticated") {
+        return;
+      }
+
+      void (async () => {
+        const refreshedToken = await ensureAccessToken({ forceRefresh: true });
+        if (!refreshedToken) {
+          setStatus("Session expired. Please login again.");
+          return;
+        }
+
+        socket.auth = { token: refreshedToken };
+        socket.connect();
+      })();
     });
 
     socket.on("chat:error", (msg: string) => {
@@ -436,11 +456,15 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   }, [isAtBottom]);
 
   useEffect(() => {
+    let isDisposed = false;
     void (async () => {
       const user = await loadMe();
-      if (user) connectSocket();
+      if (user && !isDisposed) {
+        await connectSocket();
+      }
     })();
     return () => {
+      isDisposed = true;
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;

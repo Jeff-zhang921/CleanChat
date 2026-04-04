@@ -13,7 +13,7 @@ import {
   type CleanIdTrustSnapshot,
   getTrustToneLabel,
 } from "../utils/cleanIdTrust";
-import { getAuthToken } from "../utils/auth";
+import { ensureAccessToken } from "../utils/auth";
 import { showMessageNotification } from "../utils/notifications";
 import {
   clearUnreadCount,
@@ -596,11 +596,8 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
 
   useEffect(() => {
     if (!me) return;
-
-    const socket = io(SOCKET_URL, {
-      auth: { token: getAuthToken() },
-    });
-    socketRef.current = socket;
+    let isDisposed = false;
+    let socket: Socket | null = null;
 
     const handleIncomingMessage = (message: RealtimeMessage) => {
       setThreads((prev) => {
@@ -686,19 +683,61 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       });
     };
 
-    socket.on("inbox:new", handleIncomingMessage);
-    socket.on("group:message:new", handleIncomingGroupMessage);
-    socket.on("connect_error", () => {
-      setStatus("Realtime connection lost. Trying to reconnect...");
-    });
-    socket.on("connect", () => {
-      setStatus("");
-    });
+    const initSocket = async () => {
+      const token = await ensureAccessToken();
+      if (!token || isDisposed) {
+        if (!isDisposed) {
+          setStatus("Session expired. Please login again.");
+        }
+        return;
+      }
+
+      socket = io(SOCKET_URL, {
+        auth: { token },
+      });
+      socketRef.current = socket;
+
+      const handleConnectError = async (error: Error) => {
+        if (isDisposed) {
+          return;
+        }
+
+        setStatus("Realtime connection lost. Trying to reconnect...");
+        if (error?.message !== "Not authenticated" || !socket) {
+          return;
+        }
+
+        const refreshedToken = await ensureAccessToken({ forceRefresh: true });
+        if (!refreshedToken || isDisposed) {
+          if (!isDisposed) {
+            setStatus("Session expired. Please login again.");
+          }
+          return;
+        }
+
+        socket.auth = { token: refreshedToken };
+        socket.connect();
+      };
+
+      socket.on("inbox:new", handleIncomingMessage);
+      socket.on("group:message:new", handleIncomingGroupMessage);
+      socket.on("connect_error", (error) => {
+        void handleConnectError(error as Error);
+      });
+      socket.on("connect", () => {
+        if (!isDisposed) {
+          setStatus("");
+        }
+      });
+    };
+
+    void initSocket();
 
     return () => {
-      socket.off("inbox:new", handleIncomingMessage);
-      socket.off("group:message:new", handleIncomingGroupMessage);
-      socket.disconnect();
+      isDisposed = true;
+      socket?.off("inbox:new", handleIncomingMessage);
+      socket?.off("group:message:new", handleIncomingGroupMessage);
+      socket?.disconnect();
       socketRef.current = null;
     };
   }, [me]);

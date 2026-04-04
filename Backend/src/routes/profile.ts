@@ -319,6 +319,10 @@ router.delete("/me", async (req, res) => {
         where: { userId: sessionUser.id },
       });
 
+      await tx.refreshSession.deleteMany({
+        where: { userId: sessionUser.id },
+      });
+
       await tx.user.delete({
         where: { id: sessionUser.id },
       });
