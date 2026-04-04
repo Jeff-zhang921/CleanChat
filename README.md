@@ -174,6 +174,8 @@ Get physically instant list visibility on return, instead of remounting and rehy
 - Return latency feels near 0ms.
 - List scroll position remains stable.
 - Interaction context is not reset by route transitions.
+- Through timestamp grouping (Time Grouping), redundant DOM nodes are reduced to improve long-list scrolling performance.
+- 通过时间戳分组（Time Grouping）减少 DOM 节点冗余，提升长列表滚动性能。
 
 ---
 

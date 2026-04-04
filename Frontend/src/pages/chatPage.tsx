@@ -45,6 +45,18 @@ type ChatPageProps = {
   onRequestClose?: (fromPath: "/conversations" | "/groups") => void;
 };
 
+type ChatRenderItem =
+  | {
+      kind: "temporal-divider";
+      key: string;
+      label: string;
+    }
+  | {
+      kind: "message";
+      key: string;
+      message: ChatMessage;
+    };
+
 const IMAGE_MESSAGE_PREFIX = "IMG::";
 const IMAGE_URL_REGEX =
   /^https:\/\/(?:utfs\.io|(?:[a-z0-9-]+\.)?ufs\.sh|[^/\s]*uploadthing\.com)\//i;
@@ -53,6 +65,8 @@ const IMAGE_EXTENSION_REGEX =
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const CONVERSATIONS_RETURN_KEY = "cleanchat:conversations-return";
 const CHAT_OVERLAY_EXIT_MS = 300;
+const TEMPORAL_GROUP_GAP_MS = 5 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const isHttpUrl = (value: string) => /^https?:\/\/\S+$/i.test(value);
 
@@ -84,6 +98,113 @@ const parsePositiveInt = (value: string | null) => {
     return null;
   }
   return parsed;
+};
+
+const toTwoDigits = (value: number) => String(value).padStart(2, "0");
+
+const formatTime24Hour = (date: Date) => `${toTwoDigits(date.getHours())}:${toTwoDigits(date.getMinutes())}`;
+
+const formatTemporalGroupLabel = (
+  createdAt: string,
+  language: string,
+  labels: {
+    yesterday: string;
+    periodAm: string;
+    periodPm: string;
+  },
+) => {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const isZh = language.toLowerCase().startsWith("zh");
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const dateStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const dayDiff = Math.floor((todayStart - dateStart) / DAY_MS);
+
+  if (dayDiff === 0) {
+    return isZh
+      ? formatTime24Hour(date)
+      : new Intl.DateTimeFormat("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        }).format(date);
+  }
+
+  if (dayDiff === 1) {
+    const timeLabel = isZh
+      ? formatTime24Hour(date)
+      : new Intl.DateTimeFormat("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        }).format(date);
+    return `${labels.yesterday} ${timeLabel}`;
+  }
+
+  if (isZh) {
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const minute = toTwoDigits(date.getMinutes());
+    const period = date.getHours() < 12 ? labels.periodAm : labels.periodPm;
+    const hour12 = date.getHours() % 12 || 12;
+    return `${month}月${day}日 ${period}${hour12}:${minute}`;
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date);
+};
+
+const buildTemporalRenderItems = (
+  messages: ChatMessage[],
+  language: string,
+  labels: {
+    yesterday: string;
+    periodAm: string;
+    periodPm: string;
+  },
+): ChatRenderItem[] => {
+  const renderItems: ChatRenderItem[] = [];
+
+  messages.forEach((current, index) => {
+    const previous = index > 0 ? messages[index - 1] : null;
+
+    if (previous) {
+      const currentTs = Date.parse(current.createdAt);
+      const previousTs = Date.parse(previous.createdAt);
+      const shouldInsertTemporalDivider =
+        Number.isFinite(currentTs) &&
+        Number.isFinite(previousTs) &&
+        currentTs - previousTs > TEMPORAL_GROUP_GAP_MS;
+
+      if (shouldInsertTemporalDivider) {
+        const label = formatTemporalGroupLabel(current.createdAt, language, labels);
+        if (label) {
+          renderItems.push({
+            kind: "temporal-divider",
+            key: `temporal-${current.id}-${currentTs}`,
+            label,
+          });
+        }
+      }
+    }
+
+    renderItems.push({
+      kind: "message",
+      key: `message-${current.id}`,
+      message: current,
+    });
+  });
+
+  return renderItems;
 };
 
 const ChatVirtuosoScroller = forwardRef<HTMLDivElement, ScrollerProps>((props, ref) => (
@@ -787,7 +908,6 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     };
   }, []);
 
-  const locale = i18n.language.toLowerCase().startsWith("zh") ? "zh-CN" : "en-US";
   const chatLabel = other || (chatMode === "group" ? t("chat.groupChat") : t("chat.conversation"));
   const avatarFallback = chatLabel.trim().charAt(0).toUpperCase() || "?";
   const isConnected = Boolean(socketRef.current?.connected);
@@ -808,8 +928,15 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     main: messageOverscan,
     reverse: messageOverscan,
   } as const;
-  const shouldShowDate = (chatMode === "direct" && threadId) || (chatMode === "group" && groupId);
-  const chatDateLabel = new Date().toLocaleString(locale);
+  const timelineItems = useMemo(
+    () =>
+      buildTemporalRenderItems(message, i18n.language, {
+        yesterday: t("chat.yesterday"),
+        periodAm: t("chat.periodAm"),
+        periodPm: t("chat.periodPm"),
+      }),
+    [i18n.language, message, t]
+  );
   const historySkeletonRows = [
     { key: "skeleton-a", side: "them" as const, width: "68%" },
     { key: "skeleton-b", side: "me" as const, width: "54%" },
@@ -1003,7 +1130,6 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
         <div className={`chat-body ${showHistorySkeleton ? "loading" : "ready"}`}>
           {showHistorySkeleton && (
             <div className="chat-history-skeleton" aria-hidden="true">
-              <div className="chat-date chat-date-skeleton" />
               {historySkeletonRows.map((row, index) => (
                 <div key={row.key} className={`chat-row ${row.side} skeleton-row`}>
                   <div
@@ -1012,9 +1138,6 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
                   >
                     <span className="chat-skeleton-line chat-skeleton-line-long" />
                     <span className="chat-skeleton-line chat-skeleton-line-short" />
-                    <div className="chat-meta-row">
-                      <span className="chat-skeleton-meta" />
-                    </div>
                   </div>
                 </div>
               ))}
@@ -1029,11 +1152,11 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
             <Virtuoso
               ref={virtuosoRef}
               className="chat-virtuoso"
-              data={message}
+              data={timelineItems}
               alignToBottom
               atBottomStateChange={setIsAtBottom}
               followOutput={(atBottom) => (atBottom ? "smooth" : false)}
-              computeItemKey={(_index, msg) => msg.id}
+              computeItemKey={(_index, item) => item.key}
               defaultItemHeight={92}
               increaseViewportBy={messageViewportIncrease}
               overscan={messageOverscanWindow}
@@ -1042,9 +1165,17 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
               components={{
                 Scroller: ChatVirtuosoScroller,
                 List: ChatVirtuosoList,
-                Header: shouldShowDate ? () => <div className="chat-date">{chatDateLabel}</div> : undefined,
               }}
-              itemContent={(_index, msg) => {
+              itemContent={(_index, item) => {
+                if (item.kind === "temporal-divider") {
+                  return (
+                    <div className="chat-virtuoso-item chat-virtuoso-temporal-item" aria-hidden="true">
+                      <div className="chat-temporal-separator">{item.label}</div>
+                    </div>
+                  );
+                }
+
+                const msg = item.message;
                 const isMe = msg.senderId === me?.id;
                 const imageUrl = getImageUrlFromMessage(msg.body);
                 const isDeletingMessage = deletingMessageIds.includes(msg.id);
@@ -1072,9 +1203,8 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
                         ) : (
                           <p>{msg.body}</p>
                         )}
-                        <div className="chat-meta-row">
-                          <span className="chat-timestamp">{new Date(msg.createdAt).toLocaleTimeString()}</span>
-                          {isMe && (
+                        {isMe && (
+                          <div className="chat-meta-row">
                             <button
                               type="button"
                               className="chat-delete-button"
@@ -1083,8 +1213,8 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
                             >
                               {isDeletingMessage ? t("chat.deleting") : t("chat.deleteAction")}
                             </button>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
