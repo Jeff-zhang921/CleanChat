@@ -1,0 +1,109 @@
+.verify-page {
+  min-height: 100svh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  background:
+    radial-gradient(38rem 24rem at 50% 0%, rgba(228, 248, 237, 0.58), rgba(228, 248, 237, 0) 70%),
+    linear-gradient(180deg, #f8fcfa 0%, #f2f7f4 100%);
+}
+
+.verify-form {
+  width: min(100%, 22rem);
+  display: grid;
+  gap: 0.7rem;
+}
+
+.verify-title {
+  margin: 0;
+  font-size: clamp(1.1rem, 3.8vw, 1.5rem);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: #102118;
+}
+
+.verify-copy {
+  margin: 0;
+  color: #3a4a42;
+  font-size: 0.93rem;
+  line-height: 1.5;
+}
+
+.verify-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #2b3c33;
+}
+
+.verify-input {
+  width: 100%;
+  border: 1px solid #d6e2da;
+  border-radius: 0.75rem;
+  padding: 0.74rem 0.8rem;
+  font: inherit;
+  font-size: 1.02rem;
+  text-align: center;
+  letter-spacing: 0.24em;
+  font-weight: 700;
+  color: #14251c;
+  background: rgba(255, 255, 255, 0.92);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.verify-input:focus {
+  outline: none;
+  border-color: #7eae92;
+  box-shadow: 0 0 0 3px rgba(126, 174, 146, 0.18);
+}
+
+.verify-primary,
+.verify-secondary {
+  width: min(100%, 22rem);
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 620;
+  cursor: pointer;
+}
+
+.verify-primary {
+  padding: 0.72rem 0.92rem;
+  background: #1f5d3f;
+  color: #f6fcf9;
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.verify-primary:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.verify-primary:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.verify-secondary {
+  padding: 0.62rem 0.92rem;
+  background: rgba(255, 255, 255, 0.72);
+  border-color: #d7e4dc;
+  color: #22372c;
+}
+
+.verify-status {
+  width: min(100%, 22rem);
+  margin: 0;
+  font-size: 0.9rem;
+  color: #7e2f2f;
+  line-height: 1.45;
+}
+
+@media (max-width: 520px) {
+  .verify-page {
+    padding: 1rem;
+  }
+}
