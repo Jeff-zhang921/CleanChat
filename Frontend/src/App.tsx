@@ -18,6 +18,7 @@ import GroupRequestPage from './pages/groupRequestPage'
 import PurityDetailPage from './pages/purityDetail'
 import IdentityVaultPage from './pages/identityVault'
 import ProfileSettingsPage from './pages/profileSettings'
+import { NotificationBadgeProvider } from './state/notificationBadgeContext';
 import { getAuthToken } from './utils/auth';
 
 type PretextBackdropVariant = 'auth' | 'app';
@@ -529,6 +530,10 @@ const RoutedApp = () => {
 };
 
 function App(){
-    return <RoutedApp />;
+    return (
+      <NotificationBadgeProvider>
+        <RoutedApp />
+      </NotificationBadgeProvider>
+    );
 }
 export default App;

@@ -1,5 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import Badge from "./Badge";
+import { useNotificationBadges } from "../state/notificationBadgeContext";
 import "./BottomNav.css";
 
 type NavIconProps = {
@@ -48,6 +50,7 @@ const NavIcon = ({ kind, active }: NavIconProps) => {
 
 const BottomNav = () => {
   const { t } = useTranslation();
+  const { totalUnreadMessages, pendingVerificationTotal } = useNotificationBadges();
 
   const items = [
     { to: "/conversations", label: t("nav.chats"), kind: "conversations" as const },
@@ -68,7 +71,26 @@ const BottomNav = () => {
           >
             {({ isActive }) => (
               <>
-                <NavIcon kind={item.kind} active={isActive} />
+                <span className="bottom-nav-icon-wrap">
+                  <NavIcon kind={item.kind} active={isActive} />
+                  <Badge
+                    count={
+                      item.kind === "conversations"
+                        ? totalUnreadMessages
+                        : item.kind === "profile"
+                          ? pendingVerificationTotal
+                          : 0
+                    }
+                    size="compact"
+                    className="bottom-nav-badge"
+                    ariaLabel={t("conversations.unreadMessage", {
+                      count:
+                        item.kind === "conversations"
+                          ? totalUnreadMessages
+                          : pendingVerificationTotal,
+                    })}
+                  />
+                </span>
                 <span className="bottom-nav-label">{item.label}</span>
               </>
             )}

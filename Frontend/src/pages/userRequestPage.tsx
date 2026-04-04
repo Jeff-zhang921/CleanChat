@@ -8,6 +8,7 @@ import {
   type AvatarKey,
 } from "../constants/avatarCatalog";
 import { BACKEND_URL } from "../config";
+import { useNotificationBadges } from "../state/notificationBadgeContext";
 import { GENDER_ARIA_KEY_MAP, normalizeGender } from "../utils/gender";
 import type { CleanIdTrustSnapshot } from "../utils/cleanIdTrust";
 import "./userRequestPage.css";
@@ -80,6 +81,7 @@ const UserRequestPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const { refreshPendingCounts } = useNotificationBadges();
   const locationState = (location.state as UserRequestLocationState) ?? null;
   const fromPath = resolveFromPath(locationState?.fromPath);
 
@@ -116,6 +118,7 @@ const UserRequestPage = () => {
       setLoading(true);
       try {
         await refreshRequests();
+        void refreshPendingCounts();
         if (isMounted) {
           setStatus("");
         }
@@ -185,6 +188,7 @@ const UserRequestPage = () => {
 
       const threadId = data.thread?.id;
       if (typeof threadId === "number") {
+        void refreshPendingCounts();
         const chatFromPath = toChatFromPath(fromPath);
         navigate("/chat", {
           state: {
@@ -199,6 +203,7 @@ const UserRequestPage = () => {
       }
 
       await refreshRequests();
+      void refreshPendingCounts();
       setStatus(t("userRequests.accepted"));
     } catch {
       setStatus(t("userRequests.updateFailed"));
@@ -236,6 +241,7 @@ const UserRequestPage = () => {
 
       setPendingRequests((prev) => prev.filter((item) => item.request.id !== entry.request.id));
       setRecentRequests((prev) => [{ ...entry, request: data.request }, ...prev].slice(0, 20));
+      void refreshPendingCounts();
       setStatus(t("userRequests.rejected"));
     } catch {
       setStatus(t("userRequests.updateFailed"));

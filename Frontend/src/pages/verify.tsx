@@ -153,13 +153,9 @@ const VerifyPage = () => {
     <div style={styles.shell} {...(compact ? {} : bindings)}>
       <main style={styles.frame}>
         <section style={styles.card}>
-          <div style={styles.glowA} />
-          <div style={styles.glowB} />
-
           <div style={styles.topRow}>
             <p style={styles.kicker}>{t("auth.stepTwoOfTwo")}</p>
             <span style={styles.utilityRow}>
-              <span style={styles.badge}>{t("auth.verifyCode")}</span>
               <AuthLanguageSwitch
                 currentLanguage={currentLanguage}
                 onLanguageSwitch={handleLanguageSwitch}

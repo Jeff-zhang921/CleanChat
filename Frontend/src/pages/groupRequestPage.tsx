@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import "./groupRequestPage.css";
 import { BACKEND_URL } from "../config";
+import { useNotificationBadges } from "../state/notificationBadgeContext";
 
 type OverlayFromPath = "/conversations" | "/groups" | "/profile";
 
@@ -43,6 +44,7 @@ const GroupRequestPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const { refreshPendingCounts } = useNotificationBadges();
   const locationState = (location.state as GroupRequestLocationState) ?? null;
   const fromPath = resolveFromPath(locationState?.fromPath);
 
@@ -100,6 +102,7 @@ const GroupRequestPage = () => {
         (group) => group.isOwner,
       );
       setGroups(ownedGroups);
+      void refreshPendingCounts();
       setStatus("");
 
       if (!selectedGroupId && ownedGroups.length > 0) {
@@ -209,6 +212,7 @@ const GroupRequestPage = () => {
       } else {
         await loadGroups();
       }
+      void refreshPendingCounts();
       setStatus(action === "approve" ? t("groupRequests.approved") : t("groupRequests.rejected"));
     } catch {
       setStatus(t("groupRequests.updateFailed"));

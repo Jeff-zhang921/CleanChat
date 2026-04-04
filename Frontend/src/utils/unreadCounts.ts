@@ -2,6 +2,7 @@ export type ConversationUnreadCounts = Record<string, number>;
 
 const STORAGE_KEY = "cleanchat:conversation-unread-counts";
 const MAX_UNREAD = 999;
+export const UNREAD_COUNTS_UPDATED_EVENT = "cleanchat:unread-counts-updated";
 
 const sanitizeCount = (value: unknown) => {
   const count = Number(value);
@@ -58,6 +59,16 @@ export const persistUnreadCounts = (counts: ConversationUnreadCounts) => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
   } catch {
     // Storage failures should not block conversation rendering.
+  }
+
+  try {
+    window.dispatchEvent(
+      new CustomEvent<ConversationUnreadCounts>(UNREAD_COUNTS_UPDATED_EVENT, {
+        detail: normalized,
+      }),
+    );
+  } catch {
+    // Ignore event dispatch failures in restricted environments.
   }
 };
 

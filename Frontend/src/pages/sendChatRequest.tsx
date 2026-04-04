@@ -9,6 +9,7 @@ import {
   type AvatarKey,
 } from "../constants/avatarCatalog";
 import { BACKEND_URL } from "../config";
+import { useNotificationBadges } from "../state/notificationBadgeContext";
 import { GENDER_ARIA_KEY_MAP, normalizeGender } from "../utils/gender";
 import type { CleanIdTrustSnapshot } from "../utils/cleanIdTrust";
 import "./sendChatRequest.css";
@@ -83,6 +84,7 @@ const SendChatRequestPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const { refreshPendingCounts } = useNotificationBadges();
   const locationState = (location.state as SendRequestLocationState) ?? null;
   const fromPath = resolveFromPath(locationState?.fromPath);
 
@@ -270,6 +272,7 @@ const SendChatRequestPage = () => {
       }
 
       await loadTargetSnapshot(targetUserId);
+      void refreshPendingCounts();
 
       if (data.autoAccepted || data.alreadyAccepted) {
         setStatus(t("sendRequest.peerAccepted"));

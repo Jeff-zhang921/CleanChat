@@ -26,7 +26,7 @@ const ProfileEditPage = () => {
   const [status, setStatus] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
-  const [isGenderDrawerOpen, setIsGenderDrawerOpen] = useState(false);
+  const [isGenderDrawerOpen, setIsGenderDrawerOpen] = useState<boolean>(() => false);
   const genderLabel = t(GENDER_ARIA_KEY_MAP[gender]);
 
   useEffect(() => {
@@ -368,38 +368,40 @@ const ProfileEditPage = () => {
         </form>
       </main>
 
-      <div className={`profile-edit-gender-drawer-layer ${isGenderDrawerOpen ? "is-open" : ""}`} aria-hidden={!isGenderDrawerOpen}>
-        <button
-          type="button"
-          className="profile-edit-gender-drawer-backdrop"
-          onClick={() => setIsGenderDrawerOpen(false)}
-          tabIndex={isGenderDrawerOpen ? 0 : -1}
-          aria-label={t("common.close")}
-        />
-        <aside
-          className="profile-edit-gender-drawer"
-          role="dialog"
-          aria-modal="true"
-          aria-label={t("profileEdit.editGender")}
-        >
-          <header className="profile-edit-gender-drawer-head">
-            <p className="profile-edit-eyebrow">{t("profileEdit.editGender")}</p>
-            <h2>{t("profileEdit.gender")}</h2>
-            <p>{t("profileEdit.genderHint")}</p>
-          </header>
-
-          <GenderPicker value={gender} onChange={setGender} disabled={isSaving} className="profile-edit-gender-picker" />
-
+      {isGenderDrawerOpen && (
+        <div className="profile-edit-gender-drawer-layer is-open" aria-hidden={false}>
           <button
             type="button"
-            className="profile-edit-action profile-edit-action-primary profile-edit-gender-drawer-close"
+            className="profile-edit-gender-drawer-backdrop"
             onClick={() => setIsGenderDrawerOpen(false)}
-            disabled={isSaving}
+            tabIndex={0}
+            aria-label={t("common.close")}
+          />
+          <aside
+            className="profile-edit-gender-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("profileEdit.editGender")}
           >
-            {t("common.close")}
-          </button>
-        </aside>
-      </div>
+            <header className="profile-edit-gender-drawer-head">
+              <p className="profile-edit-eyebrow">{t("profileEdit.editGender")}</p>
+              <h2>{t("profileEdit.gender")}</h2>
+              <p>{t("profileEdit.genderHint")}</p>
+            </header>
+
+            <GenderPicker value={gender} onChange={setGender} disabled={isSaving} className="profile-edit-gender-picker" />
+
+            <button
+              type="button"
+              className="profile-edit-action profile-edit-action-primary profile-edit-gender-drawer-close"
+              onClick={() => setIsGenderDrawerOpen(false)}
+              disabled={isSaving}
+            >
+              {t("common.close")}
+            </button>
+          </aside>
+        </div>
+      )}
     </div>
   );
 };

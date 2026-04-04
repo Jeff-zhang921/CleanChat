@@ -223,6 +223,17 @@
   align-items: flex-start;
 }
 
+.groups-page .group-card-avatar {
+  position: relative;
+  overflow: visible;
+}
+
+.groups-page .group-card-pending-badge {
+  position: absolute;
+  top: -0.3rem;
+  right: -0.3rem;
+}
+
 .groups-page .group-card.joined {
   cursor: pointer;
 }

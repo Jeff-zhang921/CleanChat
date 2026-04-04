@@ -5,6 +5,7 @@ import { Virtuoso, type ListProps, type ScrollerProps } from "react-virtuoso";
 import { io, type Socket } from "socket.io-client";
 import { useTranslation } from "react-i18next";
 import BottomNav from "../components/BottomNav";
+import Badge from "../components/Badge";
 import GenderLineIcon from "../components/GenderLineIcon";
 import { DEFAULT_AVATAR_KEY, getAvatarToneClass, getAvatarUrl, type AvatarKey } from "../constants/avatarCatalog";
 import { BACKEND_URL, SOCKET_URL } from "../config";
@@ -295,38 +296,6 @@ const FLIP_LAYOUT_TRANSITION = {
     mass: 0.74,
   },
 } as const;
-
-const formatUnreadCount = (count: number) => (count > 99 ? "99+" : String(count));
-
-const UnreadIndicator = ({
-  unreadCount,
-  unreadLabel,
-}: {
-  unreadCount: number;
-  unreadLabel: (count: number) => string;
-}) => {
-  if (unreadCount <= 0) {
-    return <span className="conversation-unread-placeholder" aria-hidden="true" />;
-  }
-
-  if (unreadCount === 1) {
-    return (
-      <span
-        className="conversation-unread-indicator conversation-unread-dot"
-        aria-label={unreadLabel(1)}
-      />
-    );
-  }
-
-  return (
-    <span
-      className="conversation-unread-indicator conversation-unread-capsule"
-      aria-label={unreadLabel(unreadCount)}
-    >
-      {formatUnreadCount(unreadCount)}
-    </span>
-  );
-};
 
 const SearchGlyph = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1104,10 +1073,14 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
           </div>
           <div className="conversation-meta-stack">
             <span className="time">{item.time}</span>
-            <UnreadIndicator
-              unreadCount={item.unreadCount}
-              unreadLabel={(count) => t("conversations.unreadMessage", { count })}
-            />
+            <span className="conversation-badge-slot" aria-hidden={item.unreadCount <= 0}>
+              <Badge
+                count={item.unreadCount}
+                size="compact"
+                className="conversation-unread-badge"
+                ariaLabel={t("conversations.unreadMessage", { count: item.unreadCount })}
+              />
+            </span>
           </div>
         </div>
         <p className="preview">{item.preview}</p>

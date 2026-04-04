@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import BottomNav from "../components/BottomNav";
+import Badge from "../components/Badge";
 import { BACKEND_URL } from "../config";
 import { GROUP_AVATAR_OPTIONS, type GroupAvatarKey } from "../constants/groupAvatars";
 import "./GroupConversationPage.css";
@@ -392,6 +393,7 @@ const GroupConversationPage = () => {
     const deleteLabel = isWorking && workingAction === "delete" ? t("groups.deleting") : t("groups.delete");
     const avatarLabel = isWorking && workingAction === "avatar" ? t("groups.saving") : t("groups.avatar");
     const canOpenByCard = group.joined && !isWorking && !isCreating;
+    const pendingRequestCount = group.isOwner ? group.pendingRequestCount : 0;
 
     return (
       <article
@@ -409,8 +411,14 @@ const GroupConversationPage = () => {
           }
         }}
       >
-        <div className="avatar">
+        <div className="avatar group-card-avatar">
           <img src={group.avatarUrl} alt={t("groups.groupAvatarAlt", { name: group.name })} />
+          <Badge
+            count={pendingRequestCount}
+            size="compact"
+            className="group-card-pending-badge"
+            ariaLabel={t("groups.pendingRequests", { count: pendingRequestCount })}
+          />
         </div>
         <div className="conversation-body">
           <div className="conversation-top">
@@ -427,9 +435,6 @@ const GroupConversationPage = () => {
               description: group.description || t("groups.groupFallback"),
               joinRule: group.requiresApproval ? t("groups.verificationRequired") : t("groups.openJoin"),
             })}
-            {group.isOwner && group.pendingRequestCount > 0
-              ? ` - ${t("groups.pendingRequests", { count: group.pendingRequestCount })}`
-              : ""}
           </p>
         </div>
         {group.joined ? (
