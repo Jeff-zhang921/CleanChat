@@ -3,6 +3,7 @@ import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Virtuoso, type ListProps, type ScrollerProps } from "react-virtuoso";
 import { io, type Socket } from "socket.io-client";
+import { useTranslation } from "react-i18next";
 import BottomNav from "../components/BottomNav";
 import { DEFAULT_AVATAR_KEY, getAvatarToneClass, getAvatarUrl, type AvatarKey } from "../constants/avatarCatalog";
 import { BACKEND_URL, SOCKET_URL } from "../config";
@@ -223,11 +224,21 @@ const clearConversationReturnIntent = () => {
 
 const resolveAvatarUrl = (avatar?: AvatarKey) => getAvatarUrl(avatar ?? DEFAULT_AVATAR_KEY);
 
-const formatTime = (time?: string) => {
-  if (!time) return "New";
+const formatTime = (
+  time: string | undefined,
+  language: string,
+  defaultLabel: string,
+) => {
+  if (!time) return defaultLabel;
   const date = new Date(time);
-  if (Number.isNaN(date.getTime())) return "New";
-  return date.toLocaleDateString();
+  if (Number.isNaN(date.getTime())) return defaultLabel;
+  return new Intl.DateTimeFormat(
+    language.toLowerCase().startsWith("zh") ? "zh-CN" : "en-US",
+    {
+      month: "numeric",
+      day: "numeric",
+    },
+  ).format(date);
 };
 
 const toTimestamp = (time?: string | null) => {
@@ -254,13 +265,19 @@ const isImageMessageBody = (body: string) => {
   return IMAGE_URL_REGEX.test(normalizedBody) || IMAGE_EXTENSION_REGEX.test(normalizedBody);
 };
 
-const getConversationPreview = (body?: string | null) => {
-  if (!body) return "No messages yet.";
-  return isImageMessageBody(body) ? "Photo" : body;
+const getConversationPreview = (
+  body: string | null | undefined,
+  labels: {
+    noMessages: string;
+    photo: string;
+  },
+) => {
+  if (!body) return labels.noMessages;
+  return isImageMessageBody(body) ? labels.photo : body;
 };
 
-const getNotificationBody = (body: string) =>
-  isImageMessageBody(body) ? "sent a photo" : body;
+const getNotificationBody = (body: string, sentPhotoLabel: string) =>
+  isImageMessageBody(body) ? sentPhotoLabel : body;
 
 const FLIP_LAYOUT_TRANSITION = {
   layout: {
@@ -273,7 +290,13 @@ const FLIP_LAYOUT_TRANSITION = {
 
 const formatUnreadCount = (count: number) => (count > 99 ? "99+" : String(count));
 
-const UnreadIndicator = ({ unreadCount }: { unreadCount: number }) => {
+const UnreadIndicator = ({
+  unreadCount,
+  unreadLabel,
+}: {
+  unreadCount: number;
+  unreadLabel: (count: number) => string;
+}) => {
   if (unreadCount <= 0) {
     return <span className="conversation-unread-placeholder" aria-hidden="true" />;
   }
@@ -282,7 +305,7 @@ const UnreadIndicator = ({ unreadCount }: { unreadCount: number }) => {
     return (
       <span
         className="conversation-unread-indicator conversation-unread-dot"
-        aria-label="1 unread message"
+        aria-label={unreadLabel(1)}
       />
     );
   }
@@ -290,7 +313,7 @@ const UnreadIndicator = ({ unreadCount }: { unreadCount: number }) => {
   return (
     <span
       className="conversation-unread-indicator conversation-unread-capsule"
-      aria-label={`${unreadCount} unread messages`}
+      aria-label={unreadLabel(unreadCount)}
     >
       {formatUnreadCount(unreadCount)}
     </span>
@@ -344,78 +367,83 @@ const ConversationStageChrome = ({
   onOpenSearch,
   onCloseSearch,
   onSearchChange,
-}: ConversationStageChromeProps) => (
-  <div className="conversations-stage-header">
-    <header className="conversations-hero">
-      <div className="conversations-title-wrap">
-        <p className="eyebrow">{heroName}</p>
-        <h1 className="page-title">Conversations</h1>
-        <p className="page-copy">
-          {hasQuery ? "Find people by CleanID." : "Direct chats and joined groups in one quiet list."}
-        </p>
-      </div>
-    </header>
+}: ConversationStageChromeProps) => {
+  const { t } = useTranslation();
 
-    <div className={`conversations-toolbar ${isSearchOpen ? "search-open" : ""}`}>
-      {!isSearchOpen && (
-        <button
-          type="button"
-          className="search-launcher"
-          aria-label="Open search"
-          onClick={onOpenSearch}
-        >
-          <SearchGlyph />
-        </button>
-      )}
-      <div className={`search-shell ${isSearchOpen ? "expanded" : ""}`}>
-        <div className="search-field">
-          <label className="sr-only" htmlFor="conversation-search">
-            Search by CleanID
-          </label>
-          <div className="search-input-wrap">
-            <span className="search-icon">
-              <SearchGlyph />
-            </span>
-            <input
-              ref={searchInputRef as RefObject<HTMLInputElement>}
-              id="conversation-search"
-              type="text"
-              placeholder="Search everyone by CleanID"
-              value={searchTerm}
-              onChange={(event) => onSearchChange(event.target.value)}
-              onFocus={onOpenSearch}
-              onBlur={() => {
-                if (!searchTerm.trim()) {
-                  onCloseSearch();
-                }
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  onCloseSearch();
-                }
-              }}
-            />
-            <button
-              type="button"
-              className="search-dismiss"
-              aria-label="Close search"
-              onClick={onCloseSearch}
-            >
-              Close
-            </button>
+  return (
+    <div className="conversations-stage-header">
+      <header className="conversations-hero">
+        <div className="conversations-title-wrap">
+          <p className="eyebrow">{heroName}</p>
+          <h1 className="page-title">{t("conversations.title")}</h1>
+          <p className="page-copy">
+            {hasQuery ? t("conversations.subtitleSearch") : t("conversations.subtitle")}
+          </p>
+        </div>
+      </header>
+
+      <div className={`conversations-toolbar ${isSearchOpen ? "search-open" : ""}`}>
+        {!isSearchOpen && (
+          <button
+            type="button"
+            className="search-launcher"
+            aria-label={t("conversations.openSearch")}
+            onClick={onOpenSearch}
+          >
+            <SearchGlyph />
+          </button>
+        )}
+        <div className={`search-shell ${isSearchOpen ? "expanded" : ""}`}>
+          <div className="search-field">
+            <label className="sr-only" htmlFor="conversation-search">
+              {t("conversations.searchByCleanId")}
+            </label>
+            <div className="search-input-wrap">
+              <span className="search-icon">
+                <SearchGlyph />
+              </span>
+              <input
+                ref={searchInputRef as RefObject<HTMLInputElement>}
+                id="conversation-search"
+                type="text"
+                placeholder={t("conversations.searchPlaceholder")}
+                value={searchTerm}
+                onChange={(event) => onSearchChange(event.target.value)}
+                onFocus={onOpenSearch}
+                onBlur={() => {
+                  if (!searchTerm.trim()) {
+                    onCloseSearch();
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    onCloseSearch();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="search-dismiss"
+                aria-label={t("conversations.closeSearch")}
+                onClick={onCloseSearch}
+              >
+                {t("common.close")}
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div className="conversations-meta">
-      <span>{hasQuery ? `People | ${metaLabel}` : metaLabel}</span>
+      <div className="conversations-meta">
+        <span>{hasQuery ? t("conversations.metaPeople", { label: metaLabel }) : metaLabel}</span>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const listOverscan = useViewportOverscan();
   const isCompactViewport = useCompactViewport();
   const initialCacheRef = useRef<ConversationsCache | null>(readConversationsCache());
@@ -513,7 +541,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     });
     if (!threadsResponse.ok) {
       const data = await threadsResponse.json().catch(() => ({}));
-      setStatus(data.message || "Failed to load conversations.");
+      setStatus(data.message || t("conversations.loadingFailed"));
       return false;
     }
 
@@ -529,7 +557,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     });
     if (!groupsResponse.ok) {
       const data = await groupsResponse.json().catch(() => ({}));
-      setStatus(data.message || "Failed to load groups.");
+      setStatus(data.message || t("groups.loadingFailed"));
       return false;
     }
 
@@ -552,7 +580,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         });
         if (!meResponse.ok) {
           if (isMounted) {
-            setStatus("Please login to see conversations.");
+            setStatus(t("conversations.loginRequired"));
           }
           return;
         }
@@ -560,7 +588,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         const meData = await meResponse.json().catch(() => ({}));
         if (!meData.user) {
           if (isMounted) {
-            setStatus("Please login to see conversations.");
+            setStatus(t("conversations.loginRequired"));
           }
           return;
         }
@@ -571,7 +599,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
           await Promise.all([refreshThreads(), refreshGroups()]);
         }
       } catch {
-        if (isMounted) setStatus("Failed to load conversations.");
+        if (isMounted) setStatus(t("conversations.loadingFailed"));
       } finally {
         if (isMounted && shouldMaskInitialLoad) {
           const endedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -592,7 +620,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     return () => {
       isMounted = false;
     };
-  }, [initialCache]);
+  }, [initialCache, t]);
 
   useEffect(() => {
     if (!me) return;
@@ -631,7 +659,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       incrementThreadUnread(message.threadId);
 
       const targetThread = threadsRef.current.find((item) => item.id === message.threadId);
-      let senderName = "CleanChat";
+      let senderName = t("common.cleanChat");
       if (!targetThread) {
         void refreshThreads();
       } else {
@@ -639,7 +667,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         senderName = sender.cleanId || sender.name || sender.email;
       }
 
-      showMessageNotification(senderName, getNotificationBody(message.body), {
+      showMessageNotification(senderName, getNotificationBody(message.body, t("conversations.sentPhoto")), {
         tag: `thread-${message.threadId}`,
         target: {
           chatType: "direct",
@@ -672,9 +700,9 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       incrementGroupUnread(message.groupId);
 
       const targetGroup = groupsRef.current.find((item) => item.id === message.groupId);
-      const groupName = targetGroup?.name ?? "Group";
-      const senderName = message.senderName || "Someone";
-      showMessageNotification(groupName, `${senderName}: ${getNotificationBody(message.body)}`, {
+      const groupName = targetGroup?.name ?? t("groups.groupFallback");
+      const senderName = message.senderName || t("groups.someone");
+      showMessageNotification(groupName, `${senderName}: ${getNotificationBody(message.body, t("conversations.sentPhoto"))}`, {
         tag: `group-${message.groupId}`,
         target: {
           chatType: "group",
@@ -687,7 +715,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       const token = getAuthToken();
       if (!token || isDisposed) {
         if (!isDisposed) {
-          setStatus("Session expired. Please login again.");
+          setStatus(t("common.sessionExpired"));
         }
         return;
       }
@@ -702,13 +730,13 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
           return;
         }
 
-        setStatus("Realtime connection lost. Trying to reconnect...");
+        setStatus(t("conversations.realtimeReconnecting"));
         if (error?.message !== "Not authenticated" || !socket) {
           return;
         }
 
         clearAuthToken();
-        setStatus("Session expired. Please login again.");
+        setStatus(t("common.sessionExpired"));
         socket.disconnect();
       };
 
@@ -733,7 +761,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       socket?.disconnect();
       socketRef.current = null;
     };
-  }, [me]);
+  }, [me, t]);
 
   useEffect(() => {
     if (typeof window === "undefined" || import.meta.env.PROD) return;
@@ -753,7 +781,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       if (!detail) return;
 
       const now = detail.createdAt ?? new Date().toISOString();
-      const body = detail.body ?? "New message";
+      const body = detail.body ?? t("chat.newMessage");
 
       if ((detail.chatType === "group" || typeof detail.groupId === "string") && detail.groupId) {
         setGroups((prev) =>
@@ -804,7 +832,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     return () => {
       window.removeEventListener("cleanchat:simulate-inbox", handler as EventListener);
     };
-  }, [incrementGroupUnread, incrementThreadUnread]);
+  }, [incrementGroupUnread, incrementThreadUnread, t]);
 
   useEffect(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -817,7 +845,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       try {
-        setSearchStatus("Searching users by CleanID...");
+        setSearchStatus(t("conversations.searching"));
         const response = await fetch(
           `${BACKEND_URL}/chat/users/search?cleanId=${encodeURIComponent(query)}`,
           {
@@ -828,18 +856,18 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
 
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-          setSearchStatus(data.message || data.error || "Failed to search users.");
+          setSearchStatus(data.message || data.error || t("conversations.searchFailed"));
           return;
         }
 
         const users = Array.isArray(data.users) ? data.users : [];
         setSearchUsers(users);
-        setSearchStatus(users.length === 0 ? "No users found." : "");
+        setSearchStatus(users.length === 0 ? t("conversations.noUsers") : "");
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
         }
-        setSearchStatus("Failed to search users.");
+        setSearchStatus(t("conversations.searchFailed"));
       }
     }, 250);
 
@@ -847,7 +875,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [searchTerm]);
+  }, [searchTerm, t]);
 
   const threadByUserId = useMemo(() => {
     const map = new Map<number, number>();
@@ -880,9 +908,12 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         email: other.email,
         cleanId: other.cleanId,
         avatarUrl: resolveAvatarUrl(other.avatar),
-        role: "Direct",
-        preview: getConversationPreview(latestMessage?.body),
-        time: formatTime(lastActivityTime),
+        role: t("conversations.roleDirect"),
+        preview: getConversationPreview(latestMessage?.body, {
+          noMessages: t("conversations.noMessages"),
+          photo: t("conversations.photo"),
+        }),
+        time: formatTime(lastActivityTime, i18n.language, t("conversations.new")),
         sortAt: lastActivityTime,
         subline: `@${other.cleanId}`,
         trust: other.trust ?? FALLBACK_CLEAN_ID_TRUST,
@@ -899,11 +930,14 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         name: group.name,
         cleanId: group.id,
         avatarUrl: group.avatarUrl,
-        role: "Group",
-        preview: getConversationPreview(group.lastMessagePreview),
-        time: formatTime(group.lastMessageAt || undefined),
+        role: t("conversations.roleGroup"),
+        preview: getConversationPreview(group.lastMessagePreview, {
+          noMessages: t("conversations.noMessages"),
+          photo: t("conversations.photo"),
+        }),
+        time: formatTime(group.lastMessageAt || undefined, i18n.language, t("conversations.new")),
         sortAt: group.lastMessageAt,
-        subline: `${group.memberCount} members`,
+        subline: t("groups.members", { count: group.memberCount }),
         unreadCount: unreadCounts[getGroupUnreadKey(group.id)] ?? 0,
       }));
 
@@ -912,7 +946,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       const bTime = toTimestamp(b.sortAt);
       return bTime - aTime;
     });
-  }, [threads, groups, me, unreadCounts]);
+  }, [threads, groups, me, unreadCounts, t, i18n.language]);
 
   const skeletonCards = useMemo<ConversationSkeletonCard[]>(() => {
     if (conversations.length === 0) {
@@ -950,7 +984,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     }
 
     setOpeningUserId(user.id);
-    setSearchStatus("Creating conversation...");
+    setSearchStatus(t("conversations.creatingConversation"));
 
     try {
       const response = await fetch(`${BACKEND_URL}/chat/threads`, {
@@ -964,20 +998,20 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setSearchStatus(data.message || data.error || "Failed to create conversation.");
+        setSearchStatus(data.message || data.error || t("conversations.createConversationFailed"));
         return;
       }
 
       const threadId = data?.thread?.id;
       if (typeof threadId !== "number") {
-        setSearchStatus("Conversation created, but thread id is missing.");
+        setSearchStatus(t("conversations.createConversationMissingThread"));
         return;
       }
 
       setSearchStatus("");
       handleOpenThread(threadId, user.cleanId || user.email, resolveAvatarUrl(user.avatar), user.avatar);
     } catch {
-      setSearchStatus("Failed to create conversation.");
+      setSearchStatus(t("conversations.createConversationFailed"));
     } finally {
       setOpeningUserId(null);
     }
@@ -996,13 +1030,13 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
 
   const hasQuery = searchTerm.trim().length > 0;
   const isSearchOpen = isSearchExpanded || hasQuery;
-  const heroName = me?.name || me?.cleanId || me?.email || "CleanChat";
+  const heroName = me?.name || me?.cleanId || me?.email || t("common.cleanChat");
   const metaCount = hasQuery ? searchUsers.length : conversations.length;
   const metaLabel = isInitialLoading && !hasQuery && metaCount === 0
-    ? "Syncing conversations"
+    ? t("conversations.syncing")
     : hasQuery
-      ? `${metaCount} ${metaCount === 1 ? "person" : "people"} found`
-      : `${metaCount} ${metaCount === 1 ? "conversation" : "conversations"}`;
+      ? t("conversations.peopleFound", { count: metaCount })
+      : t("conversations.conversationCount", { count: metaCount });
   const viewportIncrease = {
     top: listOverscan,
     bottom: listOverscan,
@@ -1011,7 +1045,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     main: listOverscan,
     reverse: listOverscan,
   } as const;
-  const searchResultStatus = searchStatus || "No users found.";
+  const searchResultStatus = searchStatus || t("conversations.noUsers");
   const hasConversationResults = conversations.length > 0;
   const hasSearchResults = searchUsers.length > 0;
   const shouldShowInlineStatus = !isInitialLoading && Boolean(status);
@@ -1023,7 +1057,11 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   const renderSearchUserCard = (_index: number, user: UserSummary) => {
     const hasThread = threadByUserId.has(user.id);
     const actionLabel =
-      openingUserId === user.id ? "Opening..." : hasThread ? "Open Chat" : "Start Chat";
+      openingUserId === user.id
+        ? t("conversations.opening")
+        : hasThread
+          ? t("conversations.openChat")
+          : t("conversations.startChat");
 
     return (
       <div className="conversations-virtual-item">
@@ -1038,7 +1076,11 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
           }}
         >
           <div className="avatar">
-            <img className={getAvatarToneClass(user.avatar)} src={resolveAvatarUrl(user.avatar)} alt={`${user.cleanId} avatar`} />
+            <img
+              className={getAvatarToneClass(user.avatar)}
+              src={resolveAvatarUrl(user.avatar)}
+              alt={`${user.cleanId} ${t("common.avatar")}`}
+            />
           </div>
           <div className="conversation-body">
             <div className="conversation-top">
@@ -1063,7 +1105,11 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   const renderConversationCardContent = (item: ConversationItem) => (
     <>
       <div className="avatar">
-        <img className={item.avatarKey ? getAvatarToneClass(item.avatarKey) : undefined} src={item.avatarUrl} alt={`${item.name} avatar`} />
+        <img
+          className={item.avatarKey ? getAvatarToneClass(item.avatarKey) : undefined}
+          src={item.avatarUrl}
+          alt={`${item.name} ${t("common.avatar")}`}
+        />
       </div>
       <div className="conversation-body">
         <div className="conversation-top">
@@ -1073,7 +1119,10 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
           </div>
           <div className="conversation-meta-stack">
             <span className="time">{item.time}</span>
-            <UnreadIndicator unreadCount={item.unreadCount} />
+            <UnreadIndicator
+              unreadCount={item.unreadCount}
+              unreadLabel={(count) => t("conversations.unreadMessage", { count })}
+            />
           </div>
         </div>
         <p className="preview">{item.preview}</p>
@@ -1168,7 +1217,11 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
           )}
 
           {isInitialLoading && !hasQuery && (
-            <div className="conversations-scroll-shell" data-testid="conversations-scroll-shell" aria-label="Loading conversations">
+            <div
+              className="conversations-scroll-shell"
+              data-testid="conversations-scroll-shell"
+              aria-label={t("conversations.loading")}
+            >
               <div className="conversations-scroll-content">
                 <section className="conversations-list conversations-list-loading">
                   {skeletonCards.map((item) => (
@@ -1227,7 +1280,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
             isCompactViewport ? (
               <div className="conversations-scroll-shell" data-testid="conversations-scroll-shell">
                 <div className="conversations-scroll-content">
-                  <section className="conversations-list conversations-list-static" aria-label="Search results">
+                  <section className="conversations-list conversations-list-static" aria-label={t("conversations.searchResults")}>
                     {searchUsers.map((user, index) => (
                       <div key={`user-${user.id}`}>{renderSearchUserCard(index, user)}</div>
                     ))}
@@ -1235,7 +1288,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
                 </div>
               </div>
             ) : (
-              <section className="conversations-list-shell" aria-label="Search results">
+              <section className="conversations-list-shell" aria-label={t("conversations.searchResults")}>
                 <Virtuoso
                   className="conversations-virtuoso"
                   data={searchUsers}
@@ -1262,8 +1315,8 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
                   <div className="conversations-empty-mark">
                     <span className="conversation-cleanid conversation-cleanid-steady">@{me?.cleanId ?? "cleanid"}</span>
                   </div>
-                  <h3>No conversations yet</h3>
-                  <p>Search by CleanID or join a group when you're ready.</p>
+                  <h3>{t("conversations.emptyTitle")}</h3>
+                  <p>{t("conversations.emptyCopy")}</p>
                 </section>
               </div>
             </div>
@@ -1273,12 +1326,12 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
             <div className="conversations-scroll-shell" data-testid="conversations-scroll-shell">
               <div className="conversations-scroll-content">
                 {isDormant ? (
-                  <section className="conversations-list conversations-list-static conversations-list-fluid" aria-label="Conversations">
+                  <section className="conversations-list conversations-list-static conversations-list-fluid" aria-label={t("conversations.title")}>
                     {conversations.map((item, index) => renderConversationCard(index, item))}
                   </section>
                 ) : (
                   <MotionConfig reducedMotion="user">
-                    <section className="conversations-list conversations-list-static conversations-list-fluid" aria-label="Conversations">
+                    <section className="conversations-list conversations-list-static conversations-list-fluid" aria-label={t("conversations.title")}>
                       <AnimatePresence initial={false}>
                         {conversations.map((item, index) => renderConversationCard(index, item))}
                       </AnimatePresence>

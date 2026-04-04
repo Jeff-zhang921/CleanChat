@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import "./BottomNav.css";
 
 type NavIconProps = {
@@ -46,14 +47,16 @@ const NavIcon = ({ kind, active }: NavIconProps) => {
 };
 
 const BottomNav = () => {
+  const { t } = useTranslation();
+
   const items = [
-    { to: "/conversations", label: "Chats", kind: "conversations" as const },
-    { to: "/groups", label: "Join Group", kind: "groups" as const },
-    { to: "/profile", label: "Me", kind: "profile" as const },
+    { to: "/conversations", label: t("nav.chats"), kind: "conversations" as const },
+    { to: "/groups", label: t("nav.groups"), kind: "groups" as const },
+    { to: "/profile", label: t("nav.me"), kind: "profile" as const },
   ];
 
   return (
-    <nav className="bottom-nav" aria-label="Primary navigation">
+    <nav className="bottom-nav" aria-label={t("nav.primaryNavigation")}>
       <div className="bottom-nav-inner">
         {items.map((item) => (
           <NavLink

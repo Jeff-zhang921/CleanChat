@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useTranslation } from "react-i18next";
 import { apiClient } from "../utils/apiClient";
 import { setAuthToken } from "../utils/auth";
 import { ensurePushSubscriptionForCurrentUser } from "../utils/notifications";
@@ -41,6 +42,7 @@ const setPendingEmail = (email: string) => {
 };
 
 const VerifyPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const emailFromState = ((location.state as VerifyLocationState)?.email || "").trim().toLowerCase();
@@ -70,17 +72,17 @@ const VerifyPage = () => {
     event.preventDefault();
 
     if (!email) {
-      setStatus("Email is missing. Please go back to login.");
+      setStatus(t("auth.emailMissing"));
       return;
     }
 
     if (normalizedCode.length !== CODE_LENGTH) {
-      setStatus("Please enter the 6-digit code.");
+      setStatus(t("auth.enterSixDigitCode"));
       return;
     }
 
     setIsSubmitting(true);
-    setStatus("Verifying...");
+    setStatus(t("auth.verifying"));
 
     try {
       const response = await apiClient.post("/auth/email/verify", {
@@ -90,7 +92,7 @@ const VerifyPage = () => {
 
       const data = response.data as { token?: string; isNewUser?: boolean };
       if (!data.token) {
-        setStatus("Verification succeeded, but no token was returned.");
+        setStatus(t("auth.verifyTokenMissing"));
         return;
       }
 
@@ -104,12 +106,12 @@ const VerifyPage = () => {
       navigate(data.isNewUser ? "/basic-info" : "/conversations");
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        const message = error.response?.data?.message || error.response?.data?.error || "Verification failed.";
+        const message = error.response?.data?.message || error.response?.data?.error || t("auth.verifyFailed");
         setStatus(message);
         return;
       }
 
-      setStatus("Unable to connect to server.");
+      setStatus(t("common.connectionError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -123,24 +125,24 @@ const VerifyPage = () => {
           <div style={styles.glowB} />
 
           <div style={styles.topRow}>
-            <p style={styles.kicker}>Step 2 of 2</p>
-            <span style={styles.badge}>Verify code</span>
+            <p style={styles.kicker}>{t("auth.stepTwoOfTwo")}</p>
+            <span style={styles.badge}>{t("auth.verifyCode")}</span>
           </div>
 
           <div style={styles.hero}>
-            <h1 style={styles.heroTitle}>Enter the 6-digit code.</h1>
+            <h1 style={styles.heroTitle}>{t("auth.enterSixDigitCodeTitle")}</h1>
             <p style={styles.heroCopy}>
               {email
-                ? `We sent the code to ${email}. Enter it here and the auth surface disappears.`
-                : "Return to login, request a code, then finish the handoff here."}
+                ? t("auth.codeSentTo", { email })
+                : t("auth.returnLoginForCode")}
             </p>
           </div>
 
           <div style={styles.chipRow}>
             {[
-              `${normalizedCode.length}/${CODE_LENGTH} digits`,
-              email ? "mailbox linked" : "mailbox missing",
-              "one-time entry",
+              t("auth.codeDigitsProgress", { current: normalizedCode.length, total: CODE_LENGTH }),
+              email ? t("auth.mailboxLinked") : t("auth.mailboxMissing"),
+              t("auth.oneTimeEntry"),
             ].map((item) => (
               <span key={item} style={styles.chip}>
                 {item}
@@ -154,18 +156,22 @@ const VerifyPage = () => {
             <PretextSignalPanel
               progress={codeProgress}
               compact={compact}
-              heading={normalizedCode.length === CODE_LENGTH ? "All digits are present. Ready to enter." : "Waiting for the full 6-digit code."}
+              heading={
+                normalizedCode.length === CODE_LENGTH
+                  ? t("auth.allDigitsReady")
+                  : t("auth.waitingFullCode")
+              }
               caption={
                 email
-                  ? "This only needs to happen once. After verification, you go straight to your conversations."
-                  : "The route is incomplete without the email from step one."
+                  ? t("auth.verifyOnceOnly")
+                  : t("auth.routeIncomplete")
               }
             />
           </div>
 
           <form onSubmit={handleSubmit} style={styles.form}>
             <label style={styles.label} htmlFor="code">
-              Verification code
+              {t("auth.verificationCode")}
             </label>
             <input
               style={{
@@ -180,7 +186,7 @@ const VerifyPage = () => {
               maxLength={CODE_LENGTH}
               value={code}
               onChange={(event) => setCode(event.target.value)}
-              placeholder="123456"
+              placeholder={t("auth.codePlaceholder")}
               required
             />
 
@@ -198,12 +204,12 @@ const VerifyPage = () => {
               type="submit"
               disabled={isSubmitting || !email}
             >
-              {isSubmitting ? "Verifying..." : "Enter CleanChat"}
+              {isSubmitting ? t("auth.verifying") : t("auth.enterCleanChat")}
             </button>
           </form>
 
           <button style={styles.secondaryButton} type="button" onClick={() => navigate("/login")}>
-            Back to login
+            {t("auth.backToLogin")}
           </button>
 
           {status && (

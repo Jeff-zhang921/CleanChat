@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import BottomNav from "../components/BottomNav";
 import {
   AVATAR_TIER_META,
@@ -112,6 +113,7 @@ const ProfileLoadingState = () => (
 );
 
 const ProfilePage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const routeState = (location.state as ProfileRouteState | null) ?? null;
@@ -161,7 +163,7 @@ const ProfilePage = () => {
         setAvatar(nextUser.avatar ?? "AVATAR_LEO");
       } catch {
         if (isMounted) {
-          setStatus("Unable to load profile.");
+          setStatus(t("profile.loadFailed"));
         }
       } finally {
         if (isMounted) setLoading(false);
@@ -172,7 +174,7 @@ const ProfilePage = () => {
     return () => {
       isMounted = false;
     };
-  }, [navigate]);
+  }, [navigate, t]);
 
   useEffect(() => {
     const syncPermission = () => {
@@ -271,7 +273,7 @@ const ProfilePage = () => {
 
     const trimmedName = nickname.trim();
     if (!trimmedName) {
-      setStatus("Nickname is required.");
+      setStatus(t("profile.nicknameRequired"));
       return;
     }
     const cleanIdValidation = validateShortClaimInput({
@@ -285,7 +287,7 @@ const ProfilePage = () => {
     }
 
     setIsSaving(true);
-    setStatus("Saving profile...");
+  setStatus(t("profile.saving"));
 
     try {
       if (normalizedCleanId !== user.cleanId) {
@@ -310,7 +312,7 @@ const ProfilePage = () => {
               cleanIdData.message ||
               cleanIdData.details ||
               cleanIdRaw ||
-              "Failed to update CleanID."
+                t("profile.cleanIdUpdateFailed")
           );
           return;
         }
@@ -342,7 +344,7 @@ const ProfilePage = () => {
               profileData.message ||
               profileData.details ||
               profileRaw ||
-              "Failed to update profile."
+                t("profile.updateFailed")
           );
           return;
         }
@@ -353,7 +355,7 @@ const ProfilePage = () => {
       });
       const refreshData = await refreshResponse.json().catch(() => ({}));
       if (!refreshResponse.ok || !refreshData.user) {
-        setStatus("Profile saved, but failed to refresh profile.");
+        setStatus(t("profile.savedRefreshFailed"));
         setIsEditing(false);
         return;
       }
@@ -363,10 +365,10 @@ const ProfilePage = () => {
       setNickname(nextUser.name ?? "");
       setCleanId(nextUser.cleanId ?? "");
       setAvatar(nextUser.avatar ?? "AVATAR_LEO");
-      setStatus("Profile updated.");
+      setStatus(t("profile.updated"));
       setIsEditing(false);
     } catch {
-      setStatus("Unable to connect to server.");
+      setStatus(t("common.connectionError"));
     } finally {
       setIsSaving(false);
     }
@@ -396,30 +398,28 @@ const ProfilePage = () => {
     setNotificationPermission(subscriptionResult.permission);
 
     if (subscriptionResult.ok) {
-      setNotificationStatus("Notifications enabled and linked to your account.");
+      setNotificationStatus(t("profile.notificationsEnabled"));
       return;
     }
     if (subscriptionResult.permission === "denied") {
       setNotificationStatus(
         isAndroid13Plus()
-          ? "Notifications blocked. Android 13+ requires allowing the system notification prompt for CleanChat."
-          : "Notifications blocked. Please allow notifications in browser settings."
+          ? t("settings.notificationsBlockedAndroid")
+          : t("settings.notificationsBlockedBrowser")
       );
       return;
     }
     if (subscriptionResult.permission === "unsupported") {
       if (isIOSDevice() && !isStandalonePwa()) {
-        setNotificationStatus(
-          "iPhone Safari tab cannot enable web push. Add CleanChat to Home Screen, open from app icon, then enable notifications."
-        );
+        setNotificationStatus(t("settings.notificationsUnsupportedIOS"));
         return;
       }
-      setNotificationStatus("This browser does not support notifications.");
+      setNotificationStatus(t("settings.notificationsUnsupported"));
       return;
     }
 
     setNotificationStatus(
-      subscriptionResult.reason || "Notification permission not granted yet.",
+      subscriptionResult.reason || t("settings.notificationsNotGranted"),
     );
   };
 
@@ -431,7 +431,7 @@ const ProfilePage = () => {
     }
 
     setIsDeleting(true);
-    setStatus("Deleting account...");
+  setStatus(t("profile.deleting"));
     try {
       const response = await fetch(`${BACKEND_URL}/profile/me`, {
         method: "DELETE",
@@ -447,14 +447,14 @@ const ProfilePage = () => {
         }
       }
       if (!response.ok) {
-        setStatus(data.error || data.message || data.details || raw || "Failed to delete account.");
+        setStatus(data.error || data.message || data.details || raw || t("profile.deleteFailed"));
         setIsDeleteConfirming(false);
         return;
       }
       clearAuthToken();
       navigate("/login", { replace: true });
     } catch {
-      setStatus("Unable to connect to server.");
+      setStatus(t("common.connectionError"));
       setIsDeleteConfirming(false);
     } finally {
       setIsDeleting(false);
@@ -469,7 +469,7 @@ const ProfilePage = () => {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setStatus(data.message || data.error || "Failed to load your groups.");
+        setStatus(data.message || data.error || t("profile.groupsLoadFailed"));
         return;
       }
 
@@ -484,7 +484,7 @@ const ProfilePage = () => {
         setJoinRequests([]);
       }
     } catch {
-      setStatus("Failed to load your groups.");
+      setStatus(t("profile.groupsLoadFailed"));
     } finally {
       setIsLoadingGroupAccess(false);
     }
@@ -504,7 +504,7 @@ const ProfilePage = () => {
 
   const handleUpdateJoinPolicy = async (group: OwnedGroupSummary, requiresApproval: boolean) => {
     setUpdatingGroupId(group.id);
-    setStatus("Updating group verification setting...");
+    setStatus(t("profile.groupSettingUpdating"));
     try {
       const response = await fetch(`${BACKEND_URL}/chat/groups/${encodeURIComponent(group.id)}/settings`, {
         method: "PATCH",
@@ -514,7 +514,7 @@ const ProfilePage = () => {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setStatus(data.message || data.error || "Failed to update group setting.");
+        setStatus(data.message || data.error || t("profile.groupSettingUpdateFailed"));
         return;
       }
 
@@ -530,7 +530,7 @@ const ProfilePage = () => {
       }
       setStatus("");
     } catch {
-      setStatus("Failed to update group setting.");
+      setStatus(t("profile.groupSettingUpdateFailed"));
     } finally {
       setUpdatingGroupId(null);
     }
@@ -546,14 +546,14 @@ const ProfilePage = () => {
     setSelectedGroupId(groupId);
     setJoinRequests([]);
     setIsLoadingJoinRequests(true);
-    setStatus("Loading join requests...");
+    setStatus(t("profile.joinRequestsLoading"));
     try {
       const response = await fetch(`${BACKEND_URL}/chat/groups/${encodeURIComponent(groupId)}/join-requests`, {
         credentials: "include",
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setStatus(data.message || data.error || "Failed to load join requests.");
+        setStatus(data.message || data.error || t("profile.joinRequestsLoadFailed"));
         return;
       }
 
@@ -565,7 +565,7 @@ const ProfilePage = () => {
       }
       setStatus("");
     } catch {
-      setStatus("Failed to load join requests.");
+      setStatus(t("profile.joinRequestsLoadFailed"));
     } finally {
       setIsLoadingJoinRequests(false);
     }
@@ -574,7 +574,7 @@ const ProfilePage = () => {
   const handleResolveJoinRequest = async (groupId: string, userId: number, action: "approve" | "reject") => {
     const key = `${groupId}-${userId}-${action}`;
     setProcessingJoinRequestKey(key);
-    setStatus(action === "approve" ? "Approving request..." : "Rejecting request...");
+    setStatus(action === "approve" ? t("profile.joinRequestApproving") : t("profile.joinRequestRejecting"));
     try {
       const response = await fetch(
         `${BACKEND_URL}/chat/groups/${encodeURIComponent(groupId)}/join-requests/${userId}/${action}`,
@@ -585,7 +585,7 @@ const ProfilePage = () => {
       );
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setStatus(data.message || data.error || "Failed to update join request.");
+        setStatus(data.message || data.error || t("profile.joinRequestUpdateFailed"));
         return;
       }
 
@@ -598,7 +598,7 @@ const ProfilePage = () => {
       }
       setStatus("");
     } catch {
-      setStatus("Failed to update join request.");
+      setStatus(t("profile.joinRequestUpdateFailed"));
     } finally {
       setProcessingJoinRequestKey(null);
     }
@@ -642,25 +642,25 @@ const ProfilePage = () => {
   const shortClaimRangeLabel = getShortClaimRangeLabel(activeShortIdClaim);
   const purityMaterialLabel =
     activeTrust.band === "clear"
-      ? "Crystal depth"
+      ? t("profile.purityMaterialClear")
       : activeTrust.band === "steady"
-        ? "Frosted glass"
+        ? t("profile.purityMaterialSteady")
         : activeTrust.band === "fragile"
-          ? "Soft matte"
-          : "Matte paper";
+          ? t("profile.purityMaterialFragile")
+          : t("profile.purityMaterialBlurred");
   const purityActionLabel =
     activeTrust.band === "clear"
-      ? "Read the quiet ledger"
+      ? t("profile.purityActionClear")
       : activeTrust.band === "steady"
-        ? "Read purity detail"
-        : "Inspect the signal surface";
+        ? t("profile.purityActionSteady")
+        : t("profile.purityActionDefault");
   const activeCleanIdLength = activeCleanId.trim().length;
   const cleanIdIntent =
     activeCleanIdLength > 0 && activeCleanIdLength <= 2
-      ? "Ultra-short"
+      ? t("profile.cleanIdIntentUltraShort")
       : activeCleanIdLength > 0 && activeCleanIdLength <= 4
-        ? "Short"
-        : "Standard";
+        ? t("profile.cleanIdIntentShort")
+        : t("profile.cleanIdIntentStandard");
   const liveCleanIdValidation =
     user && isEditing
       ? validateShortClaimInput({
@@ -676,13 +676,13 @@ const ProfilePage = () => {
         {loading ? (
           <ProfileLoadingState />
         ) : !user ? (
-          <p className="profile-loading">Profile not found.</p>
+          <p className="profile-loading">{t("profile.notFound")}</p>
         ) : (
           <>
             <header className="profile-header">
               <div>
-                <p className="profile-step">Your Account</p>
-                <h1 className="profile-title">Profile</h1>
+                <p className="profile-step">{t("profile.yourAccount")}</p>
+                <h1 className="profile-title">{t("profile.title")}</h1>
               </div>
             </header>
 
@@ -691,10 +691,10 @@ const ProfilePage = () => {
                 <img
                   className={`profile-avatar-main ${getAvatarToneClass(activeAvatar)}`}
                   src={getAvatarUrl(activeAvatar)}
-                  alt={`${activeName || "User"} avatar`}
+                  alt={t("profile.avatarAlt", { name: activeName || t("common.user") })}
                 />
                 <div className="profile-summary-text profile-entry-copy">
-                  <p className="profile-entry-kicker">Identity</p>
+                  <p className="profile-entry-kicker">{t("profile.identity")}</p>
                   <h2>{activeName}</h2>
                   <div className="profile-summary-id-row">
                     <p className={`profile-cleanid profile-cleanid-${activeTrust.band}`}>@{activeCleanId}</p>
@@ -709,10 +709,13 @@ const ProfilePage = () => {
                 onClick={handleOpenPurity}
                 disabled={isEditing}
               >
-                <span className="profile-aura-label">Purity</span>
+                <span className="profile-aura-label">{t("profile.purity")}</span>
                 <strong>{activeTrust.title}</strong>
                 <span className="profile-aura-score">
-                  {getTrustToneLabel(activeTrust)} · {activeTrust.score} signal
+                  {t("profile.signalScore", {
+                    label: getTrustToneLabel(activeTrust),
+                    score: activeTrust.score,
+                  })}
                 </span>
                 <span className="profile-aura-texture">{purityMaterialLabel}</span>
                 <span className="profile-aura-hint">{purityActionLabel}</span>
@@ -723,15 +726,15 @@ const ProfilePage = () => {
               <div className="profile-top-actions">
                 <button type="button" className="profile-action-row" onClick={startEdit}>
                   <span className="profile-action-row-copy">
-                    <span className="profile-action-row-title">Edit Profile</span>
-                    <span className="profile-action-row-note">Adjust display name and CleanID without touching vault privileges</span>
+                    <span className="profile-action-row-title">{t("profile.editProfile")}</span>
+                    <span className="profile-action-row-note">{t("profile.editProfileNote")}</span>
                   </span>
                   <span className="profile-action-row-arrow" aria-hidden="true">{"\u2192"}</span>
                 </button>
                 <button type="button" className="profile-action-row" onClick={openSettings}>
                   <span className="profile-action-row-copy">
-                    <span className="profile-action-row-title">Settings</span>
-                    <span className="profile-action-row-note">Notifications, session controls, and account removal</span>
+                    <span className="profile-action-row-title">{t("profile.settings")}</span>
+                    <span className="profile-action-row-note">{t("profile.settingsNote")}</span>
                   </span>
                   <span className="profile-action-row-arrow" aria-hidden="true">{"\u2192"}</span>
                 </button>
@@ -742,10 +745,10 @@ const ProfilePage = () => {
                 >
                   <span className="profile-action-row-copy">
                     <span className="profile-action-row-title">
-                      {showGroupAccess ? "Hide Group Access" : "Manage Group Access"}
+                      {showGroupAccess ? t("profile.hideGroupAccess") : t("profile.manageGroupAccess")}
                     </span>
                     <span className="profile-action-row-note">
-                      Review owned groups and pending join requests
+                      {t("profile.groupAccessNote")}
                     </span>
                   </span>
                   <span className="profile-action-row-arrow" aria-hidden="true">{"\u2192"}</span>
@@ -756,11 +759,10 @@ const ProfilePage = () => {
             {isEditing && (
               <form className="profile-form" onSubmit={handleSave}>
                 <fieldset className="profile-avatars">
-                  <legend>Avatar Library</legend>
+                  <legend>{t("profile.avatarLibrary")}</legend>
                   <div className="profile-avatar-head">
                     <p className="profile-hint">
-                      CleanIDs now begin with minimalist characters, then open into marble portraiture and finally
-                      abstract light-forms as trust settles.
+                      {t("profile.avatarLibraryNote")}
                     </p>
                     <span className="profile-avatar-current-pill">
                       {AVATAR_TIER_META[avatarAccess.currentTier].title}
@@ -783,7 +785,7 @@ const ProfilePage = () => {
                           <span
                             className={`profile-avatar-tier-pill ${section.access.unlocked ? "open" : "locked"}`}
                           >
-                            {section.access.unlocked ? "Open" : section.access.title}
+                            {section.access.unlocked ? t("profile.open") : section.access.title}
                           </span>
                         </div>
                         <div className="profile-avatar-grid">
@@ -805,9 +807,9 @@ const ProfilePage = () => {
                               <em>
                                 {item.unlocked
                                   ? item.isCurrent
-                                    ? "Current mark"
-                                    : "Available now"
-                                  : "Locked for now"}
+                                    ? t("profile.currentMark")
+                                    : t("profile.availableNow")
+                                  : t("profile.lockedForNow")}
                               </em>
                             </label>
                           ))}
@@ -818,7 +820,7 @@ const ProfilePage = () => {
                 </fieldset>
 
                 <label className="profile-label" htmlFor="nickname">
-                  Nickname
+                  {t("profile.nickname")}
                 </label>
                 <input
                   className="profile-input"
@@ -831,7 +833,7 @@ const ProfilePage = () => {
                 />
 
                 <label className="profile-label" htmlFor="cleanId">
-                  CleanID
+                  {t("profile.cleanId")}
                 </label>
                 <input
                   className="profile-input"
@@ -845,7 +847,7 @@ const ProfilePage = () => {
                   required
                 />
                 <p className="profile-hint">
-                  Use lowercase letters, numbers, or underscore. Standard IDs stay 5-20 characters; short claims unlock with trust.
+                  {t("profile.cleanIdHint")}
                 </p>
                 <section className={`profile-claim-editor profile-claim-editor-${activeShortIdClaim.tier}`}>
                   <div className="profile-claim-editor-head">
@@ -854,18 +856,18 @@ const ProfilePage = () => {
                   </div>
                   <div className="profile-claim-editor-body">
                     <span className={`profile-short-claim-token profile-short-claim-token-${activeShortIdClaim.tier}`}>
-                      @{normalizedCleanId || activeCleanId || "handle"}
+                      @{normalizedCleanId || activeCleanId || t("profile.handleFallback")}
                     </span>
                     <div className="profile-claim-editor-copy">
-                      <strong>{cleanIdIntent} handle</strong>
+                      <strong>{t("profile.handleLabel", { intent: cleanIdIntent })}</strong>
                       <span>{liveCleanIdValidation || activeShortIdClaim.detail}</span>
                     </div>
                   </div>
                   <div className="profile-claim-editor-foot">
                     <span>
                       {activeShortIdClaim.nextUnlockScore && !activeShortIdClaim.isCurrentShort
-                        ? `Next unlock at ${activeShortIdClaim.nextUnlockScore}+ trust score.`
-                        : "Your current claim window is already open."}
+                        ? t("profile.nextUnlockAt", { score: activeShortIdClaim.nextUnlockScore })
+                        : t("profile.currentClaimWindowOpen")}
                     </span>
                     {activeShortIdClaim.nextUnlockLabel && (
                       <span>{activeShortIdClaim.nextUnlockLabel}</span>
@@ -880,10 +882,10 @@ const ProfilePage = () => {
                     onClick={cancelEdit}
                     disabled={isSaving}
                   >
-                    Cancel
+                    {t("common.cancel")}
                   </button>
                   <button type="submit" className="profile-primary-btn" disabled={isSaving || Boolean(liveCleanIdValidation)}>
-                    {isSaving ? "Saving..." : "Save Changes"}
+                    {isSaving ? t("profile.saving") : t("profile.saveChanges")}
                   </button>
                 </div>
               </form>
@@ -897,14 +899,14 @@ const ProfilePage = () => {
 
             {!isEditing && showGroupAccess && (
               <section className="profile-group-access">
-            <h3>Group Join Verification</h3>
+            <h3>{t("profile.groupJoinVerification")}</h3>
             <p className="profile-hint">
-              Choose whether your groups need verification before others can join, and approve/reject requests.
+              {t("profile.groupJoinVerificationNote")}
             </p>
 
-            {isLoadingGroupAccess && <p className="profile-loading">Loading your groups...</p>}
+            {isLoadingGroupAccess && <p className="profile-loading">{t("profile.loadingGroups")}</p>}
             {!isLoadingGroupAccess && ownedGroups.length === 0 && (
-              <p className="profile-hint">You have not created any groups yet.</p>
+              <p className="profile-hint">{t("profile.noOwnedGroups")}</p>
             )}
 
             {!isLoadingGroupAccess && ownedGroups.length > 0 && (
@@ -917,7 +919,10 @@ const ProfilePage = () => {
                       <div className="profile-owned-group-main">
                         <h4>{group.name}</h4>
                         <p>
-                          {group.memberCount} members - {group.pendingRequestCount} pending request(s)
+                          {t("profile.groupMembersAndPending", {
+                            members: group.memberCount,
+                            pending: group.pendingRequestCount,
+                          })}
                         </p>
                       </div>
                       <div className="profile-owned-group-actions">
@@ -930,7 +935,7 @@ const ProfilePage = () => {
                               void handleUpdateJoinPolicy(group, event.target.checked);
                             }}
                           />
-                          <span>{group.requiresApproval ? "Verification ON" : "Verification OFF"}</span>
+                          <span>{group.requiresApproval ? t("profile.verificationOn") : t("profile.verificationOff")}</span>
                         </label>
                         <button
                           type="button"
@@ -941,8 +946,8 @@ const ProfilePage = () => {
                           }}
                         >
                           {isRequestPanelOpen
-                            ? "Hide Requests"
-                            : `Review Requests (${group.pendingRequestCount})`}
+                            ? t("profile.hideRequests")
+                            : t("profile.reviewRequests", { count: group.pendingRequestCount })}
                         </button>
                       </div>
                     </article>
@@ -953,10 +958,10 @@ const ProfilePage = () => {
 
             {selectedOwnedGroup && (
               <section className="profile-join-requests-panel">
-                <h4>{selectedOwnedGroup.name} - Join Requests</h4>
-                {isLoadingJoinRequests && <p className="profile-loading">Loading requests...</p>}
+                <h4>{t("profile.joinRequestsTitle", { name: selectedOwnedGroup.name })}</h4>
+                {isLoadingJoinRequests && <p className="profile-loading">{t("profile.loadingRequests")}</p>}
                 {!isLoadingJoinRequests && joinRequests.length === 0 && (
-                  <p className="profile-hint">No pending requests for this group.</p>
+                  <p className="profile-hint">{t("profile.noPendingRequests")}</p>
                 )}
                 {!isLoadingJoinRequests && joinRequests.length > 0 && (
                   <ul className="profile-join-request-list">
@@ -978,7 +983,7 @@ const ProfilePage = () => {
                                 void handleResolveJoinRequest(selectedOwnedGroup.id, request.userId, "approve");
                               }}
                             >
-                              {processingJoinRequestKey === approveKey ? "Approving..." : "Approve"}
+                              {processingJoinRequestKey === approveKey ? t("profile.joinRequestApproving") : t("profile.approve")}
                             </button>
                             <button
                               type="button"
@@ -988,7 +993,7 @@ const ProfilePage = () => {
                                 void handleResolveJoinRequest(selectedOwnedGroup.id, request.userId, "reject");
                               }}
                             >
-                              {processingJoinRequestKey === rejectKey ? "Rejecting..." : "Reject"}
+                              {processingJoinRequestKey === rejectKey ? t("profile.joinRequestRejecting") : t("profile.reject")}
                             </button>
                           </div>
                         </li>

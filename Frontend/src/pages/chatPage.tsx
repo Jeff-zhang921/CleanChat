@@ -2,6 +2,7 @@ import { forwardRef, type CSSProperties, type ChangeEvent, useEffect, useMemo, u
 import { Virtuoso, type ListProps, type ScrollerProps, type VirtuosoHandle } from "react-virtuoso";
 import { useLocation, useNavigate } from "react-router-dom";
 import { io, type Socket } from "socket.io-client";
+import { useTranslation } from "react-i18next";
 import { getAvatarToneClass, type AvatarKey } from "../constants/avatarCatalog";
 import { BACKEND_URL, SOCKET_URL } from "../config";
 import { useViewportOverscan } from "../hooks/useViewportOverscan";
@@ -71,8 +72,8 @@ const getImageUrlFromMessage = (body: string) => {
   return null;
 };
 
-const formatNotificationBody = (body: string) =>
-  getImageUrlFromMessage(body) ? "sent a photo" : body;
+const formatNotificationBody = (body: string, sentPhotoLabel: string) =>
+  getImageUrlFromMessage(body) ? sentPhotoLabel : body;
 
 const parsePositiveInt = (value: string | null) => {
   if (!value) {
@@ -98,6 +99,7 @@ const ChatVirtuosoList = forwardRef<HTMLDivElement, ListProps>((props, ref) => (
 ChatVirtuosoList.displayName = "ChatVirtuosoList";
 
 const ChatPage = ({ onRequestClose }: ChatPageProps) => {
+  const { t, i18n } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const messageOverscan = useViewportOverscan();
@@ -181,7 +183,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const closeTimeoutRef = useRef<number | null>(null);
   const isAtBottomRef = useRef(true);
 
-  const [status, setStatus] = useState("Not connected");
+  const [status, setStatus] = useState("");
   const [threadId, setThreadId] = useState<number | null>(null);
   const [groupId, setGroupId] = useState<string | null>(
     initialChatMode === "group" && typeof resolvedState.groupId === "string"
@@ -279,13 +281,13 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        failHistoryLoad(token, data.message || "Failed to load messages.");
+        failHistoryLoad(token, data.message || t("chat.historyLoadFailed"));
         return;
       }
       const data = await res.json();
       finishHistoryLoad(token, Array.isArray(data) ? data : []);
     } catch {
-      failHistoryLoad(token, "Failed to load messages.");
+      failHistoryLoad(token, t("chat.historyLoadFailed"));
     }
   };
 
@@ -297,7 +299,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        failHistoryLoad(token, data.message || "Failed to load group messages.");
+        failHistoryLoad(token, data.message || t("chat.groupHistoryLoadFailed"));
         return;
       }
 
@@ -305,7 +307,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       const incoming = Array.isArray(data.messages) ? data.messages : [];
       finishHistoryLoad(token, incoming);
     } catch {
-      failHistoryLoad(token, "Failed to load group messages.");
+      failHistoryLoad(token, t("chat.groupHistoryLoadFailed"));
     }
   };
 
@@ -314,7 +316,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
 
     const token = getAuthToken();
     if (!token) {
-      setStatus("Session expired. Please login again.");
+      setStatus(t("common.sessionExpired"));
       return;
     }
 
@@ -324,7 +326,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     socketRef.current = socket;
 
     socket.on("connect", () => {
-      setStatus("Connected");
+      setStatus(t("common.connected"));
       const mode = chatModeRef.current;
       if (mode === "group") {
         const activeGroupId = groupIdRef.current;
@@ -341,18 +343,18 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     });
 
     socket.on("connect_error", (error) => {
-      setStatus("Socket connection error.");
+      setStatus(t("chat.socketError"));
       if (error?.message !== "Not authenticated") {
         return;
       }
 
       clearAuthToken();
-      setStatus("Session expired. Please login again.");
+      setStatus(t("common.sessionExpired"));
       socket.disconnect();
     });
 
     socket.on("chat:error", (msg: string) => {
-      setStatus(msg || "Chat error.");
+      setStatus(msg || t("chat.chatError"));
     });
 
     socket.on("message:new", (msg: ChatMessage) => {
@@ -365,8 +367,8 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
         document.hidden &&
         getNotificationPermission() === "granted"
       ) {
-        const title = other || "New message";
-        showMessageNotification(title, formatNotificationBody(msg.body), {
+        const title = other || t("chat.newMessage");
+        showMessageNotification(title, formatNotificationBody(msg.body, t("chat.sentPhotoNotification")), {
           tag: `thread-${msg.threadId}`,
           target: msg.threadId
             ? {
@@ -401,8 +403,8 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
         document.hidden &&
         getNotificationPermission() === "granted"
       ) {
-        const title = other || "Group message";
-        showMessageNotification(title, formatNotificationBody(msg.body), {
+        const title = other || t("chat.groupMessage");
+        showMessageNotification(title, formatNotificationBody(msg.body, t("chat.sentPhotoNotification")), {
           tag: `group-${msg.groupId ?? "room"}`,
           target: msg.groupId
             ? {
@@ -498,7 +500,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     setGroupId(null);
     const parsed = Number(rawHostId);
     if (!Number.isInteger(parsed) || parsed <= 0) {
-      setStatus("HostNumber must valid");
+      setStatus(t("chat.hostInvalid"));
       return;
     }
     try {
@@ -510,7 +512,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       });
       const data = await res.json();
       if (!res.ok) {
-        setStatus(data.message || "fail to create thread");
+        setStatus(data.message || t("chat.threadCreateFailed"));
         return;
       }
       const createdThreadId =
@@ -520,13 +522,13 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
             ? data.threadId
             : null;
       if (!createdThreadId) {
-        setStatus("Thread created but thread ID is missing");
+        setStatus(t("chat.threadMissing"));
         return;
       }
       setThreadId(createdThreadId);
-      setStatus("Thread Ready");
+      setStatus(t("chat.threadReady"));
     } catch {
-      setStatus("Failed to create thread");
+      setStatus(t("chat.threadCreateFailed"));
     }
   };
 
@@ -538,7 +540,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       setChatMode("group");
       setThreadId(null);
       setGroupId(state.groupId);
-      setStatus("Group ready");
+      setStatus(t("chat.groupReady"));
       return;
     }
     if (typeof state.threadId === "number") {
@@ -546,7 +548,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       setChatMode("direct");
       setGroupId(null);
       setThreadId(state.threadId);
-      setStatus("Thread ready");
+      setStatus(t("chat.threadReady"));
       return;
     }
     if (typeof state.hostId === "number") {
@@ -559,17 +561,17 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
 
   const handleSendMessage = () => {
     if (!socketRef.current || !socketRef.current.connected) {
-      setStatus("Socket not connected");
+      setStatus(t("chat.socketNotConnected"));
       return false;
     }
     const trimmed = messageBody.trim();
     if (!trimmed) {
-      setStatus("Message cannot be empty");
+      setStatus(t("chat.messageEmpty"));
       return false;
     }
     if (chatMode === "group") {
       if (!groupId) {
-        setStatus("Join a group first");
+        setStatus(t("chat.joinGroupFirst"));
         return false;
       }
       socketRef.current.emit("group:message:send", {
@@ -578,7 +580,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       });
     } else {
       if (!threadId) {
-        setStatus("Create or join a thread first");
+        setStatus(t("chat.createOrJoinThread"));
         return false;
       }
       socketRef.current.emit("message:send", {
@@ -598,10 +600,10 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       return;
     }
     if (!socketRef.current || !socketRef.current.connected) {
-      setStatus("Socket not connected");
+      setStatus(t("chat.socketNotConnected"));
       return;
     }
-    if (!window.confirm("Delete this message?")) {
+    if (!window.confirm(t("chat.deleteMessageConfirm"))) {
       return;
     }
 
@@ -613,7 +615,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     if (chatModeRef.current === "group") {
       const activeGroupId = groupIdRef.current;
       if (!activeGroupId) {
-        setStatus("Join a group first");
+        setStatus(t("chat.joinGroupFirst"));
         clearDeletingState();
         return;
       }
@@ -626,7 +628,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
         },
         (response?: { ok?: boolean; message?: string }) => {
           if (!response?.ok) {
-            setStatus(response?.message || "Failed to delete message.");
+            setStatus(response?.message || t("chat.deleteMessageFailed"));
             clearDeletingState();
             return;
           }
@@ -640,7 +642,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
 
     const activeThreadId = threadIdRef.current;
     if (!activeThreadId) {
-      setStatus("Create or join a thread first");
+      setStatus(t("chat.createOrJoinThread"));
       clearDeletingState();
       return;
     }
@@ -653,7 +655,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       },
       (response?: { ok?: boolean; message?: string }) => {
         if (!response?.ok) {
-          setStatus(response?.message || "Failed to delete message.");
+          setStatus(response?.message || t("chat.deleteMessageFailed"));
           clearDeletingState();
           return;
         }
@@ -670,25 +672,25 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      setStatus("Only image files are allowed.");
+      setStatus(t("chat.imageOnly"));
       return;
     }
 
     if (file.size > MAX_UPLOAD_BYTES) {
-      setStatus("Image is too large. Please upload a file up to 15MB.");
+      setStatus(t("chat.imageTooLarge"));
       return;
     }
 
     if (chatMode === "group" && !groupId) {
-      setStatus("Join a group first");
+      setStatus(t("chat.joinGroupFirst"));
       return;
     }
     if (chatMode === "direct" && !threadId) {
-      setStatus("Create or join a thread first");
+      setStatus(t("chat.createOrJoinThread"));
       return;
     }
     if (!socketRef.current || !socketRef.current.connected) {
-      setStatus("Socket not connected");
+      setStatus(t("chat.socketNotConnected"));
       return;
     }
 
@@ -696,7 +698,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     formData.append("image", file);
 
     setIsUploadingImage(true);
-    setStatus("Uploading image...");
+    setStatus(t("chat.uploadingImage"));
 
     try {
       const response = await fetch(`${BACKEND_URL}/chat/upload-image`, {
@@ -720,14 +722,14 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
           data.error ||
             data.message ||
             raw ||
-            `Failed to upload image (HTTP ${response.status}).`
+            t("chat.uploadFailedHttp", { status: response.status })
         );
         return;
       }
 
       const imageUrl = typeof data.url === "string" ? data.url.trim() : "";
       if (!imageUrl) {
-        setStatus("Upload succeeded but image URL is missing");
+        setStatus(t("chat.uploadMissingUrl"));
         return;
       }
 
@@ -742,10 +744,10 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
           body: `${IMAGE_MESSAGE_PREFIX}${imageUrl}`,
         });
       }
-      setStatus("Photo sent");
+      setStatus(t("chat.photoSent"));
       refocusMessageInput();
     } catch {
-      setStatus("Failed to upload image");
+      setStatus(t("chat.uploadFailed"));
     } finally {
       setIsUploadingImage(false);
     }
@@ -785,18 +787,19 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     };
   }, []);
 
-  const chatLabel = other || (chatMode === "group" ? "Group chat" : "Conversation");
+  const locale = i18n.language.toLowerCase().startsWith("zh") ? "zh-CN" : "en-US";
+  const chatLabel = other || (chatMode === "group" ? t("chat.groupChat") : t("chat.conversation"));
   const avatarFallback = chatLabel.trim().charAt(0).toUpperCase() || "?";
   const isConnected = Boolean(socketRef.current?.connected);
   const hasDraft = messageBody.trim().length > 0;
   const isComposerEngaged = isComposerFocused || hasDraft || isUploadingImage;
   const showHistorySkeleton = isHistoryLoading && message.length === 0;
   const statusLabel = isHistoryLoading
-    ? "Loading history"
-    : status || (isConnected ? "Connected" : "Not connected");
+    ? t("chat.loadingHistory")
+    : status || (isConnected ? t("common.connected") : t("common.notConnected"));
   const statusTone = isHistoryLoading || isUploadingImage ? "busy" : isConnected ? "online" : "";
-  const chatKicker = chatMode === "group" ? "Group thread" : "Private line";
-  const backLabel = fromPath === "/groups" ? "Groups" : "Chats";
+  const chatKicker = chatMode === "group" ? t("chat.groupThread") : t("chat.privateLine");
+  const backLabel = fromPath === "/groups" ? t("nav.groups") : t("nav.chats");
   const messageViewportIncrease = {
     top: messageOverscan,
     bottom: messageOverscan,
@@ -806,7 +809,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     reverse: messageOverscan,
   } as const;
   const shouldShowDate = (chatMode === "direct" && threadId) || (chatMode === "group" && groupId);
-  const chatDateLabel = new Date().toLocaleString();
+  const chatDateLabel = new Date().toLocaleString(locale);
   const historySkeletonRows = [
     { key: "skeleton-a", side: "them" as const, width: "68%" },
     { key: "skeleton-b", side: "me" as const, width: "54%" },
@@ -983,12 +986,12 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     >
       <main className="chat-panel">
         <div className="chat-bar">
-          <button type="button" className="back-button" aria-label="Go back" onClick={handleBack} disabled={isClosing}>
+          <button type="button" className="back-button" aria-label={t("chat.goBack")} onClick={handleBack} disabled={isClosing}>
             <span className="back-button-icon" aria-hidden="true" />
             <span className="back-button-copy">{backLabel}</span>
           </button>
           <span className="avatar">
-            {avatarUrl ? <img className={avatarToneClass || undefined} src={avatarUrl} alt={`${chatLabel} avatar`} /> : avatarFallback}
+            {avatarUrl ? <img className={avatarToneClass || undefined} src={avatarUrl} alt={`${chatLabel} ${t("common.avatar")}`} /> : avatarFallback}
           </span>
           <div className="chat-heading">
             <span className="chat-kicker">{chatKicker}</span>
@@ -1019,7 +1022,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
           )}
 
           {!showHistorySkeleton && message.length === 0 && (
-            <div className="chat-empty">{chatMode === "group" ? "No group messages yet." : "Start a conversation"}</div>
+            <div className="chat-empty">{chatMode === "group" ? t("chat.noGroupMessages") : t("chat.startConversation")}</div>
           )}
 
           {!showHistorySkeleton && message.length > 0 && (
@@ -1062,7 +1065,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
                             <img
                               className="chat-image"
                               src={imageUrl}
-                              alt="Shared image"
+                              alt={t("chat.sharedImage")}
                               onLoad={handleMessageMediaLoad}
                             />
                           </button>
@@ -1078,7 +1081,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
                               onClick={() => handleDeleteMessage(msg)}
                               disabled={isDeletingMessage}
                             >
-                              {isDeletingMessage ? "Deleting..." : "Delete"}
+                              {isDeletingMessage ? t("chat.deleting") : t("chat.deleteAction")}
                             </button>
                           )}
                         </div>
@@ -1104,8 +1107,8 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
             <label
               htmlFor="chat-photo-input"
               className={`photo-button ${isUploadingImage ? "disabled" : ""}`}
-              aria-label={isUploadingImage ? "Uploading image" : "Add photo"}
-              title={isUploadingImage ? "Uploading image..." : "Add photo"}
+              aria-label={isUploadingImage ? t("chat.uploadingImage") : t("chat.addPhoto")}
+              title={isUploadingImage ? t("chat.uploadingImage") : t("chat.addPhoto")}
               aria-disabled={isUploadingImage}
               onClick={(event) => {
                 if (isUploadingImage || isClosing) {
@@ -1117,7 +1120,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
             </label>
             <input
               type="text"
-              placeholder="Messages..."
+              placeholder={t("chat.messagePlaceholder")}
               value={messageBody}
               ref={messageInputRef}
               onChange={(event) => setMessageBody(event.target.value)}
@@ -1145,7 +1148,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
               onPointerDown={(event) => event.preventDefault()}
               disabled={isUploadingImage || !hasDraft || isClosing}
             >
-              Send
+              {t("chat.send")}
             </button>
           </div>
         </footer>
@@ -1158,7 +1161,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
               role="dialog"
               aria-modal="true"
             >
-              <img className="image-viewer-image" src={previewImageUrl} alt="Preview" />
+              <img className="image-viewer-image" src={previewImageUrl} alt={t("chat.preview")} />
               <div className="image-viewer-actions">
                 <a
                   className="image-viewer-btn"
@@ -1167,10 +1170,10 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
                   rel="noreferrer"
                   download
                 >
-                  Save / Open
+                  {t("chat.saveOrOpen")}
                 </a>
                 <button type="button" className="image-viewer-btn secondary" onClick={handleCloseImagePreview}>
-                  Close
+                  {t("common.close")}
                 </button>
               </div>
             </div>

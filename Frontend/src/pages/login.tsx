@@ -7,6 +7,7 @@ import {
   type MouseEventHandler,
 } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { BACKEND_URL } from "../config";
 import { clearAuthToken, getAuthToken } from "../utils/auth";
 
@@ -318,9 +319,14 @@ export const PretextSignalPanel = ({
   heading: string;
   caption: string;
 }) => {
+  const { t } = useTranslation();
   const normalized = clampUnit(progress);
   const phaseLabel =
-    normalized >= 0.72 ? "Ready" : normalized >= 0.38 ? "Preparing" : "Idle";
+    normalized >= 0.72
+      ? t("auth.phaseReady")
+      : normalized >= 0.38
+        ? t("auth.phasePreparing")
+        : t("auth.phaseIdle");
 
   return (
     <div
@@ -420,10 +426,11 @@ export const PretextMessageDeck = ({
   emailLocal: string;
   emailDomain: string;
 }) => {
+  const { t } = useTranslation();
   const items = [
-    emailLocal ? `alias ${emailLocal}` : "alias appears after typing",
-    emailDomain ? `relay ${emailDomain}` : "relay follows your domain",
-    "one-time code",
+    emailLocal ? t("auth.aliasWithValue", { value: emailLocal }) : t("auth.aliasAfterTyping"),
+    emailDomain ? t("auth.relayWithValue", { value: emailDomain }) : t("auth.relayAfterDomain"),
+    t("auth.oneTimeCode"),
   ];
 
   return (
@@ -465,6 +472,7 @@ const setPendingEmail = (email: string) => {
 };
 
 const LoginPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("");
@@ -494,7 +502,7 @@ const LoginPage = () => {
       }
 
       setIsRestoringSession(true);
-      setStatus("Restoring your session...");
+      setStatus(t("auth.restoringSession"));
 
       for (let attempt = 1; attempt <= AUTH_RESTORE_MAX_ATTEMPTS; attempt++) {
         try {
@@ -529,7 +537,7 @@ const LoginPage = () => {
       }
 
       if (isMounted) {
-        setStatus("Session found, but server is waking up. Please try again in a moment.");
+        setStatus(t("auth.sessionWaking"));
       }
     };
 
@@ -542,18 +550,18 @@ const LoginPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [navigate]);
+  }, [navigate, t]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!EMAIL_REGEX.test(normalizedEmail)) {
-      setStatus("Please enter a valid email.");
+      setStatus(t("auth.invalidEmail"));
       return;
     }
 
     setIsSubmitting(true);
-    setStatus("Sending verification code...");
+    setStatus(t("auth.sendingCode"));
 
     try {
       const response = await fetch(`${BACKEND_URL}/auth/email/start`, {
@@ -585,7 +593,7 @@ const LoginPage = () => {
           data.message ||
             data.error ||
             raw ||
-            `Failed to send verification code (HTTP ${response.status}).`
+            t("auth.sendCodeFailedHttp", { status: response.status })
         );
         return;
       }
@@ -594,7 +602,7 @@ const LoginPage = () => {
       setPendingEmail(normalizedEmail);
       navigate("/verify", { state: { email: normalizedEmail } });
     } catch {
-      setStatus("Unable to connect to server.");
+      setStatus(t("common.connectionError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -608,20 +616,19 @@ const LoginPage = () => {
           <div style={styles.glowB} />
 
           <div style={styles.topRow}>
-            <p style={styles.kicker}>Private entry</p>
-            <span style={styles.badge}>Email sign-in</span>
+            <p style={styles.kicker}>{t("auth.privateEntry")}</p>
+            <span style={styles.badge}>{t("auth.emailSignIn")}</span>
           </div>
 
           <div style={styles.hero}>
-            <h1 style={styles.heroTitle}>Start with your email.</h1>
+            <h1 style={styles.heroTitle}>{t("auth.startWithEmail")}</h1>
             <p style={styles.heroCopy}>
-              One address. One 6-digit code. Then straight into your conversations. No password reset theater and no
-              profile wall before you can talk.
+              {t("auth.loginHeroCopy")}
             </p>
           </div>
 
           <div style={styles.chipRow}>
-            {["no password", "quiet handoff", "works for groups"].map((item) => (
+            {[t("auth.noPassword"), t("auth.quietHandoff"), t("auth.worksForGroups")].map((item) => (
               <span key={item} style={styles.chip}>
                 {item}
               </span>
@@ -631,12 +638,12 @@ const LoginPage = () => {
           <div style={styles.divider} />
 
           <p style={{ ...styles.note, position: "relative", zIndex: 1 }}>
-            Passwordless sign-in with a single 6-digit code sent to your inbox.
+            {t("auth.passwordlessNote")}
           </p>
 
           <form onSubmit={handleSubmit} style={styles.form}>
             <label style={styles.label} htmlFor="email">
-              Email address
+              {t("auth.emailAddress")}
             </label>
             <input
               style={styles.input}
@@ -644,7 +651,7 @@ const LoginPage = () => {
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
+              placeholder={t("auth.emailPlaceholder")}
               autoComplete="email"
               required
             />
@@ -659,7 +666,7 @@ const LoginPage = () => {
             </div>
 
             <p style={styles.note}>
-              We only use this address to deliver the code and reconnect you to the right conversation entry.
+              {t("auth.emailUsageNote")}
             </p>
 
             <button
@@ -667,7 +674,11 @@ const LoginPage = () => {
               type="submit"
               disabled={isSubmitting || isRestoringSession}
             >
-              {isRestoringSession ? "Checking session..." : isSubmitting ? "Sending code..." : "Continue to Code"}
+              {isRestoringSession
+                ? t("auth.checkingSession")
+                : isSubmitting
+                  ? t("auth.sendingCode")
+                  : t("auth.continueToCode")}
             </button>
           </form>
 
