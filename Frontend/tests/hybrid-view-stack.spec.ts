@@ -182,11 +182,14 @@ test("hybrid stack keeps list instant after 20 chat round-trips", async ({
       );
 
       return {
-        chatBackground: chatShell ? getComputedStyle(chatShell).backgroundColor : "",
+        chatBackground: chatShell
+          ? getComputedStyle(chatShell).backgroundColor
+          : "",
         sleepingRootPointerEvents: sleepingRoot
           ? getComputedStyle(sleepingRoot).pointerEvents
           : "",
-        sleepingRootAriaHidden: sleepingRoot?.getAttribute("aria-hidden") ?? null,
+        sleepingRootAriaHidden:
+          sleepingRoot?.getAttribute("aria-hidden") ?? null,
         dormantListPointerEvents: dormantList
           ? getComputedStyle(dormantList).pointerEvents
           : "",
