@@ -9,7 +9,12 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { BACKEND_URL } from "../config";
-import { setPreferredLanguage, type SupportedLanguage } from "../i18n";
+import {
+  LANGUAGE_SWITCH_OPTIONS,
+  resolveSupportedLanguage,
+  setPreferredLanguage,
+  type SupportedLanguage,
+} from "../i18n";
 import { clearAuthToken, getAuthToken } from "../utils/auth";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -171,24 +176,42 @@ export const getPretextAuthStyles = (compact: boolean, pointer: PointerState) =>
   utilityRow: {
     display: "inline-flex",
     alignItems: "center",
-    gap: "0.44rem",
+    gap: "0.5rem",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+  } satisfies CSSProperties,
+  languageSwitchGroup: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "0.24rem",
+    padding: "0.18rem",
+    borderRadius: "999px",
+    border: "1px solid rgba(255, 255, 255, 0.16)",
+    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.14))",
+    backdropFilter: "blur(12px) saturate(1.02)",
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.32)",
   } satisfies CSSProperties,
   languageSwitch: {
-    border: "1px solid rgba(255, 255, 255, 0.14)",
+    border: "1px solid transparent",
     borderRadius: "999px",
-    padding: "0.36rem 0.76rem",
+    minWidth: "2rem",
+    minHeight: "1.85rem",
+    padding: "0.28rem 0.5rem",
     font: "inherit",
-    fontSize: "0.78rem",
+    fontSize: "0.72rem",
     fontWeight: 700,
-    letterSpacing: "0.01em",
+    letterSpacing: "0.04em",
     color: authPalette.inkSoft,
-    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0.2))",
-    backdropFilter: "blur(12px) saturate(1.02)",
-    boxShadow:
-      "inset 0 1px 0 rgba(255, 255, 255, 0.32), 0 12px 24px rgba(24, 34, 24, 0.06)",
+    background: "transparent",
     cursor: "pointer",
-    transition: "all 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
+    transition: "all 0.24s cubic-bezier(0.22, 1, 0.36, 1)",
     whiteSpace: "nowrap",
+  } satisfies CSSProperties,
+  languageSwitchActive: {
+    color: "#204c37",
+    borderColor: "rgba(72, 112, 88, 0.22)",
+    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(245, 250, 246, 0.82))",
+    boxShadow: "0 8px 16px rgba(24, 34, 24, 0.08)",
   } satisfies CSSProperties,
   hero: {
     position: "relative",
@@ -505,8 +528,7 @@ const LoginPage = () => {
   const { pointer, bindings } = usePretextPointer();
 
   const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
-  const currentLanguage = (i18n.language?.toLowerCase().startsWith("en") ? "en" : "zh") as SupportedLanguage;
-  const nextLanguage = (currentLanguage === "zh" ? "en" : "zh") as SupportedLanguage;
+  const currentLanguage = resolveSupportedLanguage(i18n.language);
   const emailParts = useMemo(() => normalizedEmail.split("@"), [normalizedEmail]);
   const emailLocal = emailParts[0] || "";
   const emailDomain = emailParts[1] || "";
@@ -633,8 +655,11 @@ const LoginPage = () => {
     }
   };
 
-  const handleLanguageToggle = () => {
-    void setPreferredLanguage(nextLanguage);
+  const handleLanguageSwitch = (language: SupportedLanguage) => {
+    if (language === currentLanguage) {
+      return;
+    }
+    void setPreferredLanguage(language);
   };
 
   return (
@@ -648,19 +673,27 @@ const LoginPage = () => {
             <p style={styles.kicker}>{t("auth.privateEntry")}</p>
             <span style={styles.utilityRow}>
               <span style={styles.badge}>{t("auth.emailSignIn")}</span>
-              <button
-                type="button"
-                style={styles.languageSwitch}
-                onClick={handleLanguageToggle}
-                aria-label={t("auth.languageSwitchAria", {
-                  language: nextLanguage === "en" ? "English" : "中文",
-                })}
-                title={t("auth.languageSwitchAria", {
-                  language: nextLanguage === "en" ? "English" : "中文",
-                })}
-              >
-                {nextLanguage === "en" ? t("auth.switchToEnglish") : t("auth.switchToChinese")}
-              </button>
+              <span style={styles.languageSwitchGroup}>
+                {LANGUAGE_SWITCH_OPTIONS.map((option) => (
+                  <button
+                    key={option.code}
+                    type="button"
+                    style={{
+                      ...styles.languageSwitch,
+                      ...(option.code === currentLanguage ? styles.languageSwitchActive : undefined),
+                    }}
+                    onClick={() => handleLanguageSwitch(option.code)}
+                    aria-label={t("auth.languageSwitchAria", {
+                      language: t(option.nameKey),
+                    })}
+                    title={t("auth.languageSwitchAria", {
+                      language: t(option.nameKey),
+                    })}
+                  >
+                    {option.shortLabel}
+                  </button>
+                ))}
+              </span>
             </span>
           </div>
 

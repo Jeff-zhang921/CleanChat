@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { BACKEND_URL } from "../config";
-import { setPreferredLanguage, type SupportedLanguage } from "../i18n";
+import {
+  LANGUAGE_SWITCH_OPTIONS,
+  resolveSupportedLanguage,
+  setPreferredLanguage,
+  type SupportedLanguage,
+} from "../i18n";
 import { clearAuthToken } from "../utils/auth";
 import {
   getNotificationPermission,
@@ -94,7 +99,11 @@ const ProfileSettingsPage = () => {
   const [isLanguagePickerOpen, setIsLanguagePickerOpen] = useState(false);
   const [isSwitchingLanguage, setIsSwitchingLanguage] = useState(false);
 
-  const currentLanguage = (i18n.language?.toLowerCase().startsWith("en") ? "en" : "zh") as SupportedLanguage;
+  const currentLanguage = resolveSupportedLanguage(i18n.language);
+  const getLanguageName = (language: SupportedLanguage) => {
+    const option = LANGUAGE_SWITCH_OPTIONS.find((item) => item.code === language);
+    return option ? t(option.nameKey) : t("language.zh");
+  };
 
   useEffect(() => {
     if (!isSettingsRouteActive) {
@@ -364,7 +373,7 @@ const ProfileSettingsPage = () => {
           <div className="profile-settings-copy">
             <p className="profile-settings-eyebrow">{t("language.label")}</p>
             <h2>{t("language.current")}</h2>
-            <p>{currentLanguage === "zh" ? t("language.zh") : t("language.en")}</p>
+            <p>{getLanguageName(currentLanguage)}</p>
           </div>
           <div className="profile-settings-actions">
             <button
@@ -501,22 +510,17 @@ const ProfileSettingsPage = () => {
             >
               <h3 style={{ margin: 0, fontSize: "1rem", color: "#1d2a22" }}>{t("language.choose")}</h3>
               <div className="profile-settings-actions" style={{ justifyContent: "stretch" }}>
-                <button
-                  type="button"
-                  className="profile-settings-action"
-                  disabled={isSwitchingLanguage || currentLanguage === "zh"}
-                  onClick={() => void handleLanguageChange("zh")}
-                >
-                  {t("language.zh")}
-                </button>
-                <button
-                  type="button"
-                  className="profile-settings-action"
-                  disabled={isSwitchingLanguage || currentLanguage === "en"}
-                  onClick={() => void handleLanguageChange("en")}
-                >
-                  {t("language.en")}
-                </button>
+                {LANGUAGE_SWITCH_OPTIONS.map((option) => (
+                  <button
+                    key={option.code}
+                    type="button"
+                    className="profile-settings-action"
+                    disabled={isSwitchingLanguage || currentLanguage === option.code}
+                    onClick={() => void handleLanguageChange(option.code)}
+                  >
+                    {`${option.shortLabel} ${t(option.nameKey)}`}
+                  </button>
+                ))}
               </div>
               <button
                 type="button"

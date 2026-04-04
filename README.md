@@ -45,6 +45,7 @@ Warning: Virtual list performance issue (pending fix) - white-screen and misalig
 - [8. Environment Variables](#8-environment-variables)
 - [9. Test and Audit Commands](#9-test-and-audit-commands)
 - [10. Deployment and Reverse Proxy Notes](#10-deployment-and-reverse-proxy-notes)
+- [11. East Asia i18n Mesh](#11-east-asia-i18n-mesh)
 - [License](#license)
 
 ---
@@ -403,6 +404,67 @@ npx playwright test --config=playwright.conversations.config.ts
    - Authorization header and Socket path behavior stay predictable
    - Cross-origin policy complexity is reduced
 3. Backend uses conditional trust proxy configuration for accurate source detection behind reverse proxies.
+
+---
+
+## 11. East Asia i18n Mesh
+
+### Supported Locales
+
+| Code  | Label    | Tone Goal                        |
+| ----- | -------- | -------------------------------- |
+| zh-TW | 繁體中文 | 極簡、冷靜、留白感               |
+| zh    | 简体中文 | 極簡、冷靜、留白感               |
+| en    | English  | Minimal, calm, low-noise surface |
+| ko    | 한국어   | 절제된 문장, 조용한 리듬         |
+| ja    | 日本語   | 余白を残した静かな語感           |
+
+### Canonical Lexicon (Cross-Locale)
+
+- Pristine signal
+  - zh-TW: 純粹信號
+  - zh: 纯净信号
+  - ko: 태초의 신호
+  - ja: 純粋な信号
+- Read the quiet ledger
+  - zh-TW: 閱覽靜謐賬本
+  - zh: 查阅宁静账本
+  - ko: 고요한 장부를 읽다
+  - ja: 静かな帳簿を読む
+- Identity
+  - zh-TW: 身份憑證
+  - zh: 身份凭证
+  - ko: 신원
+  - ja: 身元
+
+### Global Toggle Chain
+
+1. Login page (`Frontend/src/pages/login.tsx`): top-right compact language strip (繁 / 簡 / EN / 한 / 日).
+2. Settings page (`Frontend/src/pages/profileSettings.tsx`): full language picker with the same locale set.
+3. Core i18n runtime (`Frontend/src/i18n.ts`): shared locale normalization and switch options for both entry points.
+
+### Persistence Contract
+
+The language state is synchronized to both keys:
+
+- `i18nextLng`
+- `cleanchat:language`
+
+Initialization precedence:
+
+1. `i18nextLng`
+2. `cleanchat:language`
+3. default `zh`
+
+This prevents login-stage language drift when entering post-login surfaces.
+
+### Locale Resource Files
+
+- `Frontend/src/locales/zh.json`
+- `Frontend/src/locales/zh-TW.json`
+- `Frontend/src/locales/en.json`
+- `Frontend/src/locales/ko.json`
+- `Frontend/src/locales/ja.json`
 
 ---
 
