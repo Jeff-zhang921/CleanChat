@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { BACKEND_URL } from "../config";
+import { clearAuthToken } from "../utils/auth";
 import { getNotificationPermission, requestNotificationPermission } from "../utils/notifications";
 import { hydrateProfileUser, type ProfileRouteState, type ProfileUser } from "../utils/profileUser";
 import "./profileSettings.css";
@@ -213,6 +214,7 @@ const ProfileSettingsPage = () => {
         credentials: "include",
       });
     } finally {
+      clearAuthToken();
       navigate("/login", { replace: true });
       setIsLoggingOut(false);
     }
@@ -246,6 +248,7 @@ const ProfileSettingsPage = () => {
         setIsDeleteConfirming(false);
         return;
       }
+      clearAuthToken();
       navigate("/login", { replace: true });
     } catch {
       setStatus("Unable to connect to server.");

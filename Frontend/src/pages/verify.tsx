@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { BACKEND_URL } from "../config";
+import axios from "axios";
+import { apiClient } from "../utils/apiClient";
+import { setAuthToken } from "../utils/auth";
 import {
   PretextMessageDeck,
   PretextSignalPanel,
@@ -80,30 +82,29 @@ const VerifyPage = () => {
     setStatus("Verifying...");
 
     try {
-      const response = await fetch(`${BACKEND_URL}/auth/email/verify`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          email,
-          code: normalizedCode,
-        }),
+      const response = await apiClient.post("/auth/email/verify", {
+        email,
+        code: normalizedCode,
       });
 
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        setStatus(data.message || data.error || "Verification failed.");
+      const data = response.data as { token?: string; isNewUser?: boolean };
+      if (!data.token) {
+        setStatus("Verification succeeded, but no token was returned.");
         return;
       }
 
+      setAuthToken(data.token);
       setStatus("");
       setPendingEmail("");
       setStoredEmail("");
       navigate(data.isNewUser ? "/basic-info" : "/conversations");
-    } catch {
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const message = error.response?.data?.message || error.response?.data?.error || "Verification failed.";
+        setStatus(message);
+        return;
+      }
+
       setStatus("Unable to connect to server.");
     } finally {
       setIsSubmitting(false);

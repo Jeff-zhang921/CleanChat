@@ -12,6 +12,7 @@ import {
   type CleanIdTrustSnapshot,
   getTrustToneLabel,
 } from "../utils/cleanIdTrust";
+import { getAuthToken } from "../utils/auth";
 import { showMessageNotification } from "../utils/notifications";
 import "./ConversationPage.css";
 
@@ -515,7 +516,9 @@ const ConversationPage = () => {
   useEffect(() => {
     if (!me) return;
 
-    const socket = io(SOCKET_URL, { withCredentials: true });
+    const socket = io(SOCKET_URL, {
+      auth: { token: getAuthToken() },
+    });
     socketRef.current = socket;
 
     const handleIncomingMessage = (message: RealtimeMessage) => {

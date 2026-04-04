@@ -18,6 +18,7 @@ import {
   getShortClaimRangeLabel,
   validateShortClaimInput,
 } from "../utils/cleanIdClaim";
+import { clearAuthToken } from "../utils/auth";
 import {
   FALLBACK_CLEAN_ID_TRUST,
   getTrustToneLabel,
@@ -368,6 +369,7 @@ const ProfilePage = () => {
         credentials: "include",
       });
     } finally {
+      clearAuthToken();
       navigate("/login", { replace: true });
       setIsLoggingOut(false);
     }
@@ -426,6 +428,7 @@ const ProfilePage = () => {
         setIsDeleteConfirming(false);
         return;
       }
+      clearAuthToken();
       navigate("/login", { replace: true });
     } catch {
       setStatus("Unable to connect to server.");

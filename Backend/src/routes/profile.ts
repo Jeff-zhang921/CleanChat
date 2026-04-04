@@ -1,29 +1,40 @@
-import { NextFunction,Request,Response,Router } from "express";
+import { Request, Response, Router } from "express";
 import { Avatar, PrismaClient } from "@prisma/client";
-import { DEFAULT_AVATAR, buildAvatarAccess, getAvatarUnlockError } from "../avatar";
-import { buildCleanIdTrustSnapshots, fallbackCleanIdTrustSnapshot, type CleanIdTrustSnapshot } from "../cleanIdTrust";
-import { buildCleanIdShortClaim, validateRequestedCleanId } from "../cleanIdClaim";
-const router = Router();    
+import {
+  DEFAULT_AVATAR,
+  buildAvatarAccess,
+  getAvatarUnlockError,
+} from "../avatar";
+import {
+  buildCleanIdTrustSnapshots,
+  fallbackCleanIdTrustSnapshot,
+  type CleanIdTrustSnapshot,
+} from "../cleanIdTrust";
+import {
+  buildCleanIdShortClaim,
+  validateRequestedCleanId,
+} from "../cleanIdClaim";
+import { authMiddleware } from "../auth";
+const router = Router();
 const prisma = new PrismaClient();
 
-function requireProfileSession(req: Request, res: Response, next: NextFunction) {
-    //from browser send cookie ID, interpret by express middleware
-    //It uses the session id to load the session data from your session store
-    //and attach to req
-  const user = req.session.user;
-  if (!user) {
-    res.status(401).json({ message: "Not authenticated." });
-    return;
-  }
+router.use(authMiddleware);
 
-  //Avoid repeating req.session.user in every handle
-  res.locals.sessionUser = user;
-  next();
-}
+const loadCurrentUser = (userId: number) =>
+  prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      cleanId: true,
+      avatar: true,
+    },
+  });
 
 const buildProfilePayload = <T extends { id: number; cleanId: string }>(
   user: T,
-  trustSnapshots: Map<number, CleanIdTrustSnapshot>
+  trustSnapshots: Map<number, CleanIdTrustSnapshot>,
 ) => {
   const trust = trustSnapshots.get(user.id) ?? fallbackCleanIdTrustSnapshot;
   const currentAvatar =
@@ -38,116 +49,127 @@ const buildProfilePayload = <T extends { id: number; cleanId: string }>(
   };
 };
 
+router.get("/me", async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+  const user = await loadCurrentUser(userId);
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+  const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [user.id]);
+  res.json({
+    user: buildProfilePayload(user, trustSnapshots),
+  });
+});
+router.patch("/me", async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+  const sessionUser = await loadCurrentUser(userId);
+  if (!sessionUser) {
+    return res.status(404).json({ error: "User not found" });
+  }
+  const name = typeof req.body?.name === "string" ? req.body.name.trim() : null;
 
-
-router.get("/me",requireProfileSession,async (req,res)=>{
-    const sessionUser=req.session.user
-    if(!sessionUser){
-        return res.status(401).json({error:"Not authenticated"})
-    }
-    const user=await prisma.user.findUnique({
-        where:{id:sessionUser.id},
-        select:{
-            id:true,
-            email:true,
-            name:true,
-            cleanId:true,
-            avatar:true,
-    }})
-    if(!user){
-        delete req.session.user
-        return res.status(404).json({error:"User not found"})
-    }
-    const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [user.id])
-    res.json({
-      user: buildProfilePayload(user, trustSnapshots),
-    })
-})
-router.patch("/me",requireProfileSession,async (req,res)=>{
-    const sessionUser=req.session.user
-    if(!sessionUser){
-        return res.status(401).json({error:"Not authenticated"})
-    }
-  const name = typeof req.body?.name === "string" ? req.body.name.trim() : null
-
-  const avatarRaw = req.body?.avatar
+  const avatarRaw = req.body?.avatar;
   const avatar = Object.values(Avatar).includes(avatarRaw as Avatar)
     ? (avatarRaw as Avatar)
-    : null
-  const avatarProvided = typeof avatarRaw === "string"
+    : null;
+  const avatarProvided = typeof avatarRaw === "string";
 
   if (avatarProvided && avatar === null) {
     return res.status(400).json({
       error: "Unsupported avatar value.",
       details: `Allowed values: ${Object.values(Avatar).join(", ")}`,
-    })
+    });
   }
 
-  const updates: { name?: string; avatar?: Avatar } = {}
+  const updates: { name?: string; avatar?: Avatar } = {};
   if (name !== null) {
-    updates.name = name
+    updates.name = name;
   }
   if (avatar !== null) {
-    updates.avatar = avatar
+    updates.avatar = avatar;
   }
 
   if (Object.keys(updates).length === 0) {
-    return res.status(400).json({ error: "Invalid name or avatar" })
+    return res.status(400).json({ error: "Invalid name or avatar" });
   }
 
   const currentAvatar =
-    typeof sessionUser.avatar === "string" && Object.values(Avatar).includes(sessionUser.avatar as Avatar)
+    typeof sessionUser.avatar === "string" &&
+    Object.values(Avatar).includes(sessionUser.avatar as Avatar)
       ? (sessionUser.avatar as Avatar)
-      : DEFAULT_AVATAR
+      : DEFAULT_AVATAR;
 
   if (avatar !== null && avatar !== currentAvatar) {
-    const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [sessionUser.id])
-    const activeTrust = trustSnapshots.get(sessionUser.id) ?? fallbackCleanIdTrustSnapshot
-    const unlockError = getAvatarUnlockError(avatar, activeTrust, currentAvatar)
+    const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [
+      sessionUser.id,
+    ]);
+    const activeTrust =
+      trustSnapshots.get(sessionUser.id) ?? fallbackCleanIdTrustSnapshot;
+    const unlockError = getAvatarUnlockError(
+      avatar,
+      activeTrust,
+      currentAvatar,
+    );
     if (unlockError) {
-      return res.status(403).json({ error: unlockError })
+      return res.status(403).json({ error: unlockError });
     }
   }
 
   try {
-      const updatedUser = await prisma.user.update({
-        where: { id: sessionUser.id },
-        data: updates,
-        select: { id: true, email: true, name: true, cleanId: true, avatar: true },
-      })
-      const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [updatedUser.id])
+    const updatedUser = await prisma.user.update({
+      where: { id: sessionUser.id },
+      data: updates,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        cleanId: true,
+        avatar: true,
+      },
+    });
+    const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [
+      updatedUser.id,
+    ]);
 
-      req.session.user = {
-        ...sessionUser,
-        name: updatedUser.name ?? null,
-        cleanId: updatedUser.cleanId,
-        avatar: updatedUser.avatar ?? null,
-      }
-
-      res.json({
-        message: "Profile updated.",
-        user: buildProfilePayload(updatedUser, trustSnapshots),
-      })
+    res.json({
+      message: "Profile updated.",
+      user: buildProfilePayload(updatedUser, trustSnapshots),
+    });
   } catch (error) {
-    const details = error instanceof Error ? error.message : String(error)
+    const details = error instanceof Error ? error.message : String(error);
     const enumMismatch =
-      details.includes("invalid input value for enum") && details.toLowerCase().includes("avatar")
+      details.includes("invalid input value for enum") &&
+      details.toLowerCase().includes("avatar");
 
     if (enumMismatch) {
       return res.status(500).json({
         error: "Avatar options are out of sync with the deployed database.",
-        details: "Run Prisma migration/db push on your production database and redeploy backend.",
-      })
+        details:
+          "Run Prisma migration/db push on your production database and redeploy backend.",
+      });
     }
 
-    return res.status(500).json({ error: "Failed to update profile.", details })
+    return res
+      .status(500)
+      .json({ error: "Failed to update profile.", details });
   }
-})
+});
 
-router.delete("/me", requireProfileSession, async (req, res) => {
-  const sessionUser = req.session.user;
-  if (!sessionUser) {
+router.delete("/me", async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
     return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  const sessionUser = await loadCurrentUser(userId);
+  if (!sessionUser) {
+    return res.status(404).json({ error: "User not found" });
   }
 
   try {
@@ -162,10 +184,7 @@ router.delete("/me", requireProfileSession, async (req, res) => {
       const threadIds = threads.map((item) => item.id);
       await tx.chatMessage.deleteMany({
         where: {
-          OR: [
-            { senderId: sessionUser.id },
-            { threadId: { in: threadIds } },
-          ],
+          OR: [{ senderId: sessionUser.id }, { threadId: { in: threadIds } }],
         },
       });
 
@@ -184,75 +203,77 @@ router.delete("/me", requireProfileSession, async (req, res) => {
       });
     });
 
-    req.session.destroy((error) => {
-      if (error) {
-        res.status(500).json({ error: "Account deleted, but failed to clear session." });
-        return;
-      }
-      res.clearCookie("connect.sid");
-      res.json({ message: "Account deleted." });
-    });
+    res.json({ message: "Account deleted." });
   } catch (error) {
     const details = error instanceof Error ? error.message : String(error);
     res.status(500).json({ error: "Failed to delete account.", details });
   }
 });
 
-
-router.patch("/clean-id",requireProfileSession,async (req,res)=>{
-  const sessionUser=req.session.user
-  if(!sessionUser){
-    return res.status(401).json({error:"Not authenticated"})
+router.patch("/clean-id", async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+  const sessionUser = await loadCurrentUser(userId);
+  if (!sessionUser) {
+    return res.status(404).json({ error: "User not found" });
   }
 
-  const cleanIdRaw = typeof req.body?.cleanId === "string" ? req.body.cleanId.trim().toLowerCase() : ""
+  const cleanIdRaw =
+    typeof req.body?.cleanId === "string"
+      ? req.body.cleanId.trim().toLowerCase()
+      : "";
   if (cleanIdRaw === sessionUser.cleanId) {
-    return res.json({ message: "cleanId unchanged", cleanId: cleanIdRaw })
+    return res.json({ message: "cleanId unchanged", cleanId: cleanIdRaw });
   }
 
-  const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [sessionUser.id])
-  const activeTrust = trustSnapshots.get(sessionUser.id) ?? fallbackCleanIdTrustSnapshot
+  const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [
+    sessionUser.id,
+  ]);
+  const activeTrust =
+    trustSnapshots.get(sessionUser.id) ?? fallbackCleanIdTrustSnapshot;
   const cleanIdValidation = validateRequestedCleanId({
     requestedCleanId: cleanIdRaw,
     currentCleanId: sessionUser.cleanId,
     trust: activeTrust,
-  })
+  });
   if (!cleanIdValidation.ok) {
-    return res.status(400).json({ error: cleanIdValidation.error })
+    return res.status(400).json({ error: cleanIdValidation.error });
   }
 
-  const exists = await prisma.user.findUnique({ where: { cleanId: cleanIdRaw } })
+  const exists = await prisma.user.findUnique({
+    where: { cleanId: cleanIdRaw },
+  });
   if (exists) {
-    return res.status(409).json({ error: "cleanId already taken" })
+    return res.status(409).json({ error: "cleanId already taken" });
   }
 
   const updatedUser = await prisma.user.update({
     where: { id: sessionUser.id },
     data: { cleanId: cleanIdRaw },
     select: { id: true, email: true, name: true, cleanId: true, avatar: true },
-  })
-  const nextTrustSnapshots = await buildCleanIdTrustSnapshots(prisma, [updatedUser.id])
+  });
+  const nextTrustSnapshots = await buildCleanIdTrustSnapshots(prisma, [
+    updatedUser.id,
+  ]);
 
-  req.session.user = {
-    ...sessionUser,
-    cleanId: updatedUser.cleanId,
-  }
   res.json({
     message: "cleanId updated.",
     user: buildProfilePayload(updatedUser, nextTrustSnapshots),
-  })
-})
+  });
+});
 
-
-router.get("/me/overview",async (req,res)=>{
-    const sessionUser=req.session.user
-    if(!sessionUser){
-        return res.status(401).json({error:"Not authenticated"})
-    }
-    res.json({user:sessionUser})
-})
-
-
-
+router.get("/me/overview", async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+  const sessionUser = await loadCurrentUser(userId);
+  if (!sessionUser) {
+    return res.status(404).json({ error: "User not found" });
+  }
+  res.json({ user: sessionUser });
+});
 
 export default router;

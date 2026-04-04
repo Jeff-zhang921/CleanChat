@@ -3,7 +3,10 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { registerSW } from "virtual:pwa-register";
 import App from './App';
+import { installAuthFetchInterceptor } from './utils/auth';
 // import './index.css';
+
+installAuthFetchInterceptor();
 
 const updateSW = registerSW({
   immediate: true,

@@ -20,7 +20,11 @@ import {
   updateGroupJoinPolicy,
   isGroupMember,
 } from "../groupStore";
-import { buildCleanIdTrustSnapshots, fallbackCleanIdTrustSnapshot } from "../cleanIdTrust";
+import {
+  buildCleanIdTrustSnapshots,
+  fallbackCleanIdTrustSnapshot,
+} from "../cleanIdTrust";
+import { authMiddleware } from "../auth";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -34,8 +38,12 @@ const upload = multer({
 });
 
 //is keyword: if true then type numer|undefined will be narrowed to number
-const ensureAuth = (sessionUserId: number | undefined): sessionUserId is number =>
-  typeof sessionUserId === "number" && Number.isInteger(sessionUserId) && sessionUserId > 0;
+const ensureAuth = (
+  sessionUserId: number | undefined,
+): sessionUserId is number =>
+  typeof sessionUserId === "number" &&
+  Number.isInteger(sessionUserId) &&
+  sessionUserId > 0;
 
 const GROUP_NAME_MIN_LENGTH = 2;
 const GROUP_NAME_MAX_LENGTH = 48;
@@ -49,18 +57,25 @@ const parsePositiveInt = (raw: unknown): number | null => {
   return parsed;
 };
 
-router.post("/upload-image",(req, res, next) => {
-  //upload.single("image"): 这是一个由 Multer 生成的中间件函数，
+router.use(authMiddleware);
+
+router.post(
+  "/upload-image",
+  (req, res, next) => {
+    //upload.single("image"): 这是一个由 Multer 生成的中间件函数，
     upload.single("image")(req, res, (error: unknown) => {
       if (!error) {
         next();
         return;
       }
 
-      if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+      if (
+        error instanceof multer.MulterError &&
+        error.code === "LIMIT_FILE_SIZE"
+      ) {
         res.status(413).json({
           error: `Image is too large. Max size is ${Math.floor(
-            MAX_IMAGE_UPLOAD_BYTES / (1024 * 1024)
+            MAX_IMAGE_UPLOAD_BYTES / (1024 * 1024),
           )}MB.`,
         });
         return;
@@ -70,71 +85,81 @@ router.post("/upload-image",(req, res, next) => {
       res.status(400).json({ error: "Invalid image upload request.", details });
     });
   },
-  
+
   async (req, res) => {
-  const sessionUserId = req.session.user?.id;
-  if (!ensureAuth(sessionUserId)) {
-    res.status(401).json({ error: "Not authenticated" });
-    return;
-  }
-
-  if (!process.env.UPLOADTHING_TOKEN) {
-    res.status(500).json({ error: "UPLOADTHING_TOKEN is not configured on backend." });
-    return;
-  }
-//typeof:check type
-//is:narrow type "is" is with if
-//in:check if property exists in object
-//as: type assertion, tell compiler to treat a variable as a certain type
-//instance of: check if an object is an instance of a class or constructor function
-//?.: if null stop and return undefined
-  const file = req.file as Express.Multer.File | undefined;
-  if (!file) {
-    res.status(400).json({ error: "Image file is required." });
-    return;
-  }
-  //mimetype is a new property in req/file it tell server what the type of this file
-  if (!file.mimetype.startsWith("image/")) {
-    res.status(400).json({ error: "Only image files are allowed." });
-    return;
-  }
-
-  try {
-    //UTFile is file format that accepted by utapi, send it to uploadthing
-    //UTFile expects a BlobPart which can be ArrayBuffer, ArrayBufferView, Blob, or string. Buffer from multer can be treated as a BlobPart.
-    const uploadFile = new UTFile([file.buffer as BlobPart], file.originalname || `chat-${Date.now()}.jpg`, {
-      type: file.mimetype,
-      lastModified: Date.now(),
-    });
-//utapi is the use of Uploadting API
-    const uploaded = await utapi.uploadFiles(uploadFile);
-    const uploadedData = Array.isArray(uploaded) ? uploaded[0]?.data : uploaded.data;
-    const uploadedError = Array.isArray(uploaded) ? uploaded[0]?.error : uploaded.error;
-
-    if (uploadedError || !uploadedData) {
-      res.status(502).json({
-        error: "Failed to upload image to UploadThing.",
-        details: uploadedError?.message ?? null,
-      });
+    const sessionUserId = req.user?.userId;
+    if (!ensureAuth(sessionUserId)) {
+      res.status(401).json({ error: "Not authenticated" });
       return;
     }
 
-    const url = uploadedData.ufsUrl ?? uploadedData.url;
-    if (!url) {
-      res.status(502).json({ error: "Upload completed but URL is missing." });
+    if (!process.env.UPLOADTHING_TOKEN) {
+      res
+        .status(500)
+        .json({ error: "UPLOADTHING_TOKEN is not configured on backend." });
+      return;
+    }
+    //typeof:check type
+    //is:narrow type "is" is with if
+    //in:check if property exists in object
+    //as: type assertion, tell compiler to treat a variable as a certain type
+    //instance of: check if an object is an instance of a class or constructor function
+    //?.: if null stop and return undefined
+    const file = req.file as Express.Multer.File | undefined;
+    if (!file) {
+      res.status(400).json({ error: "Image file is required." });
+      return;
+    }
+    //mimetype is a new property in req/file it tell server what the type of this file
+    if (!file.mimetype.startsWith("image/")) {
+      res.status(400).json({ error: "Only image files are allowed." });
       return;
     }
 
-    res.json({ url, key: uploadedData.key });
-  } catch (error) {
-    const details = error instanceof Error ? error.message : String(error);
-    res.status(500).json({ error: "Failed to upload image.", details });
-  }
-  }
+    try {
+      //UTFile is file format that accepted by utapi, send it to uploadthing
+      //UTFile expects a BlobPart which can be ArrayBuffer, ArrayBufferView, Blob, or string. Buffer from multer can be treated as a BlobPart.
+      const uploadFile = new UTFile(
+        [file.buffer as BlobPart],
+        file.originalname || `chat-${Date.now()}.jpg`,
+        {
+          type: file.mimetype,
+          lastModified: Date.now(),
+        },
+      );
+      //utapi is the use of Uploadting API
+      const uploaded = await utapi.uploadFiles(uploadFile);
+      const uploadedData = Array.isArray(uploaded)
+        ? uploaded[0]?.data
+        : uploaded.data;
+      const uploadedError = Array.isArray(uploaded)
+        ? uploaded[0]?.error
+        : uploaded.error;
+
+      if (uploadedError || !uploadedData) {
+        res.status(502).json({
+          error: "Failed to upload image to UploadThing.",
+          details: uploadedError?.message ?? null,
+        });
+        return;
+      }
+
+      const url = uploadedData.ufsUrl ?? uploadedData.url;
+      if (!url) {
+        res.status(502).json({ error: "Upload completed but URL is missing." });
+        return;
+      }
+
+      res.json({ url, key: uploadedData.key });
+    } catch (error) {
+      const details = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ error: "Failed to upload image.", details });
+    }
+  },
 );
 
 router.get("/users/search", async (req, res) => {
-  const sessionUserId = req.session.user?.id;
+  const sessionUserId = req.user?.userId;
   if (!ensureAuth(sessionUserId)) {
     res.status(401).json({ message: "Unauthorized" });
     return;
@@ -144,8 +169,8 @@ router.get("/users/search", async (req, res) => {
     typeof req.query.cleanId === "string"
       ? req.query.cleanId
       : typeof req.query.q === "string"
-      ? req.query.q
-      : "";
+        ? req.query.q
+        : "";
   const cleanIdQuery = rawCleanId.trim().toLowerCase();
 
   if (!cleanIdQuery) {
@@ -174,7 +199,7 @@ router.get("/users/search", async (req, res) => {
 
   const trustSnapshots = await buildCleanIdTrustSnapshots(
     prisma,
-    users.map((user) => user.id)
+    users.map((user) => user.id),
   );
 
   res.json({
@@ -186,7 +211,7 @@ router.get("/users/search", async (req, res) => {
 });
 
 router.get("/groups", async (req, res) => {
-  const sessionUserId = req.session.user?.id;
+  const sessionUserId = req.user?.userId;
   if (!ensureAuth(sessionUserId)) {
     res.status(401).json({ message: "Unauthorized" });
     return;
@@ -196,14 +221,20 @@ router.get("/groups", async (req, res) => {
 });
 
 router.post("/groups", async (req, res) => {
-  const sessionUserId = req.session.user?.id;
+  const sessionUserId = req.user?.userId;
   if (!ensureAuth(sessionUserId)) {
     res.status(401).json({ message: "Unauthorized" });
     return;
   }
 
-  const name = typeof req.body?.name === "string" ? req.body.name.trim().replace(/\s+/g, " ") : "";
-  const description = typeof req.body?.description === "string" ? req.body.description.trim() : "";
+  const name =
+    typeof req.body?.name === "string"
+      ? req.body.name.trim().replace(/\s+/g, " ")
+      : "";
+  const description =
+    typeof req.body?.description === "string"
+      ? req.body.description.trim()
+      : "";
   const requiresApproval = req.body?.requiresApproval === true;
   const rawAvatarKey = req.body?.avatarKey;
   const avatarKeyProvided = typeof rawAvatarKey === "string";
@@ -214,7 +245,10 @@ router.post("/groups", async (req, res) => {
     return;
   }
 
-  if (name.length < GROUP_NAME_MIN_LENGTH || name.length > GROUP_NAME_MAX_LENGTH) {
+  if (
+    name.length < GROUP_NAME_MIN_LENGTH ||
+    name.length > GROUP_NAME_MAX_LENGTH
+  ) {
     res.status(400).json({
       message: `Group name must be ${GROUP_NAME_MIN_LENGTH}-${GROUP_NAME_MAX_LENGTH} characters.`,
     });
@@ -232,13 +266,15 @@ router.post("/groups", async (req, res) => {
     name,
     description,
     requiresApproval,
-    avatarKeyProvided && isValidGroupAvatarKey(rawAvatarKey) ? rawAvatarKey : undefined
+    avatarKeyProvided && isValidGroupAvatarKey(rawAvatarKey)
+      ? rawAvatarKey
+      : undefined,
   );
   res.status(201).json({ group });
 });
 
 router.post("/groups/:groupId/join", async (req, res) => {
-  const sessionUserId = req.session.user?.id;
+  const sessionUserId = req.user?.userId;
   if (!ensureAuth(sessionUserId)) {
     res.status(401).json({ message: "Unauthorized" });
     return;
@@ -276,7 +312,7 @@ router.post("/groups/:groupId/join", async (req, res) => {
 });
 
 router.post("/groups/:groupId/leave", async (req, res) => {
-  const sessionUserId = req.session.user?.id;
+  const sessionUserId = req.user?.userId;
   if (!ensureAuth(sessionUserId)) {
     res.status(401).json({ message: "Unauthorized" });
     return;
@@ -298,7 +334,7 @@ router.post("/groups/:groupId/leave", async (req, res) => {
 });
 
 router.patch("/groups/:groupId/settings", async (req, res) => {
-  const sessionUserId = req.session.user?.id;
+  const sessionUserId = req.user?.userId;
   if (!ensureAuth(sessionUserId)) {
     res.status(401).json({ message: "Unauthorized" });
     return;
@@ -315,10 +351,16 @@ router.patch("/groups/:groupId/settings", async (req, res) => {
     return;
   }
 
-  const updated = updateGroupJoinPolicy(groupId, sessionUserId, req.body.requiresApproval);
+  const updated = updateGroupJoinPolicy(
+    groupId,
+    sessionUserId,
+    req.body.requiresApproval,
+  );
   if (!updated.updated) {
     if (updated.reason === "forbidden") {
-      res.status(403).json({ message: "Only the group creator can update this setting." });
+      res
+        .status(403)
+        .json({ message: "Only the group creator can update this setting." });
       return;
     }
     res.status(404).json({ message: "Group not found." });
@@ -329,7 +371,7 @@ router.patch("/groups/:groupId/settings", async (req, res) => {
 });
 
 router.patch("/groups/:groupId/avatar", async (req, res) => {
-  const sessionUserId = req.session.user?.id;
+  const sessionUserId = req.user?.userId;
   if (!ensureAuth(sessionUserId)) {
     res.status(401).json({ message: "Unauthorized" });
     return;
@@ -352,7 +394,9 @@ router.patch("/groups/:groupId/avatar", async (req, res) => {
   const updated = updateGroupAvatar(groupId, sessionUserId, avatarKey);
   if (!updated.updated) {
     if (updated.reason === "forbidden") {
-      res.status(403).json({ message: "Only the group creator can update group avatar." });
+      res
+        .status(403)
+        .json({ message: "Only the group creator can update group avatar." });
       return;
     }
     res.status(404).json({ message: "Group not found." });
@@ -363,7 +407,7 @@ router.patch("/groups/:groupId/avatar", async (req, res) => {
 });
 
 router.get("/groups/:groupId/join-requests", async (req, res) => {
-  const sessionUserId = req.session.user?.id;
+  const sessionUserId = req.user?.userId;
   if (!ensureAuth(sessionUserId)) {
     res.status(401).json({ message: "Unauthorized" });
     return;
@@ -378,7 +422,9 @@ router.get("/groups/:groupId/join-requests", async (req, res) => {
   const requestList = listGroupJoinRequests(groupId, sessionUserId);
   if (!requestList.ok) {
     if (requestList.reason === "forbidden") {
-      res.status(403).json({ message: "Only the group creator can review join requests." });
+      res
+        .status(403)
+        .json({ message: "Only the group creator can review join requests." });
       return;
     }
     res.status(404).json({ message: "Group not found." });
@@ -412,78 +458,100 @@ router.get("/groups/:groupId/join-requests", async (req, res) => {
   res.status(200).json({ group: requestList.summary, requests });
 });
 
-router.post("/groups/:groupId/join-requests/:userId/approve", async (req, res) => {
-  const sessionUserId = req.session.user?.id;
-  if (!ensureAuth(sessionUserId)) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
-  const groupId = normalizeGroupId(req.params.groupId);
-  if (!groupId) {
-    res.status(400).json({ message: "Invalid group ID." });
-    return;
-  }
-  const targetUserId = parsePositiveInt(req.params.userId);
-  if (!targetUserId) {
-    res.status(400).json({ message: "Invalid user ID." });
-    return;
-  }
-
-  const approved = approveGroupJoinRequest(groupId, sessionUserId, targetUserId);
-  if (!approved.approved) {
-    if (approved.reason === "forbidden") {
-      res.status(403).json({ message: "Only the group creator can approve join requests." });
+router.post(
+  "/groups/:groupId/join-requests/:userId/approve",
+  async (req, res) => {
+    const sessionUserId = req.user?.userId;
+    if (!ensureAuth(sessionUserId)) {
+      res.status(401).json({ message: "Unauthorized" });
       return;
     }
-    if (approved.reason === "request_not_found") {
-      res.status(404).json({ message: "Join request not found." });
+
+    const groupId = normalizeGroupId(req.params.groupId);
+    if (!groupId) {
+      res.status(400).json({ message: "Invalid group ID." });
       return;
     }
-    res.status(404).json({ message: "Group not found." });
-    return;
-  }
-
-  res.status(200).json({ group: approved.summary });
-});
-
-router.post("/groups/:groupId/join-requests/:userId/reject", async (req, res) => {
-  const sessionUserId = req.session.user?.id;
-  if (!ensureAuth(sessionUserId)) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
-  const groupId = normalizeGroupId(req.params.groupId);
-  if (!groupId) {
-    res.status(400).json({ message: "Invalid group ID." });
-    return;
-  }
-  const targetUserId = parsePositiveInt(req.params.userId);
-  if (!targetUserId) {
-    res.status(400).json({ message: "Invalid user ID." });
-    return;
-  }
-
-  const rejected = rejectGroupJoinRequest(groupId, sessionUserId, targetUserId);
-  if (!rejected.rejected) {
-    if (rejected.reason === "forbidden") {
-      res.status(403).json({ message: "Only the group creator can reject join requests." });
+    const targetUserId = parsePositiveInt(req.params.userId);
+    if (!targetUserId) {
+      res.status(400).json({ message: "Invalid user ID." });
       return;
     }
-    if (rejected.reason === "request_not_found") {
-      res.status(404).json({ message: "Join request not found." });
+
+    const approved = approveGroupJoinRequest(
+      groupId,
+      sessionUserId,
+      targetUserId,
+    );
+    if (!approved.approved) {
+      if (approved.reason === "forbidden") {
+        res
+          .status(403)
+          .json({
+            message: "Only the group creator can approve join requests.",
+          });
+        return;
+      }
+      if (approved.reason === "request_not_found") {
+        res.status(404).json({ message: "Join request not found." });
+        return;
+      }
+      res.status(404).json({ message: "Group not found." });
       return;
     }
-    res.status(404).json({ message: "Group not found." });
-    return;
-  }
 
-  res.status(200).json({ group: rejected.summary });
-});
+    res.status(200).json({ group: approved.summary });
+  },
+);
+
+router.post(
+  "/groups/:groupId/join-requests/:userId/reject",
+  async (req, res) => {
+    const sessionUserId = req.user?.userId;
+    if (!ensureAuth(sessionUserId)) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const groupId = normalizeGroupId(req.params.groupId);
+    if (!groupId) {
+      res.status(400).json({ message: "Invalid group ID." });
+      return;
+    }
+    const targetUserId = parsePositiveInt(req.params.userId);
+    if (!targetUserId) {
+      res.status(400).json({ message: "Invalid user ID." });
+      return;
+    }
+
+    const rejected = rejectGroupJoinRequest(
+      groupId,
+      sessionUserId,
+      targetUserId,
+    );
+    if (!rejected.rejected) {
+      if (rejected.reason === "forbidden") {
+        res
+          .status(403)
+          .json({
+            message: "Only the group creator can reject join requests.",
+          });
+        return;
+      }
+      if (rejected.reason === "request_not_found") {
+        res.status(404).json({ message: "Join request not found." });
+        return;
+      }
+      res.status(404).json({ message: "Group not found." });
+      return;
+    }
+
+    res.status(200).json({ group: rejected.summary });
+  },
+);
 
 router.delete("/groups/:groupId", async (req, res) => {
-  const sessionUserId = req.session.user?.id;
+  const sessionUserId = req.user?.userId;
   if (!ensureAuth(sessionUserId)) {
     res.status(401).json({ message: "Unauthorized" });
     return;
@@ -498,7 +566,9 @@ router.delete("/groups/:groupId", async (req, res) => {
   const deleted = deleteGroup(groupId, sessionUserId);
   if (!deleted.deleted) {
     if (deleted.reason === "forbidden") {
-      res.status(403).json({ message: "Only the group creator can delete this group." });
+      res
+        .status(403)
+        .json({ message: "Only the group creator can delete this group." });
       return;
     }
     res.status(404).json({ message: "Group not found." });
@@ -509,7 +579,7 @@ router.delete("/groups/:groupId", async (req, res) => {
 });
 
 router.get("/groups/:groupId/messages", async (req, res) => {
-  const sessionUserId = req.session.user?.id;
+  const sessionUserId = req.user?.userId;
   if (!ensureAuth(sessionUserId)) {
     res.status(401).json({ message: "Unauthorized" });
     return;
@@ -535,18 +605,29 @@ router.get("/groups/:groupId/messages", async (req, res) => {
 });
 
 router.post("/threads", async (req, res) => {
-  const sessionUserId = req.session.user?.id;
+  const sessionUserId = req.user?.userId;
   if (!ensureAuth(sessionUserId)) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
-  const rawTargetId = req.body?.BId ?? req.body?.targetUserId ?? req.body?.userId ?? req.body?.hostId;
-  const targetUserId = typeof rawTargetId === "number" ? rawTargetId : Number(rawTargetId);
-  if (!Number.isInteger(targetUserId) || Number.isNaN(targetUserId) || targetUserId <= 0) {
+  const rawTargetId =
+    req.body?.BId ??
+    req.body?.targetUserId ??
+    req.body?.userId ??
+    req.body?.hostId;
+  const targetUserId =
+    typeof rawTargetId === "number" ? rawTargetId : Number(rawTargetId);
+  if (
+    !Number.isInteger(targetUserId) ||
+    Number.isNaN(targetUserId) ||
+    targetUserId <= 0
+  ) {
     return res.status(400).json({ error: "Invalid target user ID" });
   }
   if (targetUserId === sessionUserId) {
-    return res.status(400).json({ error: "Cannot create thread with yourself" });
+    return res
+      .status(400)
+      .json({ error: "Cannot create thread with yourself" });
   }
 
   const targetUser = await prisma.user.findUnique({
@@ -570,7 +651,9 @@ router.post("/threads", async (req, res) => {
   }
 
   const [AID, BID] =
-    sessionUserId < targetUserId ? [sessionUserId, targetUserId] : [targetUserId, sessionUserId];
+    sessionUserId < targetUserId
+      ? [sessionUserId, targetUserId]
+      : [targetUserId, sessionUserId];
 
   const newThread = await prisma.chatThread.create({
     data: {
@@ -583,7 +666,7 @@ router.post("/threads", async (req, res) => {
 });
 
 router.get("/threads", async (req, res) => {
-  const userId = req.session.user?.id;
+  const userId = req.user?.userId;
 
   if (!ensureAuth(userId)) {
     res.status(401).json({ message: "Unauthorized" });
@@ -595,8 +678,24 @@ router.get("/threads", async (req, res) => {
       OR: [{ AID: userId }, { BID: userId }],
     },
     include: {
-      UserA: { select: { id: true, name: true, email: true, cleanId: true, avatar: true } },
-      UserB: { select: { id: true, name: true, email: true, cleanId: true, avatar: true } },
+      UserA: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          cleanId: true,
+          avatar: true,
+        },
+      },
+      UserB: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          cleanId: true,
+          avatar: true,
+        },
+      },
       Messages: {
         take: 1,
         orderBy: { createdAt: "desc" },
@@ -608,7 +707,7 @@ router.get("/threads", async (req, res) => {
 
   const trustSnapshots = await buildCleanIdTrustSnapshots(
     prisma,
-    threads.flatMap((thread) => [thread.UserA.id, thread.UserB.id])
+    threads.flatMap((thread) => [thread.UserA.id, thread.UserB.id]),
   );
 
   res.json(
@@ -616,18 +715,20 @@ router.get("/threads", async (req, res) => {
       ...thread,
       UserA: {
         ...thread.UserA,
-        trust: trustSnapshots.get(thread.UserA.id) ?? fallbackCleanIdTrustSnapshot,
+        trust:
+          trustSnapshots.get(thread.UserA.id) ?? fallbackCleanIdTrustSnapshot,
       },
       UserB: {
         ...thread.UserB,
-        trust: trustSnapshots.get(thread.UserB.id) ?? fallbackCleanIdTrustSnapshot,
+        trust:
+          trustSnapshots.get(thread.UserB.id) ?? fallbackCleanIdTrustSnapshot,
       },
-    }))
+    })),
   );
 });
 
 router.get("/threads/:threadId/messages", async (req, res) => {
-  const userId = req.session.user?.id;
+  const userId = req.user?.userId;
   if (!ensureAuth(userId)) {
     res.status(401).json({ message: "Unauthorized" });
     return;

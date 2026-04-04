@@ -6,6 +6,7 @@ import { getAvatarToneClass, type AvatarKey } from "../constants/avatarCatalog";
 import { BACKEND_URL, SOCKET_URL } from "../config";
 import { useViewportOverscan } from "../hooks/useViewportOverscan";
 import { getNotificationPermission, showMessageNotification } from "../utils/notifications";
+import { getAuthToken } from "../utils/auth";
 import "./chatPage.css";
 
 type ChatMessage = {
@@ -240,7 +241,9 @@ const ChatPage = () => {
   const connectSocket = () => {
     if (socketRef.current) return;
 
-    const socket = io(SOCKET_URL, { withCredentials: true });
+    const socket = io(SOCKET_URL, {
+      auth: { token: getAuthToken() },
+    });
     socketRef.current = socket;
 
     socket.on("connect", () => {
