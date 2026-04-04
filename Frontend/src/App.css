@@ -67,6 +67,58 @@ button {
   will-change: opacity, transform, filter;
 }
 
+.hybrid-app-shell {
+  position: relative;
+  min-height: 100svh;
+  min-height: 100dvh;
+}
+
+.hybrid-root-stack {
+  position: relative;
+  min-height: 100svh;
+  min-height: 100dvh;
+  isolation: isolate;
+}
+
+.hybrid-root-view {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 1;
+  contain: layout paint style;
+  transform: translateZ(0);
+}
+
+.hybrid-root-view.is-active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+.hybrid-root-view.is-sleeping {
+  pointer-events: none;
+}
+
+.hybrid-detail-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 22;
+  pointer-events: none;
+}
+
+.hybrid-detail-surface {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+}
+
+.hybrid-chat-overlay {
+  overflow: hidden;
+}
+
 .app-route-stage-spatial-forward {
   animation: app-route-enter-spatial-forward 420ms var(--motion-smooth) both;
 }

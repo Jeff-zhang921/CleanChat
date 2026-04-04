@@ -1,6 +1,6 @@
 import './App.css';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import type { CSSProperties } from 'react';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 // import PersonalPage from './pages/personalPage';
 import ChatPage from './pages/chatPage';
 import ConversationsPage from './pages/ConversationPage';
@@ -13,10 +13,14 @@ import ProfileEditPage from './pages/profileEdit'
 import PurityDetailPage from './pages/purityDetail'
 import IdentityVaultPage from './pages/identityVault'
 import ProfileSettingsPage from './pages/profileSettings'
-import type { ProfileRouteState } from './utils/profileUser';
 import { getAuthToken } from './utils/auth';
 
 type PretextBackdropVariant = 'auth' | 'app';
+type RootViewKey = 'conversations' | 'groups' | 'profile' | 'settings';
+type DetailViewKey = 'chat' | 'profile-edit' | 'profile-purity' | 'profile-vault' | null;
+type ChatRouteState = {
+  fromPath?: '/conversations' | '/groups';
+};
 
 const backdropPalettes = {
   auth: {
@@ -201,40 +205,227 @@ const HomeRedirect = () => {
   return <Navigate to={hasToken ? '/conversations' : '/login'} replace />;
 };
 
+const normalizePathname = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
+
+const resolveRootViewFromPath = (
+  pathname: string,
+  fallback: RootViewKey = 'conversations'
+): RootViewKey => {
+  if (pathname === '/groups') return 'groups';
+  if (pathname === '/profile/settings') return 'settings';
+  if (pathname.startsWith('/profile')) return 'profile';
+  if (pathname === '/conversations') return 'conversations';
+  return fallback;
+};
+
+const resolveDetailViewFromPath = (pathname: string): DetailViewKey => {
+  if (pathname === '/chat') return 'chat';
+  if (pathname === '/profile/edit') return 'profile-edit';
+  if (pathname === '/profile/purity') return 'profile-purity';
+  if (pathname === '/profile/vault') return 'profile-vault';
+  return null;
+};
+
+const isKnownHybridPath = (pathname: string) => {
+  if (pathname === '/conversations') return true;
+  if (pathname === '/groups') return true;
+  if (pathname === '/profile') return true;
+  if (pathname === '/profile/settings') return true;
+  if (pathname === '/profile/edit') return true;
+  if (pathname === '/profile/purity') return true;
+  if (pathname === '/profile/vault') return true;
+  if (pathname === '/chat') return true;
+  return false;
+};
+
+const resolveChatBaseView = (
+  pathname: string,
+  locationState: unknown,
+  fallback: RootViewKey
+): RootViewKey => {
+  const state = (locationState as ChatRouteState | null) ?? null;
+  if (state?.fromPath === '/groups') {
+    return 'groups';
+  }
+  if (state?.fromPath === '/conversations') {
+    return 'conversations';
+  }
+  if (pathname.startsWith('/groups')) {
+    return 'groups';
+  }
+  if (fallback === 'groups') {
+    return 'groups';
+  }
+  return 'conversations';
+};
+
+const HybridAppShell = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const pathname = normalizePathname(location.pathname);
+  const hasToken = getAuthToken().length > 0;
+
+  const initialRoot = resolveRootViewFromPath(pathname, 'conversations');
+  const [activeRootView, setActiveRootView] = useState<RootViewKey>(initialRoot);
+  const [mountedRootViews, setMountedRootViews] = useState<Record<RootViewKey, boolean>>(() => ({
+    conversations: true,
+    groups: initialRoot === 'groups',
+    profile: initialRoot === 'profile' || initialRoot === 'settings',
+    settings: initialRoot === 'settings',
+  }));
+  const lastRootViewRef = useRef<RootViewKey>(initialRoot);
+  const detailView = resolveDetailViewFromPath(pathname);
+  const hasDetailOverlay = detailView !== null;
+
+  useEffect(() => {
+    if (!hasToken) {
+      return;
+    }
+
+    if (detailView === 'chat') {
+      const baseView = resolveChatBaseView(pathname, location.state, lastRootViewRef.current);
+      lastRootViewRef.current = baseView;
+      setActiveRootView((current) => (current === baseView ? current : baseView));
+      setMountedRootViews((current) =>
+        current[baseView] ? current : { ...current, [baseView]: true }
+      );
+      return;
+    }
+
+    if (detailView === 'profile-edit' || detailView === 'profile-purity' || detailView === 'profile-vault') {
+      lastRootViewRef.current = 'profile';
+      setActiveRootView((current) => (current === 'profile' ? current : 'profile'));
+      setMountedRootViews((current) =>
+        current.profile ? current : { ...current, profile: true }
+      );
+      return;
+    }
+
+    const nextRoot = resolveRootViewFromPath(pathname, lastRootViewRef.current);
+    lastRootViewRef.current = nextRoot;
+    setActiveRootView((current) => (current === nextRoot ? current : nextRoot));
+    setMountedRootViews((current) =>
+      current[nextRoot] ? current : { ...current, [nextRoot]: true }
+    );
+  }, [detailView, hasToken, location.state, pathname]);
+
+  if (!hasToken) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!isKnownHybridPath(pathname)) {
+    return <Navigate to="/conversations" replace />;
+  }
+
+  const renderDetailOverlay = () => {
+    if (detailView === 'chat') {
+      return (
+        <div className="hybrid-detail-surface hybrid-chat-overlay" role="presentation">
+          <ChatPage
+            onRequestClose={(fromPath) => {
+              navigate(fromPath === '/groups' ? '/groups' : '/conversations', { replace: true });
+            }}
+          />
+        </div>
+      );
+    }
+
+    if (detailView === 'profile-edit') {
+      return (
+        <div className="hybrid-detail-surface" role="presentation">
+          <ProfileEditPage />
+        </div>
+      );
+    }
+
+    if (detailView === 'profile-purity') {
+      return (
+        <div className="hybrid-detail-surface" role="presentation">
+          <PurityDetailPage />
+        </div>
+      );
+    }
+
+    if (detailView === 'profile-vault') {
+      return (
+        <div className="hybrid-detail-surface" role="presentation">
+          <IdentityVaultPage />
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  const isConversationInteractive = !hasDetailOverlay && activeRootView === 'conversations';
+
+  return (
+    <div className="hybrid-app-shell">
+      <div className="hybrid-root-stack">
+        {mountedRootViews.conversations && (
+          <section
+            className={`hybrid-root-view ${activeRootView === 'conversations' ? 'is-active' : ''} ${hasDetailOverlay && activeRootView === 'conversations' ? 'is-sleeping' : ''}`}
+            aria-hidden={!isConversationInteractive}
+          >
+            <ConversationsPage isDormant={!isConversationInteractive} />
+          </section>
+        )}
+
+        {mountedRootViews.groups && (
+          <section
+            className={`hybrid-root-view ${activeRootView === 'groups' ? 'is-active' : ''} ${hasDetailOverlay && activeRootView === 'groups' ? 'is-sleeping' : ''}`}
+            aria-hidden={hasDetailOverlay || activeRootView !== 'groups'}
+          >
+            <GroupConversationPage />
+          </section>
+        )}
+
+        {mountedRootViews.profile && (
+          <section
+            className={`hybrid-root-view ${activeRootView === 'profile' ? 'is-active' : ''} ${hasDetailOverlay && activeRootView === 'profile' ? 'is-sleeping' : ''}`}
+            aria-hidden={hasDetailOverlay || activeRootView !== 'profile'}
+          >
+            <ProfilePage />
+          </section>
+        )}
+
+        {mountedRootViews.settings && (
+          <section
+            className={`hybrid-root-view ${activeRootView === 'settings' ? 'is-active' : ''} ${hasDetailOverlay && activeRootView === 'settings' ? 'is-sleeping' : ''}`}
+            aria-hidden={hasDetailOverlay || activeRootView !== 'settings'}
+          >
+            <ProfileSettingsPage />
+          </section>
+        )}
+      </div>
+
+      {hasDetailOverlay && (
+        <div className="hybrid-detail-layer" role="presentation" aria-hidden="false">
+          {renderDetailOverlay()}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const RoutedApp = () => {
   const location = useLocation();
-  const routeState = (location.state as ProfileRouteState | null) ?? null;
   const authRoutes = ['/login', '/verify', '/basic-info'];
   const variant: PretextBackdropVariant = authRoutes.some((route) => location.pathname.startsWith(route))
     ? 'auth'
     : 'app';
-  const routeStageClass = [
-    'app-route-stage',
-    routeState?.spatialTransition === 'push' ? 'app-route-stage-spatial-forward' : '',
-    routeState?.spatialTransition === 'pop' ? 'app-route-stage-spatial-back' : '',
-  ]
-    .filter(Boolean)
-    .join(' ');
 
   return (
     <div style={{ position: 'relative', minHeight: '100svh' }}>
       <PretextBackdrop variant={variant} />
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <div className={routeStageClass} key={`${location.pathname}${location.search}${routeState?.spatialTransition ?? ''}`}>
+        <div className="app-route-stage">
           <Routes>
             <Route path="/" element={<HomeRedirect />} />
             <Route path="/login" element={<LoginPage/>} />
             <Route path="/verify" element={<VerifyPage />} />
             <Route path="/basic-info" element={<BasicInfoPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/profile/edit" element={<ProfileEditPage />} />
-            <Route path="/profile/settings" element={<ProfileSettingsPage />} />
-            <Route path="/profile/purity" element={<PurityDetailPage />} />
-            <Route path="/profile/vault" element={<IdentityVaultPage />} />
-            <Route path="/conversations" element={<ConversationsPage />} />
-            <Route path="/groups" element={<GroupConversationPage />} />
-            <Route path="/chat" element={<ChatPage />} />
-            <Route path="*" element={<HomeRedirect />} />
+            <Route path="*" element={<HybridAppShell />} />
             {/* <Route path="/personal" element={<PersonalPage />} /> */}
           </Routes>
         </div>

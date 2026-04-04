@@ -22,6 +22,15 @@
   font-family: "Manrope", sans-serif;
   box-sizing: border-box;
   overflow: hidden;
+  position: relative;
+  transform: translateX(0);
+  opacity: 1;
+  animation: chat-overlay-in var(--motion-medium-local) var(--motion-smooth-local) both;
+}
+
+.chat-shell.is-closing {
+  pointer-events: none;
+  animation: chat-overlay-out 220ms var(--motion-smooth-local) forwards;
 }
 
 .chat-panel {
@@ -763,6 +772,30 @@
   }
 }
 
+@keyframes chat-overlay-in {
+  0% {
+    transform: translateX(100%);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes chat-overlay-out {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(100%);
+    opacity: 1;
+  }
+}
+
 @keyframes chat-heading-enter {
   0% {
     opacity: 0;
@@ -962,6 +995,8 @@
   .chat-heading,
   .chat-footer-context,
   .chat-input,
+  .chat-shell,
+  .chat-shell.is-closing,
   .chat-shell.history-loading .chat-bar .avatar,
   .chat-shell.history-loading .chat-footer-avatar,
   .chat-shell.send-pulse .send-button.ready,

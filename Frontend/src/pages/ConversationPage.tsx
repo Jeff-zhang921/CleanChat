@@ -330,6 +330,10 @@ type ConversationStageChromeProps = {
   onSearchChange: (value: string) => void;
 };
 
+type ConversationPageProps = {
+  isDormant?: boolean;
+};
+
 const ConversationStageChrome = ({
   hasQuery,
   heroName,
@@ -410,7 +414,7 @@ const ConversationStageChrome = ({
   </div>
 );
 
-const ConversationPage = () => {
+const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   const navigate = useNavigate();
   const listOverscan = useViewportOverscan();
   const isCompactViewport = useCompactViewport();
@@ -1024,64 +1028,89 @@ const ConversationPage = () => {
     );
   };
 
-  const renderConversationCard = (_index: number, item: ConversationItem) => (
-    <motion.div
-      key={item.id}
-      className="conversations-virtual-item"
-      layout
-      transition={FLIP_LAYOUT_TRANSITION}
-      initial={false}
-    >
-      <motion.button
-        type="button"
-        className="conversation-card"
-        data-conversation-id={item.id}
-        layout
-        transition={FLIP_LAYOUT_TRANSITION}
-        onClick={() => {
-          if (item.chatType === "group" && item.groupId) {
-            handleOpenGroup(item.groupId, item.name, item.avatarUrl);
-            return;
-          }
-          if (item.threadId) {
-            handleOpenThread(item.threadId, item.cleanId || item.email || item.name, item.avatarUrl, item.avatarKey);
-          }
-        }}
-      >
-        <div className="avatar">
-          <img className={item.avatarKey ? getAvatarToneClass(item.avatarKey) : undefined} src={item.avatarUrl} alt={`${item.name} avatar`} />
-        </div>
-        <div className="conversation-body">
-          <div className="conversation-top">
-            <div className="conversation-heading">
-              <h3>{item.name}</h3>
-              <p className="role">{item.role}</p>
-            </div>
-            <div className="conversation-meta-stack">
-              <span className="time">{item.time}</span>
-              <UnreadIndicator unreadCount={item.unreadCount} />
-            </div>
+  const renderConversationCardContent = (item: ConversationItem) => (
+    <>
+      <div className="avatar">
+        <img className={item.avatarKey ? getAvatarToneClass(item.avatarKey) : undefined} src={item.avatarUrl} alt={`${item.name} avatar`} />
+      </div>
+      <div className="conversation-body">
+        <div className="conversation-top">
+          <div className="conversation-heading">
+            <h3>{item.name}</h3>
+            <p className="role">{item.role}</p>
           </div>
-          <p className="preview">{item.preview}</p>
-          <div className="conversation-identity-row">
-            <p
-              className={`conversation-subline ${item.trust ? `conversation-cleanid conversation-cleanid-${item.trust.band}` : ""}`}
-            >
-              {item.subline}
-            </p>
-            {item.trust && (
-              <span className={`conversation-trust-chip conversation-trust-chip-${item.trust.band}`}>
-                {getTrustToneLabel(item.trust)}
-              </span>
-            )}
+          <div className="conversation-meta-stack">
+            <span className="time">{item.time}</span>
+            <UnreadIndicator unreadCount={item.unreadCount} />
           </div>
         </div>
-      </motion.button>
-    </motion.div>
+        <p className="preview">{item.preview}</p>
+        <div className="conversation-identity-row">
+          <p
+            className={`conversation-subline ${item.trust ? `conversation-cleanid conversation-cleanid-${item.trust.band}` : ""}`}
+          >
+            {item.subline}
+          </p>
+          {item.trust && (
+            <span className={`conversation-trust-chip conversation-trust-chip-${item.trust.band}`}>
+              {getTrustToneLabel(item.trust)}
+            </span>
+          )}
+        </div>
+      </div>
+    </>
   );
 
+  const renderConversationCard = (_index: number, item: ConversationItem) => {
+    const handleOpen = () => {
+      if (item.chatType === "group" && item.groupId) {
+        handleOpenGroup(item.groupId, item.name, item.avatarUrl);
+        return;
+      }
+      if (item.threadId) {
+        handleOpenThread(item.threadId, item.cleanId || item.email || item.name, item.avatarUrl, item.avatarKey);
+      }
+    };
+
+    if (isDormant) {
+      return (
+        <div key={item.id} className="conversations-virtual-item">
+          <button
+            type="button"
+            className="conversation-card"
+            data-conversation-id={item.id}
+            onClick={handleOpen}
+          >
+            {renderConversationCardContent(item)}
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <motion.div
+        key={item.id}
+        className="conversations-virtual-item"
+        layout
+        transition={FLIP_LAYOUT_TRANSITION}
+        initial={false}
+      >
+        <motion.button
+          type="button"
+          className="conversation-card"
+          data-conversation-id={item.id}
+          layout
+          transition={FLIP_LAYOUT_TRANSITION}
+          onClick={handleOpen}
+        >
+          {renderConversationCardContent(item)}
+        </motion.button>
+      </motion.div>
+    );
+  };
+
   return (
-    <div className="conversations-page">
+    <div className={`conversations-page ${isDormant ? "is-dormant" : ""}`}>
       <div className="conversations-shell">
         <div className="conversations-stage">
           <ConversationStageChrome
@@ -1207,13 +1236,19 @@ const ConversationPage = () => {
           {shouldRenderConversations && (
             <div className="conversations-scroll-shell" data-testid="conversations-scroll-shell">
               <div className="conversations-scroll-content">
-                <MotionConfig reducedMotion="user">
+                {isDormant ? (
                   <section className="conversations-list conversations-list-static conversations-list-fluid" aria-label="Conversations">
-                    <AnimatePresence initial={false}>
-                      {conversations.map((item, index) => renderConversationCard(index, item))}
-                    </AnimatePresence>
+                    {conversations.map((item, index) => renderConversationCard(index, item))}
                   </section>
-                </MotionConfig>
+                ) : (
+                  <MotionConfig reducedMotion="user">
+                    <section className="conversations-list conversations-list-static conversations-list-fluid" aria-label="Conversations">
+                      <AnimatePresence initial={false}>
+                        {conversations.map((item, index) => renderConversationCard(index, item))}
+                      </AnimatePresence>
+                    </section>
+                  </MotionConfig>
+                )}
               </div>
             </div>
           )}

@@ -40,6 +40,10 @@ type ChatLocationState = {
   fromPath?: "/conversations" | "/groups";
 };
 
+type ChatPageProps = {
+  onRequestClose?: (fromPath: "/conversations" | "/groups") => void;
+};
+
 const IMAGE_MESSAGE_PREFIX = "IMG::";
 const IMAGE_URL_REGEX =
   /^https:\/\/(?:utfs\.io|(?:[a-z0-9-]+\.)?ufs\.sh|[^/\s]*uploadthing\.com)\//i;
@@ -47,6 +51,7 @@ const IMAGE_EXTENSION_REGEX =
   /\.(?:png|jpe?g|gif|webp|bmp|svg|heic|heif|avif)(?:\?.*)?$/i;
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const CONVERSATIONS_RETURN_KEY = "cleanchat:conversations-return";
+const CHAT_OVERLAY_EXIT_MS = 220;
 
 const isHttpUrl = (value: string) => /^https?:\/\/\S+$/i.test(value);
 
@@ -92,7 +97,7 @@ const ChatVirtuosoList = forwardRef<HTMLDivElement, ListProps>((props, ref) => (
 
 ChatVirtuosoList.displayName = "ChatVirtuosoList";
 
-const ChatPage = () => {
+const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const messageOverscan = useViewportOverscan();
@@ -157,6 +162,8 @@ const ChatPage = () => {
   const previousMessageCountRef = useRef(0);
   const historyHydratedRef = useRef(false);
   const sendPulseTimeoutRef = useRef<number | null>(null);
+  const closeTimeoutRef = useRef<number | null>(null);
+  const isAtBottomRef = useRef(true);
 
   const [status, setStatus] = useState("Not connected");
   const [threadId, setThreadId] = useState<number | null>(null);
@@ -176,6 +183,7 @@ const ChatPage = () => {
   const [isComposerFocused, setIsComposerFocused] = useState(false);
   const [isSendPulseVisible, setIsSendPulseVisible] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [isClosing, setIsClosing] = useState(false);
 
   const refocusMessageInput = () => {
     if (typeof window === "undefined") return;
@@ -406,6 +414,10 @@ const ChatPage = () => {
   useEffect(() => {
     meRef.current = me;
   }, [me]);
+
+  useEffect(() => {
+    isAtBottomRef.current = isAtBottom;
+  }, [isAtBottom]);
 
   useEffect(() => {
     void (async () => {
@@ -734,6 +746,9 @@ const ChatPage = () => {
       if (typeof window !== "undefined" && sendPulseTimeoutRef.current !== null) {
         window.clearTimeout(sendPulseTimeoutRef.current);
       }
+      if (typeof window !== "undefined" && closeTimeoutRef.current !== null) {
+        window.clearTimeout(closeTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -766,6 +781,98 @@ const ChatPage = () => {
   ];
 
   useEffect(() => {
+    if (typeof window === "undefined" || showHistorySkeleton) {
+      return;
+    }
+
+    let disposed = false;
+    let cleanup: (() => void) | null = null;
+
+    const frame = window.requestAnimationFrame(() => {
+      if (disposed) {
+        return;
+      }
+
+      const scroller = document.querySelector<HTMLElement>(".chat-virtuoso-scroller");
+      if (!scroller) {
+        return;
+      }
+
+      const onScroll = () => {
+        // Keep a cheap touchpoint for future scroll heuristics while remaining passive.
+        void scroller.scrollTop;
+      };
+
+      scroller.addEventListener("scroll", onScroll, { passive: true });
+
+      const resizeObserver =
+        typeof ResizeObserver !== "undefined"
+          ? new ResizeObserver(() => {
+              if (isAtBottomRef.current) {
+                virtuosoRef.current?.autoscrollToBottom();
+              }
+            })
+          : null;
+      resizeObserver?.observe(scroller);
+
+      const imageObserver =
+        typeof IntersectionObserver !== "undefined"
+          ? new IntersectionObserver(
+              (entries) => {
+                const observer = imageObserver;
+                entries.forEach((entry) => {
+                  if (!entry.isIntersecting) {
+                    return;
+                  }
+                  const element = entry.target;
+                  if (element instanceof HTMLImageElement) {
+                    element.decoding = "async";
+                  }
+                  observer?.unobserve(element);
+                });
+              },
+              {
+                root: scroller,
+                rootMargin: "140px",
+              }
+            )
+          : null;
+
+      const observeImages = () => {
+        if (!imageObserver) return;
+        const images = scroller.querySelectorAll<HTMLImageElement>(".chat-image");
+        images.forEach((image) => imageObserver.observe(image));
+      };
+
+      observeImages();
+
+      const mutationObserver =
+        typeof MutationObserver !== "undefined"
+          ? new MutationObserver(() => {
+              observeImages();
+            })
+          : null;
+      mutationObserver?.observe(scroller, {
+        childList: true,
+        subtree: true,
+      });
+
+      cleanup = () => {
+        scroller.removeEventListener("scroll", onScroll);
+        resizeObserver?.disconnect();
+        imageObserver?.disconnect();
+        mutationObserver?.disconnect();
+      };
+    });
+
+    return () => {
+      disposed = true;
+      window.cancelAnimationFrame(frame);
+      cleanup?.();
+    };
+  }, [showHistorySkeleton]);
+
+  useEffect(() => {
     if (showHistorySkeleton || message.length === 0) {
       previousMessageCountRef.current = message.length;
       return;
@@ -792,29 +899,58 @@ const ChatPage = () => {
   };
 
   const handleBack = () => {
+    if (isClosing) {
+      return;
+    }
+
     if (typeof window !== "undefined") {
       try {
         if (fromPath === "/conversations") {
           window.sessionStorage.setItem(CONVERSATIONS_RETURN_KEY, "1");
         }
       } catch {
-        // Ignore session storage failures and still navigate back.
+        // Ignore storage failures and still perform the close transition.
       }
-      if (window.history.length > 1) {
+    }
+
+    setIsClosing(true);
+
+    const completeClose = () => {
+      if (onRequestClose) {
+        onRequestClose(fromPath);
+        return;
+      }
+
+      if (typeof window !== "undefined" && window.history.length > 1) {
         navigate(-1);
         return;
       }
+
+      navigate(fromPath, { replace: true });
+    };
+
+    if (typeof window === "undefined") {
+      completeClose();
+      return;
     }
-    navigate(fromPath, { replace: true });
+
+    if (closeTimeoutRef.current !== null) {
+      window.clearTimeout(closeTimeoutRef.current);
+    }
+
+    closeTimeoutRef.current = window.setTimeout(() => {
+      closeTimeoutRef.current = null;
+      completeClose();
+    }, CHAT_OVERLAY_EXIT_MS);
   };
 
   return (
     <div
-      className={`chat-shell ${isComposerEngaged ? "composer-engaged" : ""} ${isSendPulseVisible ? "send-pulse" : ""} ${showHistorySkeleton ? "history-loading" : "history-ready"}`}
+      className={`chat-shell ${isComposerEngaged ? "composer-engaged" : ""} ${isSendPulseVisible ? "send-pulse" : ""} ${showHistorySkeleton ? "history-loading" : "history-ready"} ${isClosing ? "is-closing" : ""}`}
     >
       <main className="chat-panel">
         <div className="chat-bar">
-          <button type="button" className="back-button" aria-label="Go back" onClick={handleBack}>
+          <button type="button" className="back-button" aria-label="Go back" onClick={handleBack} disabled={isClosing}>
             <span className="back-button-icon" aria-hidden="true" />
             <span className="back-button-copy">{backLabel}</span>
           </button>
@@ -930,7 +1066,7 @@ const ChatPage = () => {
               accept="image/*,.heic,.heif"
               className="chat-file-input"
               onChange={handleUploadImage}
-              disabled={isUploadingImage}
+              disabled={isUploadingImage || isClosing}
             />
             <label
               htmlFor="chat-photo-input"
@@ -939,7 +1075,7 @@ const ChatPage = () => {
               title={isUploadingImage ? "Uploading image..." : "Add photo"}
               aria-disabled={isUploadingImage}
               onClick={(event) => {
-                if (isUploadingImage) {
+                if (isUploadingImage || isClosing) {
                   event.preventDefault();
                 }
               }}
@@ -962,6 +1098,7 @@ const ChatPage = () => {
               }}
               onFocus={() => setIsComposerFocused(true)}
               onBlur={() => setIsComposerFocused(false)}
+              disabled={isClosing}
             />
             <button
               type="button"
@@ -973,7 +1110,7 @@ const ChatPage = () => {
               }}
               onMouseDown={(event) => event.preventDefault()}
               onPointerDown={(event) => event.preventDefault()}
-              disabled={isUploadingImage || !hasDraft}
+              disabled={isUploadingImage || !hasDraft || isClosing}
             >
               Send
             </button>

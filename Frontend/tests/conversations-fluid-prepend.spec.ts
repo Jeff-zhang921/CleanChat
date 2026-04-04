@@ -66,6 +66,10 @@ const buildThreads = () =>
 test.beforeEach(async ({ page }) => {
   const threads = buildThreads();
 
+  await page.addInitScript(() => {
+    window.localStorage.setItem("cleanchat:auth-token", "playwright-token");
+  });
+
   await page.route("**/auth/me", async (route) => {
     await route.fulfill({
       status: 200,

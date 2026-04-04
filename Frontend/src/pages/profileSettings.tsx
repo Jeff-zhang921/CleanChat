@@ -73,6 +73,7 @@ const ProfileSettingsPage = () => {
   const location = useLocation();
   const routeState = (location.state as ProfileRouteState | null) ?? null;
   const seededUser = routeState?.user ? hydrateProfileUser(routeState.user) : null;
+  const isSettingsRouteActive = location.pathname === "/profile/settings";
 
   const [loading, setLoading] = useState(!seededUser);
   const [user, setUser] = useState<ProfileUser | null>(seededUser);
@@ -85,6 +86,10 @@ const ProfileSettingsPage = () => {
   const [isLeaving, setIsLeaving] = useState(false);
 
   useEffect(() => {
+    if (!isSettingsRouteActive) {
+      return;
+    }
+
     if (seededUser) {
       setLoading(false);
       return;
@@ -120,9 +125,19 @@ const ProfileSettingsPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [navigate, seededUser]);
+  }, [isSettingsRouteActive, navigate, seededUser]);
 
   useEffect(() => {
+    if (isSettingsRouteActive) {
+      setIsLeaving(false);
+    }
+  }, [isSettingsRouteActive]);
+
+  useEffect(() => {
+    if (!isSettingsRouteActive) {
+      return;
+    }
+
     const syncPermission = () => {
       const permission = getNotificationPermission();
       setNotificationPermission(permission);
@@ -162,7 +177,7 @@ const ProfileSettingsPage = () => {
         permissionStatus.removeEventListener("change", syncPermission);
       }
     };
-  }, []);
+  }, [isSettingsRouteActive]);
 
   const leave = (nextUser?: ProfileUser | null) => {
     if (isLeaving) return;
