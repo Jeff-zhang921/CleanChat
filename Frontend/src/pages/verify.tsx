@@ -5,7 +5,12 @@ import { useTranslation } from "react-i18next";
 import { apiClient } from "../utils/apiClient";
 import { setAuthToken } from "../utils/auth";
 import { ensurePushSubscriptionForCurrentUser } from "../utils/notifications";
-import "./verify.css";
+import {
+  getPretextAuthStyles,
+  PretextSignalPanel,
+  usePretextCompact,
+  usePretextPointer,
+} from "./login";
 
 const CODE_LENGTH = 6;
 const PENDING_EMAIL_KEY = "cleanchat:pending-email";
@@ -40,6 +45,8 @@ const VerifyPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const emailFromState = ((location.state as VerifyLocationState)?.email || "").trim().toLowerCase();
+  const compact = usePretextCompact();
+  const { pointer, bindings } = usePretextPointer();
   const [storedEmail, setStoredEmail] = useState(() => getPendingEmail());
   const [code, setCode] = useState("");
   const [status, setStatus] = useState("");
@@ -56,6 +63,10 @@ const VerifyPage = () => {
 
   const email = emailFromState || storedEmail;
   const normalizedCode = code.trim();
+  const styles = getPretextAuthStyles(compact, pointer);
+  const codeDigitCount = normalizedCode.length;
+  const codeProgress = Math.min(1, codeDigitCount / CODE_LENGTH);
+  const hasCompleteCode = codeDigitCount === CODE_LENGTH;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -107,44 +118,96 @@ const VerifyPage = () => {
   };
 
   return (
-    <main className="verify-page">
-      <form onSubmit={handleSubmit} className="verify-form">
-        <h1 className="verify-title">{t("auth.enterSixDigitCodeTitle")}</h1>
-        <p className="verify-copy">
-          {email ? t("auth.codeSentTo", { email }) : t("auth.returnLoginForCode")}
-        </p>
+    <div style={styles.shell} {...(compact ? {} : bindings)}>
+      <main style={styles.frame}>
+        <section style={styles.card}>
+          <div style={styles.glowA} />
+          <div style={styles.glowB} />
 
-        <label className="verify-label" htmlFor="code">
-          {t("auth.verificationCode")}
-        </label>
-        <input
-          className="verify-input"
-          id="code"
-          type="text"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          maxLength={CODE_LENGTH}
-          value={code}
-          onChange={(event) => setCode(event.target.value)}
-          placeholder={t("auth.codePlaceholder")}
-          required
-        />
+          <div style={styles.topRow}>
+            <p style={styles.kicker}>{t("auth.stepTwoOfTwo")}</p>
+            <span style={styles.badge}>{t("auth.verifyCode")}</span>
+          </div>
 
-        <button className="verify-primary" type="submit" disabled={isSubmitting || !email}>
-          {isSubmitting ? t("auth.verifying") : t("auth.enterCleanChat")}
-        </button>
-      </form>
+          <div style={styles.hero}>
+            <h1 style={styles.heroTitle}>{t("auth.enterSixDigitCodeTitle")}</h1>
+            <p style={styles.heroCopy}>
+              {email ? t("auth.codeSentTo", { email }) : t("auth.returnLoginForCode")}
+            </p>
+          </div>
 
-      <button className="verify-secondary" type="button" onClick={() => navigate("/login")}>
-        {t("auth.backToLogin")}
-      </button>
+          <div style={styles.signalRow}>
+            <PretextSignalPanel
+              progress={codeProgress}
+              compact={compact}
+              heading={hasCompleteCode ? t("auth.allDigitsReady") : t("auth.waitingFullCode")}
+              caption={t("auth.verifyOnceOnly")}
+            />
+          </div>
 
-      {status && (
-        <p className="verify-status" role="status">
-          {status}
-        </p>
-      )}
-    </main>
+          <form onSubmit={handleSubmit} style={styles.form}>
+            <label style={styles.label} htmlFor="code">
+              {t("auth.verificationCode")}
+            </label>
+            <input
+              style={styles.input}
+              id="code"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={CODE_LENGTH}
+              value={code}
+              onChange={(event) =>
+                setCode(event.target.value.replace(/\D+/g, "").slice(0, CODE_LENGTH))
+              }
+              placeholder={t("auth.codePlaceholder")}
+              required
+            />
+
+            <div style={styles.helperRow}>
+              <span style={styles.helperPill}>
+                {t("auth.codeDigitsProgress", {
+                  current: codeDigitCount,
+                  total: CODE_LENGTH,
+                })}
+              </span>
+              <span style={styles.helperPill}>
+                {email ? t("auth.mailboxLinked") : t("auth.mailboxMissing")}
+              </span>
+              <span style={styles.helperPill}>{t("auth.oneTimeEntry")}</span>
+            </div>
+
+            {!email && <p style={styles.note}>{t("auth.routeIncomplete")}</p>}
+
+            <button
+              style={{
+                ...styles.primaryButton,
+                opacity: isSubmitting || !email ? 0.72 : 1,
+              }}
+              type="submit"
+              disabled={isSubmitting || !email}
+            >
+              {isSubmitting ? t("auth.verifying") : t("auth.enterCleanChat")}
+            </button>
+          </form>
+
+          <button
+            style={{ ...styles.secondaryButton, opacity: isSubmitting ? 0.72 : 1 }}
+            type="button"
+            onClick={() => navigate("/login")}
+            disabled={isSubmitting}
+          >
+            {t("auth.backToLogin")}
+          </button>
+
+          {status && (
+            <p style={styles.status} role="status">
+              {status}
+            </p>
+          )}
+        </section>
+      </main>
+    </div>
   );
 };
 

@@ -212,89 +212,107 @@ router.post("/email/start", async (req, res) => {
 });
 
 router.post("/email/verify", async (req, res) => {
-  const email =
-    typeof req.body.email === "string"
-      ? req.body.email.toLowerCase().trim()
-      : "";
-  const code = typeof req.body.code === "string" ? req.body.code.trim() : "";
-  if (!Email_REGEX.test(email)) {
-    return res.status(400).json({ error: "Invalid email" });
-  }
-  if (code.length !== CODE_LENGTH) {
-    return res.status(400).json({ error: "Invalid code" });
-  }
-  if (!LOGIN_CODE_SECRET) {
-    res.status(500).json({ message: "Email login is not configured." });
-    return;
-  }
-  const loginCode = await prisma.loginCode.findFirst({
-    where: {
-      email,
-      usedAt: null,
-      expireAt: { gt: new Date() },
-    },
-  });
-  if (!loginCode) {
-    return res.status(400).json({ error: "Invalid or expired code" });
-  }
-  if (loginCode.attempts >= MAX_ATTEMPTS) {
-    res.status(429).json({
-      message: "Too many failed attempts. Please request a new code.",
+  try {
+    const email =
+      typeof req.body.email === "string"
+        ? req.body.email.toLowerCase().trim()
+        : "";
+    const rawCode =
+      typeof req.body.code === "string"
+        ? req.body.code
+        : typeof req.body.otp === "string"
+          ? req.body.otp
+          : "";
+    const code = rawCode.trim();
+
+    if (!Email_REGEX.test(email)) {
+      return res.status(400).json({ error: "Invalid email" });
+    }
+    if (code.length !== CODE_LENGTH) {
+      return res.status(400).json({ error: "Invalid code" });
+    }
+    if (!LOGIN_CODE_SECRET) {
+      res.status(500).json({ message: "Email login is not configured." });
+      return;
+    }
+
+    const loginCode = await prisma.loginCode.findFirst({
+      where: {
+        email,
+        usedAt: null,
+        expireAt: { gt: new Date() },
+      },
     });
-    return;
-  }
-  const providedCodeHash = hashCode(code);
-  const storedHash = loginCode.codeHash;
-  const hashesMatch =
-    providedCodeHash.length === storedHash.length &&
-    providedCodeHash === storedHash;
-
-  if (!hashesMatch) {
-    await prisma.loginCode.update({
-      where: { id: loginCode.id },
-      data: { attempts: loginCode.attempts + 1 },
-    });
-    res.status(401).json({ message: "Invalid or expired code." });
-    return;
-  }
-  await prisma.loginCode.deleteMany({ where: { email } });
-
-  const existingUser = await prisma.user.findUnique({
-    where: { email },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      avatar: true,
-      cleanId: true,
-      gender: true,
-    },
-  });
-
-  const isNewUser = !existingUser;
-  const user = existingUser
-    ? existingUser
-    : await prisma.user.create({
-        data: {
-          email,
-          name: email.split("@")[0],
-          avatar: DEFAULT_AVATAR,
-          gender: "hidden",
-          cleanId: await generateUniqueCleanId(),
-        },
+    if (!loginCode) {
+      return res.status(400).json({ error: "Invalid or expired code" });
+    }
+    if (loginCode.attempts >= MAX_ATTEMPTS) {
+      res.status(429).json({
+        message: "Too many failed attempts. Please request a new code.",
       });
-  const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [user.id]);
-  const token = signAuthToken(user.id);
+      return;
+    }
 
-  res.json({
-    message: "Login code verified",
-    token,
-    user: {
-      ...user,
-      trust: trustSnapshots.get(user.id) ?? fallbackCleanIdTrustSnapshot,
-    },
-    isNewUser,
-  });
+    const providedCodeHash = hashCode(code);
+    const storedHash = loginCode.codeHash;
+    const hashesMatch =
+      providedCodeHash.length === storedHash.length &&
+      providedCodeHash === storedHash;
+
+    if (!hashesMatch) {
+      await prisma.loginCode.update({
+        where: { id: loginCode.id },
+        data: { attempts: loginCode.attempts + 1 },
+      });
+      res.status(401).json({ message: "Invalid or expired code." });
+      return;
+    }
+
+    await prisma.loginCode.deleteMany({ where: { email } });
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        avatar: true,
+        cleanId: true,
+        gender: true,
+      },
+    });
+
+    const isNewUser = !existingUser;
+    const user = existingUser
+      ? existingUser
+      : await prisma.user.create({
+          data: {
+            email,
+            name: email.split("@")[0],
+            avatar: DEFAULT_AVATAR,
+            gender: "hidden",
+            cleanId: await generateUniqueCleanId(),
+          },
+        });
+
+    const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [user.id]);
+    // Single-token auth: issue only one long-lived access token.
+    const token = signAuthToken(user.id);
+
+    res.json({
+      message: "Login code verified",
+      token,
+      user: {
+        ...user,
+        trust: trustSnapshots.get(user.id) ?? fallbackCleanIdTrustSnapshot,
+      },
+      isNewUser,
+    });
+  } catch (error) {
+    const details = error instanceof Error ? error.message : String(error);
+    console.error("Failed to verify email code:", error);
+    res.status(500).json({ error: "Verification failed.", details });
+  }
 });
 
 router.get("/me", authMiddleware, async (req, res) => {
