@@ -35,6 +35,10 @@ type ChatMessage = {
   parentMessageId?: number | null;
   quoteSenderName?: string | null;
   quotePreview?: string | null;
+  quotedContent?: {
+    senderName?: string | null;
+    preview?: string | null;
+  } | null;
 };
 
 type MessageRecallPayload = {
@@ -1578,6 +1582,13 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
                 const imageUrl = getImageUrlFromMessage(msg.body);
                 const isDeletingMessage = deletingMessageIds.includes(msg.id);
                 const isRecalled = isRecalledMessageBody(msg.body);
+                const quoteSender =
+                  msg.quotedContent?.senderName ?? msg.quoteSenderName ?? null;
+                const quotePreview =
+                  msg.quotedContent?.preview ?? msg.quotePreview ?? null;
+                const hasQuoteContent = Boolean(
+                  quotePreview || quoteSender || msg.parentMessageId,
+                );
 
                 if (isRecalled) {
                   return (
@@ -1622,13 +1633,13 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
                         ) : (
                           <p className="chat-message-content">{msg.body}</p>
                         )}
-                        {(msg.quotePreview || msg.quoteSenderName || msg.parentMessageId) && (
+                        {hasQuoteContent && (
                           <div className="chat-quote-inline" aria-label={t("chat.quoteAction")}>
                             <p className="chat-quote-inline-sender">
-                              {msg.quoteSenderName || t("chat.quoteFallbackSender")}
+                              {quoteSender || t("chat.quoteFallbackSender")}
                             </p>
                             <p className="chat-quote-inline-body">
-                              {msg.quotePreview || t("chat.quoteFallbackPreview")}
+                              {quotePreview || t("chat.quoteFallbackPreview")}
                             </p>
                           </div>
                         )}

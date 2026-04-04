@@ -61,13 +61,20 @@ model ChatThread {
 }
 
 model ChatMessage {
-  id        Int        @id @default(autoincrement())
-  threadId  Int
-  senderId  Int
-  body      String
-  createdAt DateTime   @default(now())
-  thread    ChatThread @relation(fields: [threadId], references: [id])
-  sender    User       @relation(fields: [senderId], references: [id])
+  id              Int           @id @default(autoincrement())
+  threadId        Int
+  senderId        Int
+  body            String
+  parentMessageId Int?
+  quoteSenderName String?
+  quotePreview    String?
+  createdAt       DateTime      @default(now())
+  thread          ChatThread    @relation(fields: [threadId], references: [id])
+  sender          User          @relation(fields: [senderId], references: [id])
+  parentMessage   ChatMessage?  @relation("ChatMessageQuotes", fields: [parentMessageId], references: [id], onDelete: SetNull)
+  quotedMessages  ChatMessage[] @relation("ChatMessageQuotes")
+
+  @@index([parentMessageId])
 }
 
 model ChatBlock {

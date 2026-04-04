@@ -1668,8 +1668,10 @@ router.get("/threads/:threadId/messages", async (req, res) => {
 
   const thread = await prisma.chatThread.findUnique({
     where: { id: threadId },
-    include: {
-      Messages: { orderBy: { createdAt: "asc" } },
+    select: {
+      id: true,
+      AID: true,
+      BID: true,
     },
   });
   if (!thread) {
@@ -1682,7 +1684,63 @@ router.get("/threads/:threadId/messages", async (req, res) => {
     return;
   }
 
-  res.json(thread.Messages);
+  const messages = await prisma.chatMessage.findMany({
+    where: { threadId },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      threadId: true,
+      senderId: true,
+      body: true,
+      createdAt: true,
+      parentMessageId: true,
+      quoteSenderName: true,
+      quotePreview: true,
+      parentMessage: {
+        select: {
+          body: true,
+          sender: {
+            select: {
+              name: true,
+              cleanId: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  res.json(
+    messages.map((message) => {
+      const quoteSenderName =
+        message.quoteSenderName?.trim() ||
+        message.parentMessage?.sender?.name?.trim() ||
+        message.parentMessage?.sender?.cleanId ||
+        null;
+      const quotePreview =
+        message.quotePreview?.trim() ||
+        message.parentMessage?.body?.trim().slice(0, 220) ||
+        null;
+
+      return {
+        id: message.id,
+        threadId: message.threadId,
+        senderId: message.senderId,
+        body: message.body,
+        createdAt: message.createdAt,
+        parentMessageId: message.parentMessageId,
+        quoteSenderName,
+        quotePreview,
+        quotedContent:
+          quoteSenderName || quotePreview
+            ? {
+                senderName: quoteSenderName,
+                preview: quotePreview,
+              }
+            : null,
+      };
+    }),
+  );
 });
 
 export default router;

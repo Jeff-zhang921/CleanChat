@@ -342,8 +342,13 @@ export function initSocket(server: HTTPServer) {
           select: {
             id: true,
             threadId: true,
-            senderId: true,
             body: true,
+            sender: {
+              select: {
+                name: true,
+                cleanId: true,
+              },
+            },
           },
         });
 
@@ -355,9 +360,9 @@ export function initSocket(server: HTTPServer) {
           }
           if (!resolvedQuoteSenderName) {
             resolvedQuoteSenderName =
-              parentMessage.senderId === sessionUser.id
-                ? sessionUser.name?.trim() || sessionUser.cleanId || null
-                : null;
+              parentMessage.sender?.name?.trim() ||
+              parentMessage.sender?.cleanId ||
+              null;
           }
         }
       }
@@ -367,6 +372,9 @@ export function initSocket(server: HTTPServer) {
           threadId: validThreadId,
           senderId: sessionUser.id,
           body: content.trim(),
+          parentMessageId: resolvedParentMessageId,
+          quoteSenderName: resolvedQuoteSenderName,
+          quotePreview: resolvedQuotePreview,
         },
         select: {
           id: true,
@@ -388,6 +396,13 @@ export function initSocket(server: HTTPServer) {
         parentMessageId: resolvedParentMessageId,
         quoteSenderName: resolvedQuoteSenderName,
         quotePreview: resolvedQuotePreview,
+        quotedContent:
+          resolvedQuoteSenderName || resolvedQuotePreview
+            ? {
+                senderName: resolvedQuoteSenderName,
+                preview: resolvedQuotePreview,
+              }
+            : null,
       };
 
       io.to(`thread:${validThreadId}`).emit("message:new", messagePayload);

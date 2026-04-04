@@ -501,28 +501,40 @@
 }
 
 .chat-quote-inline {
+  position: relative;
   margin-top: 0.14rem;
-  padding: 0.36rem 0.46rem;
+  padding: 0.4rem 0.5rem 0.4rem 0.78rem;
   border-radius: 0.54rem;
-  border: 1px solid rgba(31, 38, 31, 0.12);
-  background: rgba(244, 243, 240, 0.74);
+  border: 0;
+  background: rgba(230, 231, 233, 0.64);
   display: grid;
   gap: 0.14rem;
+}
+
+.chat-quote-inline::before {
+  content: "";
+  position: absolute;
+  left: 0.44rem;
+  top: 0.38rem;
+  bottom: 0.38rem;
+  width: 2px;
+  border-radius: 999px;
+  background: rgba(59, 65, 70, 0.86);
 }
 
 .chat-quote-inline-sender {
   margin: 0;
   font-size: 12px;
   line-height: 1.15;
-  font-weight: 700;
-  color: rgba(34, 42, 34, 0.86);
+  font-weight: 680;
+  color: rgba(51, 59, 66, 0.8);
 }
 
 .chat-quote-inline-body {
   margin: 0;
   font-size: 12px;
-  line-height: 1.2;
-  color: rgba(44, 52, 44, 0.72);
+  line-height: 1.25;
+  color: rgba(74, 82, 90, 0.72);
 }
 
 .chat-delete-button {
