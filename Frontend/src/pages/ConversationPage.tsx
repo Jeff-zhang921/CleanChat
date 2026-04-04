@@ -1110,7 +1110,11 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   };
 
   return (
-    <div className={`conversations-page ${isDormant ? "is-dormant" : ""}`}>
+    <div
+      className={`conversations-page ${isDormant ? "is-dormant" : ""}`}
+      aria-hidden={isDormant}
+      data-hibernating={isDormant ? "true" : "false"}
+    >
       <div className="conversations-shell">
         <div className="conversations-stage">
           <ConversationStageChrome

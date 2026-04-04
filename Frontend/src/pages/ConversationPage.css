@@ -26,6 +26,10 @@
   overflow: hidden;
 }
 
+.conversations-page.is-dormant {
+  pointer-events: none;
+}
+
 .conversations-shell {
   width: min(100%, 68rem);
   margin: 0 auto;

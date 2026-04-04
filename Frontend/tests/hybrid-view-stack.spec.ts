@@ -172,6 +172,35 @@ test("hybrid stack keeps list instant after 20 chat round-trips", async ({
     await expect(page).toHaveURL(/\/chat/);
     await expect(page.locator(".chat-shell")).toBeVisible();
 
+    const overlayState = await page.evaluate(() => {
+      const chatShell = document.querySelector<HTMLElement>(".chat-shell");
+      const sleepingRoot = document.querySelector<HTMLElement>(
+        ".hybrid-root-view.is-active.is-sleeping",
+      );
+      const dormantList = document.querySelector<HTMLElement>(
+        ".conversations-page.is-dormant",
+      );
+
+      return {
+        chatBackground: chatShell ? getComputedStyle(chatShell).backgroundColor : "",
+        sleepingRootPointerEvents: sleepingRoot
+          ? getComputedStyle(sleepingRoot).pointerEvents
+          : "",
+        sleepingRootAriaHidden: sleepingRoot?.getAttribute("aria-hidden") ?? null,
+        dormantListPointerEvents: dormantList
+          ? getComputedStyle(dormantList).pointerEvents
+          : "",
+        dormantListAriaHidden: dormantList?.getAttribute("aria-hidden") ?? null,
+      };
+    });
+
+    expect(overlayState.chatBackground).not.toBe("rgba(0, 0, 0, 0)");
+    expect(overlayState.chatBackground).not.toBe("transparent");
+    expect(overlayState.sleepingRootPointerEvents).toBe("none");
+    expect(overlayState.sleepingRootAriaHidden).toBe("true");
+    expect(overlayState.dormantListPointerEvents).toBe("none");
+    expect(overlayState.dormantListAriaHidden).toBe("true");
+
     await page.getByRole("button", { name: "Go back" }).click();
     await expect(page).toHaveURL(/\/conversations/);
     await expect(
