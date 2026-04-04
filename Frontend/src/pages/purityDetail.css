@@ -4,11 +4,34 @@
   --purity-ink: #17221b;
   --purity-muted: rgba(23, 34, 27, 0.68);
   --purity-line: rgba(23, 34, 27, 0.08);
+  position: absolute;
+  inset: 0;
   min-height: 100svh;
+  min-height: 100dvh;
+  height: 100dvh;
+  width: 100vw;
+  max-width: 100vw;
   padding: clamp(0.95rem, 2.8vw, 1.6rem);
+  margin: 0;
   color: var(--purity-ink);
   font-family: "Manrope", sans-serif;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  overscroll-behavior-x: none;
+  -webkit-overflow-scrolling: touch;
   animation: purity-space-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.purity-detail-shell,
+.purity-detail-shell * {
+  box-sizing: border-box;
+}
+
+.purity-detail-shell * {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 .purity-detail-shell.is-leaving {
@@ -36,6 +59,7 @@
 
 .purity-detail-page {
   width: min(100%, 56rem);
+  max-width: 100%;
   margin: 0 auto;
   display: grid;
   gap: 1.6rem;
