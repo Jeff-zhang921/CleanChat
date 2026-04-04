@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { apiClient } from "../utils/apiClient";
 import { setAuthToken } from "../utils/auth";
+import { ensurePushSubscriptionForCurrentUser } from "../utils/notifications";
 import {
   PretextMessageDeck,
   PretextSignalPanel,
@@ -94,6 +95,9 @@ const VerifyPage = () => {
       }
 
       setAuthToken(data.token);
+      void ensurePushSubscriptionForCurrentUser({
+        requestPermission: true,
+      });
       setStatus("");
       setPendingEmail("");
       setStoredEmail("");

@@ -219,7 +219,7 @@ const resolveRootViewFromPath = (
 };
 
 const resolveDetailViewFromPath = (pathname: string): DetailViewKey => {
-  if (pathname === '/chat') return 'chat';
+  if (pathname === '/chat' || pathname.startsWith('/chat/')) return 'chat';
   if (pathname === '/profile/edit') return 'profile-edit';
   if (pathname === '/profile/purity') return 'profile-purity';
   if (pathname === '/profile/vault') return 'profile-vault';
@@ -234,7 +234,7 @@ const isKnownHybridPath = (pathname: string) => {
   if (pathname === '/profile/edit') return true;
   if (pathname === '/profile/purity') return true;
   if (pathname === '/profile/vault') return true;
-  if (pathname === '/chat') return true;
+  if (pathname === '/chat' || pathname.startsWith('/chat/')) return true;
   return false;
 };
 
@@ -249,6 +249,9 @@ const resolveChatBaseView = (
   }
   if (state?.fromPath === '/conversations') {
     return 'conversations';
+  }
+  if (pathname.startsWith('/chat/group/')) {
+    return 'groups';
   }
   if (pathname.startsWith('/groups')) {
     return 'groups';

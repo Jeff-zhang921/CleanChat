@@ -13,58 +13,74 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User{
-  id Int @id @default(autoincrement())
-  email String @unique
-  name String
-  cleanId String @unique
-  avatar Avatar @default(AVATAR_LEO)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  AThread ChatThread[] @relation("AThreads")
-  BThread ChatThread[] @relation("BThreads")
-  message ChatMessage[]
+model User {
+  id                Int                @id @default(autoincrement())
+  email             String             @unique
+  name              String
+  cleanId           String             @unique
+  avatar            Avatar             @default(AVATAR_LEO)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  AThread           ChatThread[]       @relation("AThreads")
+  BThread           ChatThread[]       @relation("BThreads")
+  message           ChatMessage[]
+  pushSubscriptions PushSubscription[]
 }
 
-model LoginCode{
-  id Int @id @default(autoincrement())
-  email String
-  codeHash String
-  expireAt DateTime
-  attempts Int @default(0)
-  usedAt DateTime?
-  createdAt DateTime @default(now())
-  @@index([email,expireAt])
+model LoginCode {
+  id        Int       @id @default(autoincrement())
+  email     String
+  codeHash  String
+  expireAt  DateTime
+  attempts  Int       @default(0)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email, expireAt])
 }
 
+model ChatThread {
+  id            Int           @id @default(autoincrement())
+  AID           Int
+  BID           Int
+  lastMessageAt DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  //AID equal to the id in user field
+  UserA         User          @relation("AThreads", fields: [AID], references: [id])
+  UserB         User          @relation("BThreads", fields: [BID], references: [id])
+  Messages      ChatMessage[]
 
-model ChatThread{
-id Int @id @default(autoincrement())
-AID Int
-BID Int
-lastMessageAt DateTime?
-createdAt DateTime @default(now())
-updatedAt DateTime @updatedAt
-//AID equal to the id in user field
-UserA User @relation("AThreads",fields: [AID],references:[id])
-UserB User @relation("BThreads",fields:[BID],references:[id])
-Messages ChatMessage[]
-
-@@unique([AID,BID])
+  @@unique([AID, BID])
 }
 
-model ChatMessage{
-  id Int @id @default(autoincrement())
-  threadId Int
-  senderId Int
-  body String
-  createdAt DateTime @default(now())
-  thread ChatThread @relation(fields:[threadId],references:[id])
-  sender User @relation(fields: [senderId],references: [id])
+model ChatMessage {
+  id        Int        @id @default(autoincrement())
+  threadId  Int
+  senderId  Int
+  body      String
+  createdAt DateTime   @default(now())
+  thread    ChatThread @relation(fields: [threadId], references: [id])
+  sender    User       @relation(fields: [senderId], references: [id])
 }
 
+model PushSubscription {
+  id             Int       @id @default(autoincrement())
+  userId         Int
+  endpoint       String    @unique
+  p256dh         String
+  auth           String
+  expirationTime DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastSeenAt     DateTime  @default(now())
 
-enum Avatar{
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum Avatar {
   AVATAR_LEO
   AVATAR_SOPHIE
   AVATAR_MAX

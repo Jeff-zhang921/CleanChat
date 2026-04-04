@@ -11,7 +11,56 @@ import {
 } from "../groupStore";
 
 import { getUserIdFromToken } from "../auth";
+import { sendPushToUser } from "../push";
 const prisma = new PrismaClient();
+
+const IMAGE_MESSAGE_PREFIX = "IMG::";
+const IMAGE_URL_REGEX =
+  /^https:\/\/(?:utfs\.io|(?:[a-z0-9-]+\.)?ufs\.sh|[^/\s]*uploadthing\.com)\//i;
+const IMAGE_EXTENSION_REGEX =
+  /\.(?:png|jpe?g|gif|webp|bmp|svg|heic|heif|avif)(?:\?.*)?$/i;
+const PUSH_BODY_MAX_CHARS = 160;
+
+const isHttpUrl = (value: string) => /^https?:\/\/\S+$/i.test(value);
+
+const getImageUrlFromMessage = (body: string) => {
+  const trimmed = body.trim();
+  const normalized = trimmed.startsWith(IMAGE_MESSAGE_PREFIX)
+    ? trimmed.slice(IMAGE_MESSAGE_PREFIX.length).trim()
+    : trimmed;
+  if (!normalized || !isHttpUrl(normalized)) {
+    return null;
+  }
+
+  if (
+    IMAGE_URL_REGEX.test(normalized) ||
+    IMAGE_EXTENSION_REGEX.test(normalized)
+  ) {
+    return normalized;
+  }
+
+  return null;
+};
+
+const formatPushPreview = (body: string) => {
+  if (getImageUrlFromMessage(body)) {
+    return "sent a photo";
+  }
+
+  const trimmed = body.trim();
+  if (!trimmed) {
+    return "You have a new message.";
+  }
+
+  return trimmed.length > PUSH_BODY_MAX_CHARS
+    ? `${trimmed.slice(0, PUSH_BODY_MAX_CHARS - 1)}...`
+    : trimmed;
+};
+
+const buildDirectChatUrl = (threadId: number) => `/chat/${threadId}`;
+
+const buildGroupChatUrl = (groupId: string) =>
+  `/chat/group/${encodeURIComponent(groupId)}`;
 
 const defaultOrigins = [
   "http://localhost:4173",
@@ -219,6 +268,31 @@ export function initSocket(server: HTTPServer) {
       io.to(`thread:${validThreadId}`).emit("message:new", messagePayload);
       io.to(`user:${thread.AID}`).emit("inbox:new", messagePayload);
       io.to(`user:${thread.BID}`).emit("inbox:new", messagePayload);
+
+      const recipientIds = [thread.AID, thread.BID].filter(
+        (recipientId) => recipientId !== sessionUser.id,
+      );
+      const senderLabel = sessionUser.name?.trim() || `@${sessionUser.cleanId}`;
+      const pushBody = formatPushPreview(message.body);
+
+      recipientIds.forEach((recipientId) => {
+        const activeSocketsInRoom =
+          io.sockets.adapter.rooms.get(`user:${recipientId}`)?.size ?? 0;
+        if (activeSocketsInRoom > 0) {
+          return;
+        }
+
+        void sendPushToUser(prisma, recipientId, {
+          title: `${senderLabel} sent a message`,
+          body: pushBody,
+          tag: `thread-${validThreadId}`,
+          data: {
+            chatType: "direct",
+            threadId: validThreadId,
+            url: buildDirectChatUrl(validThreadId),
+          },
+        });
+      });
     });
     socket.on(
       "message:delete",
@@ -345,6 +419,31 @@ export function initSocket(server: HTTPServer) {
       memberIds.forEach((memberId) => {
         io.to(`user:${memberId}`).emit("group:message:new", message);
       });
+
+      const group = getGroupById(groupId);
+      const senderLabel = sessionUser.name?.trim() || `@${sessionUser.cleanId}`;
+      const pushBody = formatPushPreview(message.body);
+
+      memberIds
+        .filter((memberId) => memberId !== sessionUser.id)
+        .forEach((memberId) => {
+          const activeSocketsInRoom =
+            io.sockets.adapter.rooms.get(`user:${memberId}`)?.size ?? 0;
+          if (activeSocketsInRoom > 0) {
+            return;
+          }
+
+          void sendPushToUser(prisma, memberId, {
+            title: `${group?.name ?? "Group"} · ${senderLabel}`,
+            body: pushBody,
+            tag: `group-${groupId}`,
+            data: {
+              chatType: "group",
+              groupId,
+              url: buildGroupChatUrl(groupId),
+            },
+          });
+        });
     });
     socket.on(
       "group:message:delete",

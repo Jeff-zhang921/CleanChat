@@ -24,9 +24,9 @@ import {
   getTrustToneLabel,
 } from "../utils/cleanIdTrust";
 import {
+  ensurePushSubscriptionForCurrentUser,
   getNotificationPermission,
   isAndroid13Plus,
-  requestNotificationPermission,
 } from "../utils/notifications";
 import { hydrateProfileUser, type ProfileRouteState, type ProfileUser } from "../utils/profileUser";
 import "./profile.css";
@@ -216,6 +216,16 @@ const ProfilePage = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (notificationPermission !== "granted") {
+      return;
+    }
+
+    void ensurePushSubscriptionForCurrentUser({
+      requestPermission: false,
+    });
+  }, [notificationPermission]);
+
   const resetFormToUser = () => {
     if (!user) return;
     setNickname(user.name ?? "");
@@ -380,14 +390,16 @@ const ProfilePage = () => {
   };
 
   const handleEnableNotifications = async () => {
-    const permission = await requestNotificationPermission();
-    setNotificationPermission(permission);
+    const subscriptionResult = await ensurePushSubscriptionForCurrentUser({
+      requestPermission: true,
+    });
+    setNotificationPermission(subscriptionResult.permission);
 
-    if (permission === "granted") {
-      setNotificationStatus("Notifications enabled.");
+    if (subscriptionResult.ok) {
+      setNotificationStatus("Notifications enabled and linked to your account.");
       return;
     }
-    if (permission === "denied") {
+    if (subscriptionResult.permission === "denied") {
       setNotificationStatus(
         isAndroid13Plus()
           ? "Notifications blocked. Android 13+ requires allowing the system notification prompt for CleanChat."
@@ -395,7 +407,7 @@ const ProfilePage = () => {
       );
       return;
     }
-    if (permission === "unsupported") {
+    if (subscriptionResult.permission === "unsupported") {
       if (isIOSDevice() && !isStandalonePwa()) {
         setNotificationStatus(
           "iPhone Safari tab cannot enable web push. Add CleanChat to Home Screen, open from app icon, then enable notifications."
@@ -405,7 +417,10 @@ const ProfilePage = () => {
       setNotificationStatus("This browser does not support notifications.");
       return;
     }
-    setNotificationStatus("Notification permission not granted yet.");
+
+    setNotificationStatus(
+      subscriptionResult.reason || "Notification permission not granted yet.",
+    );
   };
 
   const handleDeleteAccount = async () => {

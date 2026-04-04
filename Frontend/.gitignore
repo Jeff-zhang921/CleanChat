@@ -26,3 +26,4 @@ dist-ssr
 # Ignore compiled JS files
 *.js
 !src/sw.js
+!public/sw.js

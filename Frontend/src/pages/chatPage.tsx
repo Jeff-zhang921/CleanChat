@@ -103,9 +103,25 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const messageOverscan = useViewportOverscan();
   const locationState = (location.state as ChatLocationState | null) ?? null;
   const deepLinkState = useMemo<ChatLocationState>(() => {
+    const directPathMatch = location.pathname.match(/^\/chat\/(\d+)$/);
+    const groupPathMatch = location.pathname.match(/^\/chat\/group\/([^/?#]+)$/);
     const params = new URLSearchParams(location.search);
-    const threadId = parsePositiveInt(params.get("threadId"));
-    const groupIdCandidate = params.get("groupId");
+    const pathThreadId = directPathMatch ? parsePositiveInt(directPathMatch[1]) : null;
+    const pathGroupId = (() => {
+      if (!groupPathMatch) {
+        return null;
+      }
+
+      try {
+        const decoded = decodeURIComponent(groupPathMatch[1]).trim();
+        return decoded ? decoded : null;
+      } catch {
+        return null;
+      }
+    })();
+
+    const threadId = pathThreadId ?? parsePositiveInt(params.get("threadId"));
+    const groupIdCandidate = pathGroupId ?? params.get("groupId");
     const groupId = typeof groupIdCandidate === "string" && groupIdCandidate.trim()
       ? groupIdCandidate.trim()
       : undefined;
@@ -122,9 +138,9 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       threadId: threadId ?? undefined,
       groupId,
       other: title,
-      fromPath: "/conversations",
+      fromPath: chatType === "group" ? "/groups" : "/conversations",
     };
-  }, [location.search]);
+  }, [location.pathname, location.search]);
   const resolvedState = useMemo<ChatLocationState>(
     () => ({
       ...deepLinkState,

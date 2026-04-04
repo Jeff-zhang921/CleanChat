@@ -15,6 +15,7 @@ import {
   validateRequestedCleanId,
 } from "../cleanIdClaim";
 import { authMiddleware } from "../auth";
+import { getVapidPublicKey } from "../push";
 const router = Router();
 const prisma = new PrismaClient();
 
@@ -63,6 +64,122 @@ router.get("/me", async (req, res) => {
     user: buildProfilePayload(user, trustSnapshots),
   });
 });
+
+router.get("/push/public-key", (_req, res) => {
+  const publicKey = getVapidPublicKey();
+  if (!publicKey) {
+    res.status(503).json({
+      error: "Web push is not configured on backend.",
+    });
+    return;
+  }
+
+  res.json({ publicKey });
+});
+
+router.put("/push/subscription", async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const endpoint =
+    typeof req.body?.endpoint === "string" ? req.body.endpoint.trim() : "";
+  const keysRaw = req.body?.keys;
+  const p256dh =
+    keysRaw &&
+    typeof keysRaw === "object" &&
+    typeof (keysRaw as { p256dh?: unknown }).p256dh === "string"
+      ? (keysRaw as { p256dh: string }).p256dh.trim()
+      : "";
+  const auth =
+    keysRaw &&
+    typeof keysRaw === "object" &&
+    typeof (keysRaw as { auth?: unknown }).auth === "string"
+      ? (keysRaw as { auth: string }).auth.trim()
+      : "";
+
+  if (!endpoint || !p256dh || !auth) {
+    res.status(400).json({
+      error: "endpoint, keys.p256dh, and keys.auth are required.",
+    });
+    return;
+  }
+
+  try {
+    const endpointUrl = new URL(endpoint);
+    if (endpointUrl.protocol !== "https:") {
+      res.status(400).json({ error: "Subscription endpoint must use https." });
+      return;
+    }
+  } catch {
+    res.status(400).json({ error: "Invalid subscription endpoint URL." });
+    return;
+  }
+
+  const expirationRaw = req.body?.expirationTime;
+  const expirationTime =
+    typeof expirationRaw === "number" && Number.isFinite(expirationRaw)
+      ? new Date(expirationRaw)
+      : null;
+  if (expirationTime && Number.isNaN(expirationTime.getTime())) {
+    res.status(400).json({ error: "Invalid expirationTime." });
+    return;
+  }
+
+  const now = new Date();
+
+  const subscription = await prisma.pushSubscription.upsert({
+    where: { endpoint },
+    create: {
+      userId,
+      endpoint,
+      p256dh,
+      auth,
+      expirationTime,
+      lastSeenAt: now,
+    },
+    update: {
+      userId,
+      p256dh,
+      auth,
+      expirationTime,
+      lastSeenAt: now,
+    },
+    select: { id: true, endpoint: true, updatedAt: true },
+  });
+
+  res.status(201).json({
+    message: "Push subscription saved.",
+    subscription,
+  });
+});
+
+router.delete("/push/subscription", async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const endpoint =
+    typeof req.body?.endpoint === "string" ? req.body.endpoint.trim() : "";
+  if (!endpoint) {
+    res.status(400).json({ error: "endpoint is required." });
+    return;
+  }
+
+  const removed = await prisma.pushSubscription.deleteMany({
+    where: {
+      userId,
+      endpoint,
+    },
+  });
+
+  res.json({ removed: removed.count > 0 });
+});
+
 router.patch("/me", async (req, res) => {
   const userId = req.user?.userId;
   if (!userId) {
@@ -196,6 +313,10 @@ router.delete("/me", async (req, res) => {
 
       await tx.loginCode.deleteMany({
         where: { email: sessionUser.email },
+      });
+
+      await tx.pushSubscription.deleteMany({
+        where: { userId: sessionUser.id },
       });
 
       await tx.user.delete({

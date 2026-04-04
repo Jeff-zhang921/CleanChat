@@ -1,3 +1,5 @@
+import { apiClient } from "./apiClient";
+
 type NotificationPermissionState = NotificationPermission | "unsupported";
 
 type NotificationTarget =
@@ -25,6 +27,13 @@ const hasServiceWorker = () =>
 const DEBUG_PREFIX = "[CleanChat][notifications]";
 const READY_TIMEOUT_MS = 4500;
 const FALLBACK_ROUTE = "/conversations";
+let cachedVapidPublicKey = "";
+
+type PushSubscriptionResult = {
+  ok: boolean;
+  permission: NotificationPermissionState;
+  reason?: string;
+};
 
 const normalizePositiveInt = (value: unknown): number | null => {
   const parsed = Number(value);
@@ -120,11 +129,7 @@ const getNotificationRoute = (target?: NotificationTarget): string => {
       return FALLBACK_ROUTE;
     }
 
-    const params = new URLSearchParams({
-      chatType: "direct",
-      threadId: String(threadId),
-    });
-    return `/chat?${params.toString()}`;
+    return `/chat/${threadId}`;
   }
 
   const groupId = normalizeGroupId(target.groupId);
@@ -132,11 +137,7 @@ const getNotificationRoute = (target?: NotificationTarget): string => {
     return FALLBACK_ROUTE;
   }
 
-  const params = new URLSearchParams({
-    chatType: "group",
-    groupId,
-  });
-  return `/chat?${params.toString()}`;
+  return `/chat/group/${encodeURIComponent(groupId)}`;
 };
 
 const readAndroidMajorVersion = (): number | null => {
@@ -270,5 +271,175 @@ export const showMessageNotification = async (
   } catch (error) {
     console.warn(`${DEBUG_PREFIX} unexpected notification error`, error);
     return false;
+  }
+};
+
+const isPushSupported = () =>
+  isSupported() &&
+  hasServiceWorker() &&
+  typeof window !== "undefined" &&
+  "PushManager" in window;
+
+const readVapidPublicKeyFromEnv = () => {
+  const raw =
+    typeof import.meta.env.VITE_VAPID_PUBLIC_KEY === "string"
+      ? import.meta.env.VITE_VAPID_PUBLIC_KEY
+      : "";
+  return raw.trim();
+};
+
+const decodeBase64Url = (value: string) => {
+  const normalized = value.trim().replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(
+    normalized.length + ((4 - (normalized.length % 4)) % 4),
+    "=",
+  );
+  const binary = window.atob(padded);
+  const output = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    output[index] = binary.charCodeAt(index);
+  }
+  return output;
+};
+
+const resolveVapidPublicKey = async () => {
+  const envKey = readVapidPublicKeyFromEnv();
+  if (envKey) {
+    return envKey;
+  }
+  if (cachedVapidPublicKey) {
+    return cachedVapidPublicKey;
+  }
+
+  try {
+    const response = await apiClient.get("/profile/push/public-key");
+    const key =
+      typeof response.data?.publicKey === "string"
+        ? response.data.publicKey.trim()
+        : "";
+    if (!key) {
+      return "";
+    }
+    cachedVapidPublicKey = key;
+    return key;
+  } catch (error) {
+    console.warn(`${DEBUG_PREFIX} failed to load VAPID public key`, error);
+    return "";
+  }
+};
+
+const toBackendPushPayload = (subscription: PushSubscription) => {
+  const endpoint = subscription.endpoint?.trim();
+  const serialized = subscription.toJSON() as {
+    expirationTime?: number | null;
+    keys?: {
+      p256dh?: string;
+      auth?: string;
+    };
+  };
+  const p256dh = serialized.keys?.p256dh?.trim() || "";
+  const auth = serialized.keys?.auth?.trim() || "";
+
+  if (!endpoint || !p256dh || !auth) {
+    return null;
+  }
+
+  return {
+    endpoint,
+    expirationTime:
+      typeof serialized.expirationTime === "number"
+        ? serialized.expirationTime
+        : null,
+    keys: {
+      p256dh,
+      auth,
+    },
+  };
+};
+
+export const ensurePushSubscriptionForCurrentUser = async (
+  options: { requestPermission?: boolean } = {},
+): Promise<PushSubscriptionResult> => {
+  if (!isPushSupported()) {
+    return {
+      ok: false,
+      permission: "unsupported",
+      reason: "Push is not supported in this browser.",
+    };
+  }
+
+  const shouldRequestPermission = options.requestPermission === true;
+  let permission = getNotificationPermission();
+
+  if (permission === "unsupported") {
+    return {
+      ok: false,
+      permission,
+      reason: "Notifications are unsupported.",
+    };
+  }
+
+  if (permission !== "granted" && shouldRequestPermission) {
+    permission = await requestNotificationPermission();
+  }
+
+  if (permission !== "granted") {
+    return {
+      ok: false,
+      permission,
+      reason: "Notification permission is not granted.",
+    };
+  }
+
+  const registration = await resolveServiceWorkerRegistration();
+  if (!registration) {
+    return {
+      ok: false,
+      permission,
+      reason: "Service worker registration is not ready.",
+    };
+  }
+
+  try {
+    let subscription = await registration.pushManager.getSubscription();
+
+    if (!subscription) {
+      const vapidPublicKey = await resolveVapidPublicKey();
+      if (!vapidPublicKey) {
+        return {
+          ok: false,
+          permission,
+          reason: "VAPID public key is not configured.",
+        };
+      }
+
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: decodeBase64Url(vapidPublicKey),
+      });
+    }
+
+    const payload = toBackendPushPayload(subscription);
+    if (!payload) {
+      return {
+        ok: false,
+        permission,
+        reason: "Push subscription payload is incomplete.",
+      };
+    }
+
+    await apiClient.put("/profile/push/subscription", payload);
+
+    return {
+      ok: true,
+      permission,
+    };
+  } catch (error) {
+    console.warn(`${DEBUG_PREFIX} failed to subscribe and sync push`, error);
+    return {
+      ok: false,
+      permission,
+      reason: "Failed to subscribe for push notifications.",
+    };
   }
 };

@@ -1,31 +1,28 @@
-/* eslint-disable no-restricted-globals */
-import { clientsClaim } from "workbox-core";
-import {
-  cleanupOutdatedCaches,
-  createHandlerBoundToURL,
-  precacheAndRoute,
-} from "workbox-precaching";
-import { NavigationRoute, registerRoute } from "workbox-routing";
-
-self.skipWaiting();
-clientsClaim();
-precacheAndRoute(self.__WB_MANIFEST);
-cleanupOutdatedCaches();
-
-const appShellHandler = createHandlerBoundToURL("/index.html");
-registerRoute(
-  new NavigationRoute(appShellHandler, {
-    denylist: [/^\/api\//, /^\/socket\.io\//],
-  })
-);
-
 const DEFAULT_TITLE = "CleanChat";
 const DEFAULT_BODY = "Open CleanChat to continue the conversation.";
 const DEFAULT_ICON = "/icons/icon-192.png";
 const DEFAULT_BADGE = "/icons/icon-192.png";
 const DEFAULT_URL = "/conversations";
 
-const isRecord = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+const isRecord = (value) =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const normalizeString = (value) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+};
+
+const normalizePositiveInt = (value) => {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+};
 
 const normalizeRelativeUrl = (value) => {
   if (typeof value !== "string") {
@@ -46,22 +43,6 @@ const normalizeRelativeUrl = (value) => {
   } catch {
     return null;
   }
-};
-
-const normalizePositiveInt = (value) => {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    return null;
-  }
-  return parsed;
-};
-
-const normalizeString = (value) => {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
 };
 
 const buildUrlFromPayload = (payload) => {
@@ -119,9 +100,7 @@ const parsePushPayload = (event) => {
     undefined;
 
   const chatTypeRaw =
-    normalizeString(data.chatType) ||
-    normalizeString(payload.chatType) ||
-    undefined;
+    normalizeString(data.chatType) || normalizeString(payload.chatType) || undefined;
 
   const chatType = chatTypeRaw === "group" ? "group" : "direct";
   const threadId = normalizePositiveInt(data.threadId ?? payload.threadId);
@@ -145,6 +124,30 @@ const parsePushPayload = (event) => {
   };
 };
 
+const resolveNotificationClickUrl = (notificationData) => {
+  if (!isRecord(notificationData)) {
+    return `${self.location.origin}${DEFAULT_URL}`;
+  }
+
+  const payload = {
+    chatType: notificationData.chatType === "group" ? "group" : "direct",
+    threadId: normalizePositiveInt(notificationData.threadId),
+    groupId: normalizeString(notificationData.groupId),
+    url: normalizeRelativeUrl(notificationData.url),
+  };
+
+  const targetUrl = buildUrlFromPayload(payload);
+  return new URL(targetUrl, self.location.origin).toString();
+};
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 self.addEventListener("push", (event) => {
   const payload = parsePushPayload(event);
   const targetUrl = buildUrlFromPayload(payload);
@@ -162,25 +165,9 @@ self.addEventListener("push", (event) => {
         groupId: payload.groupId,
         chatType: payload.chatType,
       },
-    })
+    }),
   );
 });
-
-const resolveNotificationClickUrl = (notificationData) => {
-  if (!isRecord(notificationData)) {
-    return `${self.location.origin}${DEFAULT_URL}`;
-  }
-
-  const payload = {
-    chatType: notificationData.chatType === "group" ? "group" : "direct",
-    threadId: normalizePositiveInt(notificationData.threadId),
-    groupId: normalizeString(notificationData.groupId),
-    url: normalizeRelativeUrl(notificationData.url),
-  };
-
-  const targetUrl = buildUrlFromPayload(payload);
-  return new URL(targetUrl, self.location.origin).toString();
-};
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
@@ -207,6 +194,6 @@ self.addEventListener("notificationclick", (event) => {
       }
 
       await self.clients.openWindow(targetUrl);
-    })()
+    })(),
   );
 });
