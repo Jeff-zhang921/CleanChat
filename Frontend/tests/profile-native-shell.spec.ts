@@ -64,6 +64,10 @@ test("profile shell is edge-to-edge with no scale residue", async ({
   const audit = await page.evaluate(() => {
     const shell = document.querySelector<HTMLElement>(".profile-shell");
     const stage = document.querySelector<HTMLElement>(".app-route-stage");
+    const nav = document.querySelector<HTMLElement>(".bottom-nav");
+    const firstCard = document.querySelector<HTMLElement>(
+      ".profile-entry-card",
+    );
 
     if (!shell) {
       return null;
@@ -91,8 +95,21 @@ test("profile shell is edge-to-edge with no scale residue", async ({
       top: rect.top,
       rightGap: viewportWidth - rect.right,
       bottomGap: viewportHeight - rect.bottom,
+      shellPaddingLeft: Number.parseFloat(getComputedStyle(shell).paddingLeft),
+      shellPaddingRight: Number.parseFloat(
+        getComputedStyle(shell).paddingRight,
+      ),
+      shellPaddingTop: Number.parseFloat(getComputedStyle(shell).paddingTop),
       shellTransform: getComputedStyle(shell).transform,
       stageTransform: stage ? getComputedStyle(stage).transform : "none",
+      navLeft: nav ? nav.getBoundingClientRect().left : null,
+      navRightGap: nav
+        ? viewportWidth - nav.getBoundingClientRect().right
+        : null,
+      firstCardLeft: firstCard ? firstCard.getBoundingClientRect().left : null,
+      firstCardRightGap: firstCard
+        ? viewportWidth - firstCard.getBoundingClientRect().right
+        : null,
       overflowDelta:
         document.documentElement.scrollWidth -
         document.documentElement.clientWidth,
@@ -105,8 +122,15 @@ test("profile shell is edge-to-edge with no scale residue", async ({
   expect(Math.abs(audit!.top)).toBeLessThanOrEqual(0.5);
   expect(Math.abs(audit!.rightGap)).toBeLessThanOrEqual(0.5);
   expect(Math.abs(audit!.bottomGap)).toBeLessThanOrEqual(0.5);
+  expect(audit!.shellPaddingLeft).toBeLessThanOrEqual(1.5);
+  expect(audit!.shellPaddingRight).toBeLessThanOrEqual(1.5);
+  expect(audit!.shellPaddingTop).toBeLessThanOrEqual(1.5);
   expect(audit!.shellTransform).toBe("none");
   expect(isIdentityTransform(audit!.stageTransform)).toBe(true);
+  expect(Math.abs(audit!.navLeft ?? 0)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(audit!.navRightGap ?? 0)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(audit!.firstCardLeft ?? 0)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(audit!.firstCardRightGap ?? 0)).toBeLessThanOrEqual(0.5);
   expect(audit!.overflowDelta).toBeLessThanOrEqual(0);
   expect(audit!.cornersCovered.every(Boolean)).toBe(true);
 

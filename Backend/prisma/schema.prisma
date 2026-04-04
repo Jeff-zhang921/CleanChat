@@ -25,7 +25,6 @@ model User {
   BThread           ChatThread[]       @relation("BThreads")
   message           ChatMessage[]
   pushSubscriptions PushSubscription[]
-  refreshSessions   RefreshSession[]
 }
 
 model LoginCode {
@@ -79,25 +78,6 @@ model PushSubscription {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-}
-
-model RefreshSession {
-  id         Int       @id @default(autoincrement())
-  userId     Int
-  tokenHash  String    @unique
-  userAgent  String?
-  ipAddress  String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  lastUsedAt DateTime  @default(now())
-  expiresAt  DateTime
-  revokedAt  DateTime?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
-  @@index([revokedAt])
 }
 
 enum Avatar {

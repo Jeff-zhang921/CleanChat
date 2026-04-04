@@ -8,7 +8,7 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { BACKEND_URL } from "../config";
-import { clearAuthToken, getAuthToken, refreshAccessToken } from "../utils/auth";
+import { clearAuthToken, getAuthToken } from "../utils/auth";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PENDING_EMAIL_KEY = "cleanchat:pending-email";
@@ -506,13 +506,8 @@ const LoginPage = () => {
 
       const currentToken = getAuthToken();
       if (!currentToken) {
-        const refreshedToken = await refreshAccessToken();
-        if (!refreshedToken) {
-          if (isMounted) {
-            setStatus("");
-          }
-          return;
-        }
+        setStatus("");
+        return;
       }
 
       setIsRestoringSession(true);
@@ -533,15 +528,11 @@ const LoginPage = () => {
           }
 
           if (response.status === 401 || response.status === 403) {
-            const refreshedToken = await refreshAccessToken();
-            if (!refreshedToken) {
-              if (isMounted) {
-                clearAuthToken();
-                setStatus("");
-              }
-              return;
+            if (isMounted) {
+              clearAuthToken();
+              setStatus("");
             }
-            continue;
+            return;
           }
         } catch {
           // Retry while backend wakes from cold start.

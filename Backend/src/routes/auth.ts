@@ -1,4 +1,4 @@
-import { Request, Router } from "express";
+import { Router } from "express";
 import { PrismaClient } from "@prisma/client";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
@@ -7,17 +7,7 @@ import {
   buildCleanIdTrustSnapshots,
   fallbackCleanIdTrustSnapshot,
 } from "../cleanIdTrust";
-import {
-  authMiddleware,
-  buildRefreshTokenExpiry,
-  clearRefreshTokenCookie,
-  generateRefreshToken,
-  getRequestClientMetadata,
-  hashRefreshToken,
-  readRefreshTokenFromRequest,
-  setRefreshTokenCookie,
-  signAuthToken,
-} from "../auth";
+import { authMiddleware, signAuthToken } from "../auth";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -78,59 +68,6 @@ async function generateUniqueCleanId(): Promise<string> {
   }
   throw new Error("Failed to generate unique cleanId");
 }
-
-const createRefreshSession = async (userId: number, request: Request) => {
-  const refreshToken = generateRefreshToken();
-  const tokenHash = hashRefreshToken(refreshToken);
-  const expiresAt = buildRefreshTokenExpiry();
-  const { userAgent, ipAddress } = getRequestClientMetadata(request);
-
-  await prisma.refreshSession.create({
-    data: {
-      userId,
-      tokenHash,
-      userAgent,
-      ipAddress,
-      expiresAt,
-    },
-  });
-
-  return refreshToken;
-};
-
-const rotateRefreshSession = async (
-  sessionId: number,
-  userId: number,
-  request: Request,
-) => {
-  const now = new Date();
-  const nextRefreshToken = generateRefreshToken();
-  const nextTokenHash = hashRefreshToken(nextRefreshToken);
-  const nextExpiry = buildRefreshTokenExpiry();
-  const { userAgent, ipAddress } = getRequestClientMetadata(request);
-
-  await prisma.$transaction([
-    prisma.refreshSession.update({
-      where: { id: sessionId },
-      data: {
-        revokedAt: now,
-        lastUsedAt: now,
-      },
-    }),
-    prisma.refreshSession.create({
-      data: {
-        userId,
-        tokenHash: nextTokenHash,
-        userAgent,
-        ipAddress,
-        expiresAt: nextExpiry,
-        lastUsedAt: now,
-      },
-    }),
-  ]);
-
-  return nextRefreshToken;
-};
 
 async function sendLoginCode(name: string, email: string, code: string) {
   if (!mailer) {
@@ -340,8 +277,6 @@ router.post("/email/verify", async (req, res) => {
       });
   const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [user.id]);
   const token = signAuthToken(user.id);
-  const refreshToken = await createRefreshSession(user.id, req);
-  setRefreshTokenCookie(res, refreshToken);
 
   res.json({
     message: "Login code verified",
@@ -351,58 +286,6 @@ router.post("/email/verify", async (req, res) => {
       trust: trustSnapshots.get(user.id) ?? fallbackCleanIdTrustSnapshot,
     },
     isNewUser,
-  });
-});
-
-router.post("/refresh", async (req, res) => {
-  const refreshToken = readRefreshTokenFromRequest(req);
-  if (!refreshToken) {
-    clearRefreshTokenCookie(res);
-    res.status(401).json({ error: "Missing refresh token." });
-    return;
-  }
-
-  const tokenHash = hashRefreshToken(refreshToken);
-  const now = new Date();
-  const session = await prisma.refreshSession.findFirst({
-    where: {
-      tokenHash,
-      revokedAt: null,
-      expiresAt: { gt: now },
-    },
-    select: {
-      id: true,
-      userId: true,
-      expiresAt: true,
-    },
-  });
-
-  if (!session) {
-    clearRefreshTokenCookie(res);
-    res.status(401).json({ error: "Invalid refresh token." });
-    return;
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: session.userId },
-    select: { id: true },
-  });
-
-  if (!user) {
-    await prisma.refreshSession.updateMany({
-      where: { id: session.id, revokedAt: null },
-      data: { revokedAt: now, lastUsedAt: now },
-    });
-    clearRefreshTokenCookie(res);
-    res.status(401).json({ error: "Refresh session user missing." });
-    return;
-  }
-
-  const nextRefreshToken = await rotateRefreshSession(session.id, user.id, req);
-  setRefreshTokenCookie(res, nextRefreshToken);
-
-  res.json({
-    token: signAuthToken(user.id),
   });
 });
 
@@ -440,25 +323,7 @@ router.get("/me", authMiddleware, async (req, res) => {
       .json({ error: "Failed to load authenticated user.", details });
   }
 });
-router.post("/logout", async (req, res) => {
-  const refreshToken = readRefreshTokenFromRequest(req);
-  const now = new Date();
-
-  if (refreshToken) {
-    const tokenHash = hashRefreshToken(refreshToken);
-    await prisma.refreshSession.updateMany({
-      where: {
-        tokenHash,
-        revokedAt: null,
-      },
-      data: {
-        revokedAt: now,
-        lastUsedAt: now,
-      },
-    });
-  }
-
-  clearRefreshTokenCookie(res);
+router.post("/logout", (_req, res) => {
   res.json({ message: "Logged out successfully" });
 });
 

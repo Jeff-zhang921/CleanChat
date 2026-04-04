@@ -18,7 +18,7 @@
 [![Socket.IO](https://img.shields.io/badge/Socket.IO-4.8-010101?style=flat-square&logo=socketdotio&logoColor=white)](https://socket.io/)
 [![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?style=flat-square&logo=prisma&logoColor=white)](https://www.prisma.io/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![JWT](https://img.shields.io/badge/JWT-Access_Refresh-000000?style=flat-square&logo=jsonwebtokens&logoColor=white)](https://jwt.io/)
+[![JWT](https://img.shields.io/badge/JWT-Single_Token-000000?style=flat-square&logo=jsonwebtokens&logoColor=white)](https://jwt.io/)
 [![Cloudflare Pages](https://img.shields.io/badge/Cloudflare_Pages-Edge-F38020?style=flat-square&logo=cloudflare&logoColor=white)](https://pages.cloudflare.com/)
 
 ### Testing and Quality
@@ -63,44 +63,39 @@
 
 #### 修复方案（已落地）
 
-1. Access Token 改为短期（默认 15m），仅用于业务 API 与 Socket 鉴权。
-2. Refresh Token 改为高熵随机串，保存于 HttpOnly Cookie，前端 JS 不可读。
-3. 后端新增 RefreshSession 持久化表：保存 tokenHash、过期时间、设备元信息、撤销状态。
-4. 刷新接口采用轮换（rotation）：每次 refresh 都废弃旧 session 并签发新 refresh。
-5. 前端 fetch 与 axios 拦截器统一接入 401/403 自动 refresh + 原请求重放。
-6. Socket connect_error 命中 Not authenticated 时触发强制 refresh 并 reconnect。
+1. 统一回归单令牌：仅保留 Bearer JWT，不再引入 Refresh Token / Cookie 续期链路。
+2. 前端 fetch 与 axios 统一注入 Authorization 头，鉴权行为保持一致。
+3. 登录页启动恢复仅检测本地 token 与 /auth/me，401/403 立即清理并回到登录。
+4. Socket 连接仅使用本地 JWT，遇到 Not authenticated 直接判定会话失效并提示重登。
+5. 后端删除 RefreshSession 相关模型和路由，部署环境仅要求 JWT_SECRET。
 
-#### 为什么这能形成“永久登录感”
+#### 为什么这能保持稳态体验
 
-- App 被杀后：Refresh Cookie 仍在（受浏览器持久存储与过期策略保护）。
-- 新启动时：即使本地 Access Token 失效，也能通过 refresh 无感换新并恢复会话。
-- 反向代理将浏览器侧请求统一为同源路径 /api/*，Cookie 发送策略更稳定，避免跨域 SameSite 抖动。
+- 单令牌链路短而确定，故障面收敛，生产排障路径更清晰。
+- 会话失效行为一致：API 与 Socket 都返回重新登录，不会出现“部分在线”的漂移态。
+- 反向代理仍保持 /api/_ 与 /socket.io/_ 同源访问，网络路径稳定。
 
 ```mermaid
 sequenceDiagram
   participant App as Frontend App
   participant API as /api/auth/* Proxy
   participant Auth as Backend Auth
-  participant DB as RefreshSession Table
 
-  App->>API: /auth/me (Bearer access)
+  App->>API: /auth/me (Bearer JWT)
   API->>Auth: Forward request
-  Auth-->>API: 401 Token expired
-  App->>API: /auth/refresh (Cookie: cleanchat_rt)
-  API->>Auth: Forward refresh
-  Auth->>DB: validate tokenHash, not revoked, not expired
-  Auth->>DB: revoke old session + create new session
-  Auth-->>API: new access token + Set-Cookie(new refresh)
-  App->>API: retry original request with new access
-  API->>Auth: /auth/me
-  Auth-->>App: 200 authenticated
+  alt token valid
+    Auth-->>App: 200 authenticated
+  else token invalid/expired
+    Auth-->>App: 401 unauthorized
+    App->>App: clear local token
+    App->>API: /auth/email/start (re-login)
+  end
 ```
 
 #### 对应实现文件
 
 - Backend/src/auth.ts
 - Backend/src/routes/auth.ts
-- Backend/prisma/schema.prisma
 - Backend/index.ts
 - Frontend/src/utils/auth.ts
 - Frontend/src/utils/apiClient.ts
@@ -228,32 +223,30 @@ flowchart TB
 
   subgraph DB[PostgreSQL via Prisma]
     D1[User]
-    D2[RefreshSession]
-    D3[PushSubscription]
+    D2[PushSubscription]
   end
 
   S3 --> R1
   S2 --> R2
   S2 --> R3
   R1 --> AU
-  R1 --> D2
-  R2 --> D3
+  R2 --> D2
   R3 --> P1
-  P1 --> D3
+  P1 --> D2
   R1 --> D1
 ```
 
 ### 目录与职责映射
 
-| 层级 | 目录/文件 | 职责 |
-| --- | --- | --- |
-| 视图编排层 | Frontend/src/App.tsx | Root/Detail 生命周期与路由编排 |
-| 根视图层 | Frontend/src/pages/ConversationPage.tsx 等 | 常驻视图，保持上下文 |
-| 详情视图层 | Frontend/src/pages/chatPage.tsx 等 | 即抛详情，退出即释放 |
-| 会话层 | Frontend/src/utils/auth.ts, apiClient.ts | Access/Refresh 自动续期 |
-| 推送层 | Backend/src/push.ts + Frontend/src/sw.js | 离线通知与深链唤醒 |
-| 鉴权层 | Backend/src/auth.ts, routes/auth.ts | JWT 签发、刷新、撤销 |
-| 数据层 | prisma/schema.prisma | User/RefreshSession/PushSubscription |
+| 层级       | 目录/文件                                  | 职责                           |
+| ---------- | ------------------------------------------ | ------------------------------ |
+| 视图编排层 | Frontend/src/App.tsx                       | Root/Detail 生命周期与路由编排 |
+| 根视图层   | Frontend/src/pages/ConversationPage.tsx 等 | 常驻视图，保持上下文           |
+| 详情视图层 | Frontend/src/pages/chatPage.tsx 等         | 即抛详情，退出即释放           |
+| 会话层     | Frontend/src/utils/auth.ts, apiClient.ts   | Bearer JWT 注入与失效处理      |
+| 推送层     | Backend/src/push.ts + Frontend/src/sw.js   | 离线通知与深链唤醒             |
+| 鉴权层     | Backend/src/auth.ts, routes/auth.ts        | JWT 签发与校验                 |
+| 数据层     | prisma/schema.prisma                       | User/PushSubscription          |
 
 ---
 
@@ -288,13 +281,13 @@ flowchart TB
 
 ## 5. Performance Benchmarks
 
-| 指标 | 目标 | 当前策略 | 验证路径 |
-| --- | --- | --- | --- |
-| 路由返回感知延迟 | 0ms 体感 | Root 常驻 + Detail 即抛 | Frontend/tests/hybrid-view-stack.spec.ts |
-| 视口贴合率 | 100% 贴边无缝 | profile 壳层尺寸与动画去 scale | Frontend/tests/profile-native-shell.spec.ts |
-| 消息到达可见性 | 后台即更新 | dormant 状态下 silent reorder | Frontend/src/pages/ConversationPage.tsx |
-| 离线通知可达率 | 系统级唤醒 | VAPID + SW push + click deep link | Backend/src/push.ts, Frontend/src/sw.js |
-| 会话恢复稳定性 | 无感续期 | Access 短期 + Refresh 轮换 | Backend/src/routes/auth.ts, Frontend/src/utils/auth.ts |
+| 指标             | 目标          | 当前策略                          | 验证路径                                               |
+| ---------------- | ------------- | --------------------------------- | ------------------------------------------------------ |
+| 路由返回感知延迟 | 0ms 体感      | Root 常驻 + Detail 即抛           | Frontend/tests/hybrid-view-stack.spec.ts               |
+| 视口贴合率       | 100% 贴边无缝 | profile 壳层尺寸与动画去 scale    | Frontend/tests/profile-native-shell.spec.ts            |
+| 消息到达可见性   | 后台即更新    | dormant 状态下 silent reorder     | Frontend/src/pages/ConversationPage.tsx                |
+| 离线通知可达率   | 系统级唤醒    | VAPID + SW push + click deep link | Backend/src/push.ts, Frontend/src/sw.js                |
+| 会话恢复稳定性   | 行为一致      | 单令牌校验 + 明确重登             | Backend/src/routes/auth.ts, Frontend/src/utils/auth.ts |
 
 ---
 
@@ -368,27 +361,23 @@ npm run dev -- --host 127.0.0.1 --port 5273
 
 ## 8. Environment Variables
 
-| 变量 | 作用域 | 示例 | 用途 |
-| --- | --- | --- | --- |
-| DATABASE_URL | Backend | postgresql://user:pass@host:5432/db | Prisma 连接 |
-| JWT_SECRET | Backend | replace_with_strong_secret | Access Token 签名 |
-| REFRESH_TOKEN_SECRET | Backend | replace_with_strong_secret | Refresh Token 哈希签名 |
-| ACCESS_TOKEN_TTL | Backend | 15m | Access Token 过期策略 |
-| REFRESH_TOKEN_TTL_DAYS | Backend | 30 | Refresh Session 生命周期 |
-| AUTH_COOKIE_SAMESITE | Backend | lax | Refresh Cookie SameSite |
-| AUTH_COOKIE_DOMAIN | Backend | .yourdomain.com | 可选 Cookie 域 |
-| LOGIN_CODE_SECRET | Backend | replace_with_strong_secret | 验证码哈希 |
-| SMTP_USER | Backend | mailer@example.com | SMTP 用户名 |
-| SMTP_PASS | Backend | app_password | SMTP 密码 |
-| SMTP_FROM | Backend | CleanChat <no-reply@example.com> | 邮件发件人 |
-| FRONTEND_URLS | Backend | http://127.0.0.1:5273,https://your.pages.dev | CORS 白名单 |
-| VAPID_PUBLIC_KEY | Backend | base64url_public_key | Web Push 公钥 |
-| VAPID_PRIVATE_KEY | Backend | base64url_private_key | Web Push 私钥 |
-| VAPID_SUBJECT | Backend | mailto:no-reply@example.com | VAPID Subject |
-| KOYEB_ORIGIN | Cloudflare Functions | https://your-service.koyeb.app | /api 与 /socket.io 上游 |
-| VITE_API_URL | Frontend | /api | API 基地址 |
-| VITE_SOCKET_URL | Frontend | / | Socket 基地址 |
-| VITE_VAPID_PUBLIC_KEY | Frontend (optional) | base64url_public_key | 前端直配 VAPID 公钥 |
+| 变量                  | 作用域               | 示例                                         | 用途                    |
+| --------------------- | -------------------- | -------------------------------------------- | ----------------------- |
+| DATABASE_URL          | Backend              | postgresql://user:pass@host:5432/db          | Prisma 连接             |
+| JWT_SECRET            | Backend              | replace_with_strong_secret                   | JWT 签名                |
+| ACCESS_TOKEN_TTL      | Backend              | 1y                                           | JWT 过期策略            |
+| LOGIN_CODE_SECRET     | Backend              | replace_with_strong_secret                   | 验证码哈希              |
+| SMTP_USER             | Backend              | mailer@example.com                           | SMTP 用户名             |
+| SMTP_PASS             | Backend              | app_password                                 | SMTP 密码               |
+| SMTP_FROM             | Backend              | CleanChat <no-reply@example.com>             | 邮件发件人              |
+| FRONTEND_URLS         | Backend              | http://127.0.0.1:5273,https://your.pages.dev | CORS 白名单             |
+| VAPID_PUBLIC_KEY      | Backend              | base64url_public_key                         | Web Push 公钥           |
+| VAPID_PRIVATE_KEY     | Backend              | base64url_private_key                        | Web Push 私钥           |
+| VAPID_SUBJECT         | Backend              | mailto:no-reply@example.com                  | VAPID Subject           |
+| KOYEB_ORIGIN          | Cloudflare Functions | https://your-service.koyeb.app               | /api 与 /socket.io 上游 |
+| VITE_API_URL          | Frontend             | /api                                         | API 基地址              |
+| VITE_SOCKET_URL       | Frontend             | /                                            | Socket 基地址           |
+| VITE_VAPID_PUBLIC_KEY | Frontend (optional)  | base64url_public_key                         | 前端直配 VAPID 公钥     |
 
 ---
 
@@ -406,11 +395,13 @@ npx playwright test --config=playwright.conversations.config.ts
 ## 10. Deployment and Reverse Proxy Notes
 
 1. 前端生产环境推荐使用同源代理：
-   - /api/* -> Backend
-   - /socket.io/* -> Backend
+   - /api/\* -> Backend
+   - /socket.io/\* -> Backend
 2. 这样浏览器视角保持同源：
-   - Refresh Cookie 传输稳定
-   - 降低跨域策略复杂度
+
+- Authorization Header 与 Socket 路径一致
+- 降低跨域策略复杂度
+
 3. Backend 已启用 trust proxy 条件配置，兼容反代后的真实来源判定。
 
 ---

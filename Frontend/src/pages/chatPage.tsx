@@ -6,7 +6,7 @@ import { getAvatarToneClass, type AvatarKey } from "../constants/avatarCatalog";
 import { BACKEND_URL, SOCKET_URL } from "../config";
 import { useViewportOverscan } from "../hooks/useViewportOverscan";
 import { getNotificationPermission, showMessageNotification } from "../utils/notifications";
-import { ensureAccessToken } from "../utils/auth";
+import { clearAuthToken, getAuthToken } from "../utils/auth";
 import { clearGroupUnread, clearThreadUnread } from "../utils/unreadCounts";
 import "./chatPage.css";
 
@@ -312,7 +312,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const connectSocket = async () => {
     if (socketRef.current) return;
 
-    const token = await ensureAccessToken();
+    const token = getAuthToken();
     if (!token) {
       setStatus("Session expired. Please login again.");
       return;
@@ -346,16 +346,9 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
         return;
       }
 
-      void (async () => {
-        const refreshedToken = await ensureAccessToken({ forceRefresh: true });
-        if (!refreshedToken) {
-          setStatus("Session expired. Please login again.");
-          return;
-        }
-
-        socket.auth = { token: refreshedToken };
-        socket.connect();
-      })();
+      clearAuthToken();
+      setStatus("Session expired. Please login again.");
+      socket.disconnect();
     });
 
     socket.on("chat:error", (msg: string) => {

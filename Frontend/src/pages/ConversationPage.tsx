@@ -13,7 +13,7 @@ import {
   type CleanIdTrustSnapshot,
   getTrustToneLabel,
 } from "../utils/cleanIdTrust";
-import { ensureAccessToken } from "../utils/auth";
+import { clearAuthToken, getAuthToken } from "../utils/auth";
 import { showMessageNotification } from "../utils/notifications";
 import {
   clearUnreadCount,
@@ -684,7 +684,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     };
 
     const initSocket = async () => {
-      const token = await ensureAccessToken();
+      const token = getAuthToken();
       if (!token || isDisposed) {
         if (!isDisposed) {
           setStatus("Session expired. Please login again.");
@@ -707,16 +707,9 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
           return;
         }
 
-        const refreshedToken = await ensureAccessToken({ forceRefresh: true });
-        if (!refreshedToken || isDisposed) {
-          if (!isDisposed) {
-            setStatus("Session expired. Please login again.");
-          }
-          return;
-        }
-
-        socket.auth = { token: refreshedToken };
-        socket.connect();
+        clearAuthToken();
+        setStatus("Session expired. Please login again.");
+        socket.disconnect();
       };
 
       socket.on("inbox:new", handleIncomingMessage);
