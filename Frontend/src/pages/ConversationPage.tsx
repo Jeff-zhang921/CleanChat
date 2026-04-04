@@ -5,6 +5,7 @@ import { Virtuoso, type ListProps, type ScrollerProps } from "react-virtuoso";
 import { io, type Socket } from "socket.io-client";
 import { useTranslation } from "react-i18next";
 import BottomNav from "../components/BottomNav";
+import GenderLineIcon from "../components/GenderLineIcon";
 import { DEFAULT_AVATAR_KEY, getAvatarToneClass, getAvatarUrl, type AvatarKey } from "../constants/avatarCatalog";
 import { BACKEND_URL, SOCKET_URL } from "../config";
 import { useCompactViewport } from "../hooks/useCompactViewport";
@@ -16,7 +17,6 @@ import {
 } from "../utils/cleanIdTrust";
 import {
   GENDER_ARIA_KEY_MAP,
-  getGenderIcon,
   normalizeGender,
   type GenderValue,
 } from "../utils/gender";
@@ -1130,7 +1130,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
                 role="img"
                 aria-label={t(GENDER_ARIA_KEY_MAP[item.gender])}
               >
-                {getGenderIcon(item.gender)}
+                <GenderLineIcon gender={item.gender} className="conversation-gender-icon-svg" />
               </span>
             )}
             <p className="role">{item.role}</p>

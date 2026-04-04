@@ -106,10 +106,137 @@
   gap: 0.7rem;
 }
 
-.profile-edit-gender-row {
-  border-top: 1px solid rgba(23, 33, 26, 0.12);
-  border-bottom: 1px solid rgba(23, 33, 26, 0.12);
-  padding: 0.35rem 0.08rem;
+.profile-edit-gender-trigger {
+  border: 1px solid rgba(99, 109, 103, 0.2);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.46);
+  min-height: 3.15rem;
+  width: 100%;
+  padding: 0.74rem 0.82rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: #17211a;
+  cursor: pointer;
+  transition:
+    border-color 220ms ease,
+    background-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease;
+}
+
+.profile-edit-gender-trigger:hover:not(:disabled) {
+  border-color: rgba(99, 109, 103, 0.36);
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: 0 14px 24px rgba(18, 23, 20, 0.08);
+  transform: translateY(-1px);
+}
+
+.profile-edit-gender-trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(63, 104, 81, 0.2);
+}
+
+.profile-edit-gender-trigger:disabled {
+  opacity: 0.56;
+  cursor: default;
+}
+
+.profile-edit-gender-trigger-copy {
+  display: grid;
+  justify-items: start;
+  gap: 0.22rem;
+}
+
+.profile-edit-gender-value {
+  font-size: 0.88rem;
+  color: rgba(23, 33, 26, 0.72);
+  letter-spacing: 0.04em;
+}
+
+.profile-edit-gender-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(50, 62, 56, 0.86);
+  flex-shrink: 0;
+}
+
+.profile-edit-gender-drawer-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+}
+
+.profile-edit-gender-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(18, 25, 22, 0.26);
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+
+.profile-edit-gender-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: min(31rem, 100%);
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  padding: clamp(1rem, 3vw, 1.3rem);
+  border-left: 1px solid rgba(91, 106, 96, 0.2);
+  background:
+    linear-gradient(180deg, rgba(250, 247, 241, 0.98), rgba(246, 242, 235, 0.96));
+  box-shadow: -20px 0 40px rgba(16, 22, 18, 0.12);
+  transform: translateX(104%);
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.profile-edit-gender-drawer-layer.is-open {
+  pointer-events: auto;
+}
+
+.profile-edit-gender-drawer-layer.is-open .profile-edit-gender-drawer-backdrop {
+  opacity: 1;
+}
+
+.profile-edit-gender-drawer-layer.is-open .profile-edit-gender-drawer {
+  transform: translateX(0);
+}
+
+.profile-edit-gender-drawer-head {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.profile-edit-gender-drawer-head h2 {
+  margin: 0;
+  font-size: clamp(1.5rem, 5vw, 2rem);
+  line-height: 1.1;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+}
+
+.profile-edit-gender-drawer-head p:last-child {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.65;
+  letter-spacing: 0.03em;
+  color: rgba(23, 33, 26, 0.7);
+}
+
+.profile-edit-gender-picker {
+  margin-top: 0.2rem;
+}
+
+.profile-edit-gender-drawer-close {
+  margin-top: 0.45rem;
+  justify-self: stretch;
 }
 
 .profile-edit-label {
@@ -239,5 +366,23 @@
 
   .profile-edit-action {
     width: 100%;
+  }
+
+  .profile-edit-gender-drawer {
+    top: auto;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: auto;
+    border-left: 0;
+    border-top: 1px solid rgba(91, 106, 96, 0.2);
+    border-radius: 1.2rem 1.2rem 0 0;
+    transform: translateY(105%);
+    box-shadow: 0 -20px 36px rgba(16, 22, 18, 0.14);
+  }
+
+  .profile-edit-gender-drawer-layer.is-open .profile-edit-gender-drawer {
+    transform: translateY(0);
   }
 }

@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import GenderLineIcon from "./GenderLineIcon";
 import {
   GENDER_OPTIONS,
   type GenderValue,
@@ -41,7 +42,7 @@ const GenderPicker = ({
             onClick={() => onChange(option.value)}
             disabled={disabled}
           >
-            <span aria-hidden="true">{option.icon}</span>
+            <GenderLineIcon gender={option.value} className="gender-picker-icon" />
           </button>
         );
       })}

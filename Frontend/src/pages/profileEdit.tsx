@@ -1,10 +1,11 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import GenderLineIcon from "../components/GenderLineIcon";
 import GenderPicker from "../components/GenderPicker";
 import { BACKEND_URL } from "../config";
 import { validateShortClaimInput } from "../utils/cleanIdClaim";
-import { type GenderValue } from "../utils/gender";
+import { GENDER_ARIA_KEY_MAP, type GenderValue } from "../utils/gender";
 import { hydrateProfileUser, type ProfileRouteState, type ProfileUser } from "../utils/profileUser";
 import "./profileEdit.css";
 
@@ -25,6 +26,8 @@ const ProfileEditPage = () => {
   const [status, setStatus] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
+  const [isGenderDrawerOpen, setIsGenderDrawerOpen] = useState(false);
+  const genderLabel = t(GENDER_ARIA_KEY_MAP[gender]);
 
   useEffect(() => {
     if (!user) return;
@@ -86,9 +89,30 @@ const ProfileEditPage = () => {
   };
 
   const handleBack = () => {
+    if (isGenderDrawerOpen) {
+      setIsGenderDrawerOpen(false);
+      return;
+    }
     if (isSaving) return;
     leave(user);
   };
+
+  useEffect(() => {
+    if (!isGenderDrawerOpen) {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsGenderDrawerOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [isGenderDrawerOpen]);
 
   const handleSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -298,9 +322,21 @@ const ProfileEditPage = () => {
             />
           </label>
 
-          <section className="profile-edit-gender-row">
-            <GenderPicker value={gender} onChange={setGender} disabled={isSaving} />
-          </section>
+          <button
+            type="button"
+            className="profile-edit-gender-trigger"
+            onClick={() => setIsGenderDrawerOpen(true)}
+            disabled={isSaving}
+            aria-label={t("profileEdit.editGender")}
+          >
+            <span className="profile-edit-gender-trigger-copy">
+              <span className="profile-edit-label">{t("profileEdit.gender")}</span>
+              <span className="profile-edit-gender-value">{genderLabel}</span>
+            </span>
+            <span className="profile-edit-gender-icon" aria-hidden="true">
+              <GenderLineIcon gender={gender} size={19} />
+            </span>
+          </button>
 
           <p className="profile-edit-caption">
             {t("profileEdit.caption")}
@@ -331,6 +367,39 @@ const ProfileEditPage = () => {
           )}
         </form>
       </main>
+
+      <div className={`profile-edit-gender-drawer-layer ${isGenderDrawerOpen ? "is-open" : ""}`} aria-hidden={!isGenderDrawerOpen}>
+        <button
+          type="button"
+          className="profile-edit-gender-drawer-backdrop"
+          onClick={() => setIsGenderDrawerOpen(false)}
+          tabIndex={isGenderDrawerOpen ? 0 : -1}
+          aria-label={t("common.close")}
+        />
+        <aside
+          className="profile-edit-gender-drawer"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("profileEdit.editGender")}
+        >
+          <header className="profile-edit-gender-drawer-head">
+            <p className="profile-edit-eyebrow">{t("profileEdit.editGender")}</p>
+            <h2>{t("profileEdit.gender")}</h2>
+            <p>{t("profileEdit.genderHint")}</p>
+          </header>
+
+          <GenderPicker value={gender} onChange={setGender} disabled={isSaving} className="profile-edit-gender-picker" />
+
+          <button
+            type="button"
+            className="profile-edit-action profile-edit-action-primary profile-edit-gender-drawer-close"
+            onClick={() => setIsGenderDrawerOpen(false)}
+            disabled={isSaving}
+          >
+            {t("common.close")}
+          </button>
+        </aside>
+      </div>
     </div>
   );
 };

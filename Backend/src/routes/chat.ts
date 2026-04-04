@@ -57,6 +57,28 @@ const parsePositiveInt = (raw: unknown): number | null => {
   return parsed;
 };
 
+const getThreadForUser = async (threadId: number, userId: number) => {
+  const thread = await prisma.chatThread.findUnique({
+    where: { id: threadId },
+    select: { id: true, AID: true, BID: true },
+  });
+
+  if (!thread) {
+    return null;
+  }
+
+  if (thread.AID !== userId && thread.BID !== userId) {
+    return null;
+  }
+
+  return thread;
+};
+
+const getOtherThreadUserId = (
+  thread: { AID: number; BID: number },
+  userId: number,
+) => (thread.AID === userId ? thread.BID : thread.AID);
+
 router.use(authMiddleware);
 
 router.post(
@@ -724,6 +746,160 @@ router.get("/threads", async (req, res) => {
       },
     })),
   );
+});
+
+router.get("/threads/:threadId/settings", async (req, res) => {
+  const userId = req.user?.userId;
+  if (!ensureAuth(userId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const threadId = parsePositiveInt(req.params.threadId);
+  if (!threadId) {
+    res.status(400).json({ message: "Invalid thread ID" });
+    return;
+  }
+
+  const thread = await getThreadForUser(threadId, userId);
+  if (!thread) {
+    res.status(404).json({ message: "Thread not found" });
+    return;
+  }
+
+  const otherUserId = getOtherThreadUserId(thread, userId);
+  const otherUser = await prisma.user.findUnique({
+    where: { id: otherUserId },
+    select: {
+      id: true,
+      name: true,
+      cleanId: true,
+      avatar: true,
+      gender: true,
+    },
+  });
+
+  if (!otherUser) {
+    res.status(404).json({ message: "Other user not found" });
+    return;
+  }
+
+  const [blockedByMe, blockedMe] = await Promise.all([
+    prisma.chatBlock.findUnique({
+      where: {
+        blockerId_blockedId: {
+          blockerId: userId,
+          blockedId: otherUserId,
+        },
+      },
+      select: { id: true },
+    }),
+    prisma.chatBlock.findUnique({
+      where: {
+        blockerId_blockedId: {
+          blockerId: otherUserId,
+          blockedId: userId,
+        },
+      },
+      select: { id: true },
+    }),
+  ]);
+
+  res.json({
+    threadId,
+    otherUser,
+    blockedByMe: Boolean(blockedByMe),
+    blockedMe: Boolean(blockedMe),
+  });
+});
+
+router.patch("/threads/:threadId/block", async (req, res) => {
+  const userId = req.user?.userId;
+  if (!ensureAuth(userId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const threadId = parsePositiveInt(req.params.threadId);
+  if (!threadId) {
+    res.status(400).json({ message: "Invalid thread ID" });
+    return;
+  }
+
+  if (typeof req.body?.blocked !== "boolean") {
+    res.status(400).json({ message: "blocked must be a boolean." });
+    return;
+  }
+
+  const thread = await getThreadForUser(threadId, userId);
+  if (!thread) {
+    res.status(404).json({ message: "Thread not found" });
+    return;
+  }
+
+  const otherUserId = getOtherThreadUserId(thread, userId);
+
+  if (req.body.blocked) {
+    await prisma.chatBlock.upsert({
+      where: {
+        blockerId_blockedId: {
+          blockerId: userId,
+          blockedId: otherUserId,
+        },
+      },
+      update: {},
+      create: {
+        blockerId: userId,
+        blockedId: otherUserId,
+      },
+    });
+  } else {
+    await prisma.chatBlock.deleteMany({
+      where: {
+        blockerId: userId,
+        blockedId: otherUserId,
+      },
+    });
+  }
+
+  res.json({
+    threadId,
+    blockedByMe: req.body.blocked,
+  });
+});
+
+router.delete("/threads/:threadId", async (req, res) => {
+  const userId = req.user?.userId;
+  if (!ensureAuth(userId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const threadId = parsePositiveInt(req.params.threadId);
+  if (!threadId) {
+    res.status(400).json({ message: "Invalid thread ID" });
+    return;
+  }
+
+  const thread = await getThreadForUser(threadId, userId);
+  if (!thread) {
+    res.status(404).json({ message: "Thread not found" });
+    return;
+  }
+
+  const deletedMessages = await prisma.chatMessage.deleteMany({
+    where: { threadId },
+  });
+
+  await prisma.chatThread.delete({
+    where: { id: threadId },
+  });
+
+  res.json({
+    threadId,
+    deletedMessages: deletedMessages.count,
+    message: "Thread deleted for both participants.",
+  });
 });
 
 router.get("/threads/:threadId/messages", async (req, res) => {

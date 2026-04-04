@@ -95,7 +95,9 @@ type AuthUserRecord = {
   gender: "hidden";
 };
 
-async function findAuthUserByEmail(email: string): Promise<AuthUserRecord | null> {
+async function findAuthUserByEmail(
+  email: string,
+): Promise<AuthUserRecord | null> {
   const rows = await prisma.$queryRaw<
     Array<{
       id: number;
@@ -122,7 +124,9 @@ async function findAuthUserByEmail(email: string): Promise<AuthUserRecord | null
   };
 }
 
-async function findAuthUserById(userId: number): Promise<AuthUserRecord | null> {
+async function findAuthUserById(
+  userId: number,
+): Promise<AuthUserRecord | null> {
   const rows = await prisma.$queryRaw<
     Array<{
       id: number;
@@ -275,12 +279,7 @@ router.post("/email/start", async (req, res) => {
   try {
     const email = normalizeEmailInput(req.body.email);
     if (!Email_REGEX.test(email)) {
-      sendAuthError(
-        res,
-        400,
-        AUTH_ERROR_CODES.invalidEmail,
-        "Invalid email.",
-      );
+      sendAuthError(res, 400, AUTH_ERROR_CODES.invalidEmail, "Invalid email.");
       return;
     }
     if (!LOGIN_CODE_SECRET || !mailer) {
@@ -349,21 +348,11 @@ router.post("/email/verify", async (req, res) => {
     const receivedCode = normalizeCodeInput(req.body.code);
 
     if (!Email_REGEX.test(email)) {
-      sendAuthError(
-        res,
-        400,
-        AUTH_ERROR_CODES.invalidEmail,
-        "Invalid email.",
-      );
+      sendAuthError(res, 400, AUTH_ERROR_CODES.invalidEmail, "Invalid email.");
       return;
     }
     if (receivedCode.length !== CODE_LENGTH) {
-      sendAuthError(
-        res,
-        400,
-        AUTH_ERROR_CODES.invalidCode,
-        "Invalid code.",
-      );
+      sendAuthError(res, 400, AUTH_ERROR_CODES.invalidCode, "Invalid code.");
       return;
     }
     if (!LOGIN_CODE_SECRET) {

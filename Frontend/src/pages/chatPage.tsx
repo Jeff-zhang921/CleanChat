@@ -219,6 +219,14 @@ const ChatVirtuosoList = forwardRef<HTMLDivElement, ListProps>((props, ref) => (
 
 ChatVirtuosoList.displayName = "ChatVirtuosoList";
 
+const EllipsisGlyph = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="6" cy="12" r="1.25" fill="currentColor" />
+    <circle cx="12" cy="12" r="1.25" fill="currentColor" />
+    <circle cx="18" cy="12" r="1.25" fill="currentColor" />
+  </svg>
+);
+
 const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const { t, i18n } = useTranslation();
   const location = useLocation();
@@ -920,6 +928,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const statusTone = isHistoryLoading || isUploadingImage ? "busy" : isConnected ? "online" : "";
   const chatKicker = chatMode === "group" ? t("chat.groupThread") : t("chat.privateLine");
   const backLabel = fromPath === "/groups" ? t("nav.groups") : t("nav.chats");
+  const canOpenSettings = chatMode === "direct" && typeof threadId === "number";
   const messageViewportIncrease = {
     top: messageOverscan,
     bottom: messageOverscan,
@@ -1107,6 +1116,22 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     }, CHAT_OVERLAY_EXIT_MS);
   };
 
+  const handleOpenSettings = () => {
+    if (!canOpenSettings) {
+      return;
+    }
+
+    navigate("/chat/settings", {
+      state: {
+        threadId,
+        other: chatLabel,
+        avatarUrl,
+        avatarKey: resolvedState.avatarKey,
+        fromPath,
+      },
+    });
+  };
+
   return (
     <div
       className={`chat-shell ${isComposerEngaged ? "composer-engaged" : ""} ${isSendPulseVisible ? "send-pulse" : ""} ${showHistorySkeleton ? "history-loading" : "history-ready"} ${isClosing ? "is-closing" : ""}`}
@@ -1124,7 +1149,21 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
             <span className="chat-kicker">{chatKicker}</span>
             <span className="chat-title">{chatLabel}</span>
           </div>
-          <span className={`status-pill chat-bar-status ${statusTone}`}>{statusLabel}</span>
+          <div className="chat-bar-actions">
+            {canOpenSettings && (
+              <button
+                type="button"
+                className="chat-more-button"
+                aria-label={t("chat.openSettings")}
+                title={t("chat.openSettings")}
+                onClick={handleOpenSettings}
+                disabled={isClosing}
+              >
+                <EllipsisGlyph />
+              </button>
+            )}
+            <span className={`status-pill chat-bar-status ${statusTone}`}>{statusLabel}</span>
+          </div>
         </div>
 
         <div className={`chat-body ${showHistorySkeleton ? "loading" : "ready"}`}>

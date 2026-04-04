@@ -519,10 +519,15 @@ button.conversation-card {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-size: 0.82rem;
   line-height: 1;
-  color: var(--text-secondary, var(--muted));
-  opacity: 0.92;
+  color: rgba(83, 95, 88, 0.86);
+  opacity: 0.96;
+}
+
+.conversation-gender-icon-svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  display: block;
 }
 
 .role {

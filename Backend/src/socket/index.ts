@@ -159,6 +159,40 @@ export function initSocket(server: HTTPServer) {
       }
       return thread;
     };
+    const ensureDirectMessagingAllowed = async (
+      thread: { AID: number; BID: number },
+      senderId: number,
+    ) => {
+      const recipientId = thread.AID === senderId ? thread.BID : thread.AID;
+
+      const incomingBlock = await prisma.chatBlock.findUnique({
+        where: {
+          blockerId_blockedId: {
+            blockerId: recipientId,
+            blockedId: senderId,
+          },
+        },
+        select: { id: true },
+      });
+      if (incomingBlock) {
+        return "You are blocked by this user.";
+      }
+
+      const outgoingBlock = await prisma.chatBlock.findUnique({
+        where: {
+          blockerId_blockedId: {
+            blockerId: senderId,
+            blockedId: recipientId,
+          },
+        },
+        select: { id: true },
+      });
+      if (outgoingBlock) {
+        return "Unblock this user before sending messages.";
+      }
+
+      return null;
+    };
     const ensureGroupId = (raw: unknown): string | null => {
       const candidate =
         typeof raw === "object" && raw !== null && "groupId" in raw
@@ -234,6 +268,14 @@ export function initSocket(server: HTTPServer) {
       const thread = await ensureMemberShip(validThreadId, sessionUser.id);
       if (!thread) {
         emitChatError("Thread not found or access denied");
+        return;
+      }
+      const blockMessage = await ensureDirectMessagingAllowed(
+        thread,
+        sessionUser.id,
+      );
+      if (blockMessage) {
+        emitChatError(blockMessage);
         return;
       }
       if (typeof content !== "string" || content.trim() === "") {

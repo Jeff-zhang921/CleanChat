@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 // import PersonalPage from './pages/personalPage';
 import ChatPage from './pages/chatPage';
+import ChatSettingsPage from './pages/chatSettings';
 import ConversationsPage from './pages/ConversationPage';
 import GroupConversationPage from './pages/GroupConversationPage';
 import LoginPage from './pages/login'
@@ -17,7 +18,7 @@ import { getAuthToken } from './utils/auth';
 
 type PretextBackdropVariant = 'auth' | 'app';
 type RootViewKey = 'conversations' | 'groups' | 'profile' | 'settings';
-type DetailViewKey = 'chat' | 'profile-edit' | 'profile-purity' | 'profile-vault' | null;
+type DetailViewKey = 'chat' | 'chat-settings' | 'profile-edit' | 'profile-purity' | 'profile-vault' | null;
 type ChatRouteState = {
   fromPath?: '/conversations' | '/groups';
 };
@@ -219,6 +220,7 @@ const resolveRootViewFromPath = (
 };
 
 const resolveDetailViewFromPath = (pathname: string): DetailViewKey => {
+  if (pathname === '/chat/settings') return 'chat-settings';
   if (pathname === '/chat' || pathname.startsWith('/chat/')) return 'chat';
   if (pathname === '/profile/edit') return 'profile-edit';
   if (pathname === '/profile/purity') return 'profile-purity';
@@ -285,7 +287,7 @@ const HybridAppShell = () => {
       return;
     }
 
-    if (detailView === 'chat') {
+    if (detailView === 'chat' || detailView === 'chat-settings') {
       const baseView = resolveChatBaseView(pathname, location.state, lastRootViewRef.current);
       lastRootViewRef.current = baseView;
       setActiveRootView((current) => (current === baseView ? current : baseView));
@@ -329,6 +331,14 @@ const HybridAppShell = () => {
               navigate(fromPath === '/groups' ? '/groups' : '/conversations', { replace: true });
             }}
           />
+        </div>
+      );
+    }
+
+    if (detailView === 'chat-settings') {
+      return (
+        <div className="hybrid-detail-surface" role="presentation">
+          <ChatSettingsPage />
         </div>
       );
     }
