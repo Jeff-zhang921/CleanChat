@@ -2,12 +2,17 @@ import { FormEvent, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useTranslation } from "react-i18next";
+import {
+  resolveSupportedLanguage,
+  setPreferredLanguage,
+  type SupportedLanguage,
+} from "../i18n";
 import { apiClient } from "../utils/apiClient";
 import { setAuthToken } from "../utils/auth";
 import { ensurePushSubscriptionForCurrentUser } from "../utils/notifications";
 import {
+  AuthLanguageSwitch,
   getPretextAuthStyles,
-  PretextSignalPanel,
   usePretextCompact,
   usePretextPointer,
 } from "./login";
@@ -18,6 +23,19 @@ const PENDING_EMAIL_KEY = "cleanchat:pending-email";
 type VerifyLocationState = {
   email?: string;
 } | null;
+
+type VerifyErrorResponse = {
+  errorCode?: string;
+};
+
+const VERIFY_ERROR_TRANSLATION_KEYS = {
+  AUTH_INVALID_EMAIL: "auth.invalidEmail",
+  AUTH_INVALID_CODE: "auth.enterSixDigitCode",
+  AUTH_INVALID_OR_EXPIRED_CODE: "auth.invalidOrExpiredCode",
+  AUTH_TOO_MANY_ATTEMPTS: "auth.tooManyAttempts",
+  AUTH_EMAIL_LOGIN_NOT_CONFIGURED: "auth.emailLoginUnavailable",
+  AUTH_VERIFICATION_FAILED: "auth.verifyFailed",
+} as const;
 
 const getPendingEmail = () => {
   if (typeof window === "undefined") {
@@ -41,7 +59,7 @@ const setPendingEmail = (email: string) => {
 };
 
 const VerifyPage = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const emailFromState = ((location.state as VerifyLocationState)?.email || "").trim().toLowerCase();
@@ -51,6 +69,7 @@ const VerifyPage = () => {
   const [code, setCode] = useState("");
   const [status, setStatus] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const currentLanguage = resolveSupportedLanguage(i18n.language);
 
   useEffect(() => {
     if (!emailFromState || emailFromState === storedEmail) {
@@ -64,9 +83,22 @@ const VerifyPage = () => {
   const email = emailFromState || storedEmail;
   const normalizedCode = code.trim();
   const styles = getPretextAuthStyles(compact, pointer);
-  const codeDigitCount = normalizedCode.length;
-  const codeProgress = Math.min(1, codeDigitCount / CODE_LENGTH);
-  const hasCompleteCode = codeDigitCount === CODE_LENGTH;
+
+  const resolveVerifyStatus = (errorCode?: string) => {
+    const translationKey =
+      (errorCode && VERIFY_ERROR_TRANSLATION_KEYS[errorCode as keyof typeof VERIFY_ERROR_TRANSLATION_KEYS]) ||
+      "auth.verifyFailed";
+
+    return t(translationKey);
+  };
+
+  const handleLanguageSwitch = (language: SupportedLanguage) => {
+    if (language === currentLanguage) {
+      return;
+    }
+
+    void setPreferredLanguage(language);
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -106,8 +138,8 @@ const VerifyPage = () => {
       navigate(data.isNewUser ? "/basic-info" : "/conversations");
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        const message = error.response?.data?.message || error.response?.data?.error || t("auth.verifyFailed");
-        setStatus(message);
+        const responseData = error.response?.data as VerifyErrorResponse | undefined;
+        setStatus(resolveVerifyStatus(responseData?.errorCode));
         return;
       }
 
@@ -126,7 +158,14 @@ const VerifyPage = () => {
 
           <div style={styles.topRow}>
             <p style={styles.kicker}>{t("auth.stepTwoOfTwo")}</p>
-            <span style={styles.badge}>{t("auth.verifyCode")}</span>
+            <span style={styles.utilityRow}>
+              <span style={styles.badge}>{t("auth.verifyCode")}</span>
+              <AuthLanguageSwitch
+                currentLanguage={currentLanguage}
+                onLanguageSwitch={handleLanguageSwitch}
+                styles={styles}
+              />
+            </span>
           </div>
 
           <div style={styles.hero}>
@@ -136,14 +175,11 @@ const VerifyPage = () => {
             </p>
           </div>
 
-          <div style={styles.signalRow}>
-            <PretextSignalPanel
-              progress={codeProgress}
-              compact={compact}
-              heading={hasCompleteCode ? t("auth.allDigitsReady") : t("auth.waitingFullCode")}
-              caption={t("auth.verifyOnceOnly")}
-            />
-          </div>
+          <div style={styles.divider} />
+
+          <p style={{ ...styles.note, position: "relative", zIndex: 1 }}>
+            {email ? t("auth.verifyOnceOnly") : t("auth.returnLoginForCode")}
+          </p>
 
           <form onSubmit={handleSubmit} style={styles.form}>
             <label style={styles.label} htmlFor="code">
@@ -164,20 +200,9 @@ const VerifyPage = () => {
               required
             />
 
-            <div style={styles.helperRow}>
-              <span style={styles.helperPill}>
-                {t("auth.codeDigitsProgress", {
-                  current: codeDigitCount,
-                  total: CODE_LENGTH,
-                })}
-              </span>
-              <span style={styles.helperPill}>
-                {email ? t("auth.mailboxLinked") : t("auth.mailboxMissing")}
-              </span>
-              <span style={styles.helperPill}>{t("auth.oneTimeEntry")}</span>
-            </div>
-
-            {!email && <p style={styles.note}>{t("auth.routeIncomplete")}</p>}
+            <p style={styles.note}>
+              {email ? t("auth.codeSentTo", { email }) : t("auth.routeIncomplete")}
+            </p>
 
             <button
               style={{

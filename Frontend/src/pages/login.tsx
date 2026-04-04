@@ -209,7 +209,7 @@ export const getPretextAuthStyles = (compact: boolean, pointer: PointerState) =>
   } satisfies CSSProperties,
   languageSwitchActive: {
     color: "#204c37",
-    borderColor: "rgba(72, 112, 88, 0.22)",
+    border: "1px solid rgba(72, 112, 88, 0.22)",
     background: "linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(245, 250, 246, 0.82))",
     boxShadow: "0 8px 16px rgba(24, 34, 24, 0.08)",
   } satisfies CSSProperties,
@@ -260,11 +260,6 @@ export const getPretextAuthStyles = (compact: boolean, pointer: PointerState) =>
     height: "1px",
     background: "linear-gradient(90deg, rgba(72, 84, 68, 0), rgba(72, 84, 68, 0.2), rgba(72, 84, 68, 0))",
   } satisfies CSSProperties,
-  signalRow: {
-    position: "relative",
-    zIndex: 1,
-    display: "block",
-  } satisfies CSSProperties,
   form: {
     position: "relative",
     zIndex: 1,
@@ -287,23 +282,6 @@ export const getPretextAuthStyles = (compact: boolean, pointer: PointerState) =>
     font: "inherit",
     outline: "none",
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.6)",
-  } satisfies CSSProperties,
-  helperRow: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "0.45rem",
-  } satisfies CSSProperties,
-  helperPill: {
-    display: "inline-flex",
-    alignItems: "center",
-    minHeight: "1.9rem",
-    padding: "0.32rem 0.68rem",
-    borderRadius: "999px",
-    background: authPalette.accentSoft,
-    border: "1px solid rgba(31, 122, 82, 0.12)",
-    color: "#29553f",
-    fontSize: "0.78rem",
-    fontWeight: 600,
   } satisfies CSSProperties,
   note: {
     margin: 0,
@@ -354,153 +332,39 @@ export const getPretextAuthStyles = (compact: boolean, pointer: PointerState) =>
   } satisfies CSSProperties,
 }) as const;
 
-export const PretextSignalPanel = ({
-  progress,
-  compact,
-  heading,
-  caption,
+export const AuthLanguageSwitch = ({
+  currentLanguage,
+  onLanguageSwitch,
+  styles,
 }: {
-  progress: number;
-  compact: boolean;
-  heading: string;
-  caption: string;
+  currentLanguage: SupportedLanguage;
+  onLanguageSwitch: (language: SupportedLanguage) => void;
+  styles: ReturnType<typeof getPretextAuthStyles>;
 }) => {
   const { t } = useTranslation();
-  const normalized = clampUnit(progress);
-  const phaseLabel =
-    normalized >= 0.72
-      ? t("auth.phaseReady")
-      : normalized >= 0.38
-        ? t("auth.phasePreparing")
-        : t("auth.phaseIdle");
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gap: compact ? "0.7rem" : "0.82rem",
-        padding: compact ? "0.92rem 0.94rem" : "1rem 1.04rem",
-        borderRadius: compact ? "1.06rem" : "1.18rem",
-        border: `1px solid ${authPalette.line}`,
-        background:
-          "linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.2))",
-        boxShadow:
-          "inset 0 1px 0 rgba(255, 255, 255, 0.42), 0 16px 34px rgba(24, 34, 24, 0.05)",
-        backdropFilter: "blur(12px) saturate(1.02)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: "0.8rem",
-        }}
-      >
-        <div
+    <span style={styles.languageSwitchGroup}>
+      {LANGUAGE_SWITCH_OPTIONS.map((option) => (
+        <button
+          key={option.code}
+          type="button"
           style={{
-            display: "grid",
-            gap: "0.26rem",
-            minWidth: 0,
+            ...styles.languageSwitch,
+            ...(option.code === currentLanguage ? styles.languageSwitchActive : undefined),
           }}
+          onClick={() => onLanguageSwitch(option.code)}
+          aria-label={t("auth.languageSwitchAria", {
+            language: t(option.nameKey),
+          })}
+          title={t("auth.languageSwitchAria", {
+            language: t(option.nameKey),
+          })}
         >
-          <strong
-            style={{
-              fontSize: compact ? "0.98rem" : "1.04rem",
-              lineHeight: 1.24,
-              color: authPalette.ink,
-              maxWidth: "26ch",
-            }}
-          >
-            {heading}
-          </strong>
-          <span style={{ color: authPalette.muted, lineHeight: 1.55, fontSize: "0.9rem", maxWidth: "34ch" }}>
-            {caption}
-          </span>
-        </div>
-        <span
-          style={{
-            flexShrink: 0,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: "1.95rem",
-            padding: "0.32rem 0.68rem",
-            borderRadius: "999px",
-            border: `1px solid ${authPalette.line}`,
-            background: "rgba(255, 255, 255, 0.58)",
-            color: authPalette.inkSoft,
-            fontSize: "0.78rem",
-            fontWeight: 700,
-            whiteSpace: "nowrap",
-          }}
-        >
-          {phaseLabel}
-        </span>
-      </div>
-
-      <div
-        style={{
-          position: "relative",
-          height: "0.38rem",
-          borderRadius: "999px",
-          overflow: "hidden",
-          background: "rgba(54, 68, 55, 0.08)",
-        }}
-      >
-        <span
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: `${Math.max(18, Math.round(normalized * 100))}%`,
-            borderRadius: "inherit",
-            background: "linear-gradient(90deg, rgba(31, 122, 82, 0.78), rgba(198, 125, 88, 0.6))",
-            boxShadow: "0 0 12px rgba(31, 122, 82, 0.12)",
-          }}
-        />
-      </div>
-    </div>
-  );
-};
-
-export const PretextMessageDeck = ({
-  emailLocal,
-  emailDomain,
-}: {
-  compact: boolean;
-  pointer: PointerState;
-  emailLocal: string;
-  emailDomain: string;
-}) => {
-  const { t } = useTranslation();
-  const items = [
-    emailLocal ? t("auth.aliasWithValue", { value: emailLocal }) : t("auth.aliasAfterTyping"),
-    emailDomain ? t("auth.relayWithValue", { value: emailDomain }) : t("auth.relayAfterDomain"),
-    t("auth.oneTimeCode"),
-  ];
-
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-      {items.map((item) => (
-        <span
-          key={item}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            minHeight: "1.95rem",
-            padding: "0.34rem 0.72rem",
-            borderRadius: "999px",
-            border: `1px solid ${authPalette.line}`,
-            background: "rgba(255, 255, 255, 0.44)",
-            color: authPalette.inkSoft,
-            fontSize: "0.8rem",
-            fontWeight: 600,
-          }}
-        >
-          {item}
-        </span>
+          {option.shortLabel}
+        </button>
       ))}
-    </div>
+    </span>
   );
 };
 
@@ -529,9 +393,6 @@ const LoginPage = () => {
 
   const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
   const currentLanguage = resolveSupportedLanguage(i18n.language);
-  const emailParts = useMemo(() => normalizedEmail.split("@"), [normalizedEmail]);
-  const emailLocal = emailParts[0] || "";
-  const emailDomain = emailParts[1] || "";
   const styles = getPretextAuthStyles(compact, pointer);
 
   useEffect(() => {
@@ -673,27 +534,11 @@ const LoginPage = () => {
             <p style={styles.kicker}>{t("auth.privateEntry")}</p>
             <span style={styles.utilityRow}>
               <span style={styles.badge}>{t("auth.emailSignIn")}</span>
-              <span style={styles.languageSwitchGroup}>
-                {LANGUAGE_SWITCH_OPTIONS.map((option) => (
-                  <button
-                    key={option.code}
-                    type="button"
-                    style={{
-                      ...styles.languageSwitch,
-                      ...(option.code === currentLanguage ? styles.languageSwitchActive : undefined),
-                    }}
-                    onClick={() => handleLanguageSwitch(option.code)}
-                    aria-label={t("auth.languageSwitchAria", {
-                      language: t(option.nameKey),
-                    })}
-                    title={t("auth.languageSwitchAria", {
-                      language: t(option.nameKey),
-                    })}
-                  >
-                    {option.shortLabel}
-                  </button>
-                ))}
-              </span>
+              <AuthLanguageSwitch
+                currentLanguage={currentLanguage}
+                onLanguageSwitch={handleLanguageSwitch}
+                styles={styles}
+              />
             </span>
           </div>
 
@@ -732,15 +577,6 @@ const LoginPage = () => {
               autoComplete="email"
               required
             />
-
-            <div style={styles.helperRow}>
-              <PretextMessageDeck
-                compact={compact}
-                pointer={pointer}
-                emailLocal={emailLocal}
-                emailDomain={emailDomain}
-              />
-            </div>
 
             <p style={styles.note}>
               {t("auth.emailUsageNote")}

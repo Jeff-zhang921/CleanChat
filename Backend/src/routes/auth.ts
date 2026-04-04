@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
@@ -16,6 +16,14 @@ const CODE_LENGTH = 6;
 //LIVE TIME
 const CODE_TTL_MS = 10 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
+const AUTH_ERROR_CODES = {
+  invalidEmail: "AUTH_INVALID_EMAIL",
+  invalidCode: "AUTH_INVALID_CODE",
+  invalidOrExpiredCode: "AUTH_INVALID_OR_EXPIRED_CODE",
+  tooManyAttempts: "AUTH_TOO_MANY_ATTEMPTS",
+  emailLoginNotConfigured: "AUTH_EMAIL_LOGIN_NOT_CONFIGURED",
+  verificationFailed: "AUTH_VERIFICATION_FAILED",
+} as const;
 
 const SMTP_USER = process.env.SMTP_USER || "";
 const SMTP_PASS = process.env.SMTP_PASS || "";
@@ -52,17 +60,133 @@ function hashCode(code: string): string {
     .digest("hex");
 }
 
+function normalizeEmailInput(value: unknown): string {
+  return typeof value === "string" ? value.toLowerCase().trim() : "";
+}
+
+function normalizeCodeInput(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function sendAuthError(
+  res: Response,
+  status: number,
+  errorCode: string,
+  message: string,
+  extra?: Record<string, string>,
+) {
+  res.status(status).json({
+    errorCode,
+    message,
+    ...(extra ?? {}),
+  });
+}
+
 function generateCleanId(): string {
   return `u_${crypto.randomBytes(6).toString("hex")}`;
+}
+
+type AuthUserRecord = {
+  id: number;
+  email: string;
+  name: string;
+  avatar: string;
+  cleanId: string;
+  gender: "hidden";
+};
+
+async function findAuthUserByEmail(email: string): Promise<AuthUserRecord | null> {
+  const rows = await prisma.$queryRaw<
+    Array<{
+      id: number;
+      email: string;
+      name: string;
+      avatar: string;
+      cleanId: string;
+    }>
+  >`
+    SELECT id, email, name, avatar::text AS avatar, "cleanId"
+    FROM "User"
+    WHERE email = ${email}
+    LIMIT 1
+  `;
+
+  const row = rows[0];
+  if (!row) {
+    return null;
+  }
+
+  return {
+    ...row,
+    gender: "hidden",
+  };
+}
+
+async function findAuthUserById(userId: number): Promise<AuthUserRecord | null> {
+  const rows = await prisma.$queryRaw<
+    Array<{
+      id: number;
+      email: string;
+      name: string;
+      avatar: string;
+      cleanId: string;
+    }>
+  >`
+    SELECT id, email, name, avatar::text AS avatar, "cleanId"
+    FROM "User"
+    WHERE id = ${userId}
+    LIMIT 1
+  `;
+
+  const row = rows[0];
+  if (!row) {
+    return null;
+  }
+
+  return {
+    ...row,
+    gender: "hidden",
+  };
+}
+
+async function createAuthUser(email: string): Promise<AuthUserRecord> {
+  const cleanId = await generateUniqueCleanId();
+  const name = email.split("@")[0];
+  const rows = await prisma.$queryRaw<
+    Array<{
+      id: number;
+      email: string;
+      name: string;
+      avatar: string;
+      cleanId: string;
+    }>
+  >`
+    INSERT INTO "User" (email, name, avatar, "cleanId", "createdAt", "updatedAt")
+    VALUES (${email}, ${name}, ${DEFAULT_AVATAR}::"Avatar", ${cleanId}, NOW(), NOW())
+    RETURNING id, email, name, avatar::text AS avatar, "cleanId"
+  `;
+
+  const row = rows[0];
+  if (!row) {
+    throw new Error("Failed to create auth user.");
+  }
+
+  return {
+    ...row,
+    gender: "hidden",
+  };
 }
 
 async function generateUniqueCleanId(): Promise<string> {
   for (let attempt = 0; attempt < 10; attempt++) {
     const candidate = generateCleanId();
-    const exists = await prisma.user.findUnique({
-      where: { cleanId: candidate },
-    });
-    if (!exists) {
+    const existingRows = await prisma.$queryRaw<Array<{ id: number }>>`
+      SELECT id
+      FROM "User"
+      WHERE "cleanId" = ${candidate}
+      LIMIT 1
+    `;
+    if (existingRows.length === 0) {
       return candidate;
     }
   }
@@ -149,15 +273,23 @@ function queueLoginCodeEmail(
 
 router.post("/email/start", async (req, res) => {
   try {
-    const email =
-      typeof req.body.email === "string"
-        ? req.body.email.toLowerCase().trim()
-        : "";
+    const email = normalizeEmailInput(req.body.email);
     if (!Email_REGEX.test(email)) {
-      return res.status(400).json({ error: "Invalid email" });
+      sendAuthError(
+        res,
+        400,
+        AUTH_ERROR_CODES.invalidEmail,
+        "Invalid email.",
+      );
+      return;
     }
     if (!LOGIN_CODE_SECRET || !mailer) {
-      res.status(500).json({ message: "Email login is not configured." });
+      sendAuthError(
+        res,
+        500,
+        AUTH_ERROR_CODES.emailLoginNotConfigured,
+        "Email login is not configured.",
+      );
       return;
     }
 
@@ -213,26 +345,34 @@ router.post("/email/start", async (req, res) => {
 
 router.post("/email/verify", async (req, res) => {
   try {
-    const email =
-      typeof req.body.email === "string"
-        ? req.body.email.toLowerCase().trim()
-        : "";
-    const rawCode =
-      typeof req.body.code === "string"
-        ? req.body.code
-        : typeof req.body.otp === "string"
-          ? req.body.otp
-          : "";
-    const code = rawCode.trim();
+    const email = normalizeEmailInput(req.body.email);
+    const receivedCode = normalizeCodeInput(req.body.code);
 
     if (!Email_REGEX.test(email)) {
-      return res.status(400).json({ error: "Invalid email" });
+      sendAuthError(
+        res,
+        400,
+        AUTH_ERROR_CODES.invalidEmail,
+        "Invalid email.",
+      );
+      return;
     }
-    if (code.length !== CODE_LENGTH) {
-      return res.status(400).json({ error: "Invalid code" });
+    if (receivedCode.length !== CODE_LENGTH) {
+      sendAuthError(
+        res,
+        400,
+        AUTH_ERROR_CODES.invalidCode,
+        "Invalid code.",
+      );
+      return;
     }
     if (!LOGIN_CODE_SECRET) {
-      res.status(500).json({ message: "Email login is not configured." });
+      sendAuthError(
+        res,
+        500,
+        AUTH_ERROR_CODES.emailLoginNotConfigured,
+        "Email login is not configured.",
+      );
       return;
     }
 
@@ -244,56 +384,61 @@ router.post("/email/verify", async (req, res) => {
       },
     });
     if (!loginCode) {
-      return res.status(400).json({ error: "Invalid or expired code" });
+      sendAuthError(
+        res,
+        400,
+        AUTH_ERROR_CODES.invalidOrExpiredCode,
+        "Invalid or expired code.",
+      );
+      return;
     }
     if (loginCode.attempts >= MAX_ATTEMPTS) {
-      res.status(429).json({
-        message: "Too many failed attempts. Please request a new code.",
-      });
+      sendAuthError(
+        res,
+        429,
+        AUTH_ERROR_CODES.tooManyAttempts,
+        "Too many failed attempts. Please request a new code.",
+      );
       return;
     }
 
-    const providedCodeHash = hashCode(code);
-    const storedHash = loginCode.codeHash;
+    const providedCodeHash = hashCode(receivedCode);
+    const storedCode = loginCode.codeHash;
     const hashesMatch =
-      providedCodeHash.length === storedHash.length &&
-      providedCodeHash === storedHash;
+      providedCodeHash.length === storedCode.length &&
+      crypto.timingSafeEqual(
+        Buffer.from(providedCodeHash),
+        Buffer.from(storedCode),
+      );
 
     if (!hashesMatch) {
+      console.log(
+        "Expected:",
+        storedCode,
+        "Received:",
+        receivedCode,
+        "ReceivedHash:",
+        providedCodeHash,
+      );
       await prisma.loginCode.update({
         where: { id: loginCode.id },
         data: { attempts: loginCode.attempts + 1 },
       });
-      res.status(401).json({ message: "Invalid or expired code." });
+      sendAuthError(
+        res,
+        401,
+        AUTH_ERROR_CODES.invalidOrExpiredCode,
+        "Invalid or expired code.",
+      );
       return;
     }
 
     await prisma.loginCode.deleteMany({ where: { email } });
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        avatar: true,
-        cleanId: true,
-        gender: true,
-      },
-    });
+    const existingUser = await findAuthUserByEmail(email);
 
     const isNewUser = !existingUser;
-    const user = existingUser
-      ? existingUser
-      : await prisma.user.create({
-          data: {
-            email,
-            name: email.split("@")[0],
-            avatar: DEFAULT_AVATAR,
-            gender: "hidden",
-            cleanId: await generateUniqueCleanId(),
-          },
-        });
+    const user = existingUser ? existingUser : await createAuthUser(email);
 
     const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [user.id]);
     // Single-token auth: issue only one long-lived access token.
@@ -311,7 +456,11 @@ router.post("/email/verify", async (req, res) => {
   } catch (error) {
     const details = error instanceof Error ? error.message : String(error);
     console.error("Failed to verify email code:", error);
-    res.status(500).json({ error: "Verification failed.", details });
+    res.status(500).json({
+      errorCode: AUTH_ERROR_CODES.verificationFailed,
+      error: "Verification failed.",
+      details,
+    });
   }
 });
 
@@ -321,17 +470,7 @@ router.get("/me", authMiddleware, async (req, res) => {
     return res.status(401).json({ error: "Not authenticated" });
   }
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        cleanId: true,
-        avatar: true,
-        gender: true,
-      },
-    });
+    const user = await findAuthUserById(userId);
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;
