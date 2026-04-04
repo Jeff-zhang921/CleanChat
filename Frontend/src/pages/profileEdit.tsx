@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import GenderPicker from "../components/GenderPicker";
 import { BACKEND_URL } from "../config";
 import { validateShortClaimInput } from "../utils/cleanIdClaim";
@@ -10,6 +11,7 @@ import "./profileEdit.css";
 const EXIT_MS = 260;
 
 const ProfileEditPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const routeState = (location.state as ProfileRouteState | null) ?? null;
@@ -52,7 +54,7 @@ const ProfileEditPage = () => {
         setUser(hydrateProfileUser(data.user));
       } catch {
         if (isMounted) {
-          setStatus("Unable to load profile editing.");
+          setStatus(t("profileEdit.loadFailed"));
         }
       } finally {
         if (isMounted) {
@@ -66,7 +68,7 @@ const ProfileEditPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [navigate, seededUser]);
+  }, [navigate, seededUser, t]);
 
   const leave = (nextUser?: ProfileUser | null) => {
     if (isLeaving) return;
@@ -95,12 +97,12 @@ const ProfileEditPage = () => {
     const trimmedName = nickname.trim();
     const normalizedCleanId = cleanId.trim().toLowerCase();
     if (!trimmedName) {
-      setStatus("Display name is required.");
+      setStatus(t("profileEdit.displayNameRequired"));
       return;
     }
 
     if (!normalizedCleanId) {
-      setStatus("CleanID is required.");
+      setStatus(t("profileEdit.cleanIdRequired"));
       return;
     }
 
@@ -110,7 +112,7 @@ const ProfileEditPage = () => {
       claim: user.shortIdClaim,
     });
     if (cleanIdValidation) {
-      setStatus(cleanIdValidation);
+      setStatus(t("profileEdit.cleanIdValidation"));
       return;
     }
 
@@ -124,7 +126,7 @@ const ProfileEditPage = () => {
     }
 
     setIsSaving(true);
-    setStatus("Saving changes...");
+    setStatus(t("profileEdit.savingStatus"));
 
     try {
       if (normalizedCleanId !== user.cleanId) {
@@ -150,7 +152,12 @@ const ProfileEditPage = () => {
         }
 
         if (!cleanIdResponse.ok) {
-          setStatus(cleanIdData.error || cleanIdData.message || cleanIdData.details || "Failed to save CleanID.");
+          setStatus(
+            cleanIdData.error ||
+              cleanIdData.message ||
+              cleanIdData.details ||
+              t("profileEdit.cleanIdSaveFailed")
+          );
           return;
         }
       }
@@ -179,7 +186,12 @@ const ProfileEditPage = () => {
         }
 
         if (!response.ok) {
-          setStatus(data.error || data.message || data.details || "Failed to save profile.");
+          setStatus(
+            data.error ||
+              data.message ||
+              data.details ||
+              t("profileEdit.profileSaveFailed")
+          );
           return;
         }
       }
@@ -189,7 +201,7 @@ const ProfileEditPage = () => {
       });
       const refreshData = await refreshResponse.json().catch(() => ({}));
       if (!refreshResponse.ok || !refreshData.user) {
-        setStatus("Profile saved, but failed to refresh profile.");
+        setStatus(t("profileEdit.refreshFailed"));
         return;
       }
 
@@ -198,7 +210,7 @@ const ProfileEditPage = () => {
       setStatus("");
       leave(nextUser);
     } catch {
-      setStatus("Unable to connect to server.");
+      setStatus(t("profileEdit.connectionError"));
     } finally {
       setIsSaving(false);
     }
@@ -211,10 +223,10 @@ const ProfileEditPage = () => {
           <header className="profile-edit-nav">
             <button type="button" className="profile-edit-back-button" onClick={handleBack}>
               <span aria-hidden="true">{"\u2190"}</span>
-              <span>Back</span>
+              <span>{t("common.back")}</span>
             </button>
           </header>
-          <p className="profile-edit-loading">Loading edit page...</p>
+          <p className="profile-edit-loading">{t("profileEdit.loading")}</p>
         </main>
       </div>
     );
@@ -227,10 +239,10 @@ const ProfileEditPage = () => {
           <header className="profile-edit-nav">
             <button type="button" className="profile-edit-back-button" onClick={handleBack}>
               <span aria-hidden="true">{"\u2190"}</span>
-              <span>Back</span>
+              <span>{t("common.back")}</span>
             </button>
           </header>
-          <p className="profile-edit-loading">Profile editing is unavailable right now.</p>
+          <p className="profile-edit-loading">{t("profileEdit.unavailable")}</p>
         </main>
       </div>
     );
@@ -247,43 +259,40 @@ const ProfileEditPage = () => {
             disabled={isSaving}
           >
             <span aria-hidden="true">{"\u2190"}</span>
-            <span>Back</span>
+            <span>{t("common.back")}</span>
           </button>
         </header>
 
         <section className="profile-edit-header">
-          <p className="profile-edit-eyebrow">Profile Edit</p>
-          <h1>Only the visible profile fields are edited here.</h1>
-          <p>
-            Keep this surface quiet. Edit the name people see and the CleanID they can reach, while identity
-            privileges stay elsewhere.
-          </p>
+          <p className="profile-edit-eyebrow">{t("profileEdit.title")}</p>
+          <h1>{t("profileEdit.heading")}</h1>
+          <p>{t("profileEdit.description")}</p>
         </section>
 
         <form className="profile-edit-form" onSubmit={handleSave}>
           <label className="profile-edit-field" htmlFor="nickname">
-            <span className="profile-edit-label">Display name</span>
+            <span className="profile-edit-label">{t("profileEdit.displayName")}</span>
             <input
               className="profile-edit-input"
               id="nickname"
               type="text"
               value={nickname}
               onChange={(event) => setNickname(event.target.value)}
-              placeholder="Jeff Stone"
+              placeholder={t("profileEdit.displayNamePlaceholder")}
               maxLength={40}
               required
             />
           </label>
 
           <label className="profile-edit-field" htmlFor="cleanId">
-            <span className="profile-edit-label">CleanID</span>
+            <span className="profile-edit-label">{t("profileEdit.cleanId")}</span>
             <input
               className="profile-edit-input"
               id="cleanId"
               type="text"
               value={cleanId}
               onChange={(event) => setCleanId(event.target.value.toLowerCase().replace(/\s+/g, "_"))}
-              placeholder="jeff_stone"
+              placeholder={t("profileEdit.cleanIdPlaceholder")}
               maxLength={20}
               required
             />
@@ -294,7 +303,7 @@ const ProfileEditPage = () => {
           </section>
 
           <p className="profile-edit-caption">
-            This page stays free of identity perks on purpose. It only edits the visible account fields.
+            {t("profileEdit.caption")}
           </p>
 
           <div className="profile-edit-actions">
@@ -304,14 +313,14 @@ const ProfileEditPage = () => {
               onClick={handleBack}
               disabled={isSaving}
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
               className="profile-edit-action profile-edit-action-primary"
               disabled={isSaving}
             >
-              {isSaving ? "Saving..." : "Save Changes"}
+              {isSaving ? t("profileEdit.saving") : t("profileEdit.saveChanges")}
             </button>
           </div>
 

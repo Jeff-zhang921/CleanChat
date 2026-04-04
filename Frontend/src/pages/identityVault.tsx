@@ -1,19 +1,19 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
-  AVATAR_TIER_META,
   AVATAR_TIER_ORDER,
   buildDerivedAvatarAccess,
-  getAvatarOption,
   getAvatarOptionsByTier,
   getAvatarToneClass,
   getAvatarUrl,
   isAvatarUnlocked,
   type AvatarKey,
+  type AvatarTier,
 } from "../constants/avatarCatalog";
 import { BACKEND_URL } from "../config";
-import { getShortClaimRangeLabel, validateShortClaimInput } from "../utils/cleanIdClaim";
-import { FALLBACK_CLEAN_ID_TRUST, getTrustToneLabel } from "../utils/cleanIdTrust";
+import { validateShortClaimInput } from "../utils/cleanIdClaim";
+import { FALLBACK_CLEAN_ID_TRUST } from "../utils/cleanIdTrust";
 import { hydrateProfileUser, type ProfileRouteState, type ProfileUser } from "../utils/profileUser";
 import "./profile.css";
 import "./identityVault.css";
@@ -21,6 +21,7 @@ import "./identityVault.css";
 const EXIT_MS = 260;
 
 const IdentityVaultPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const routeState = (location.state as ProfileRouteState | null) ?? null;
@@ -63,7 +64,7 @@ const IdentityVaultPage = () => {
         setUser(hydrateProfileUser(data.user));
       } catch {
         if (isMounted) {
-          setStatus("Unable to load the identity vault.");
+          setStatus(t("identityVault.loadFailed"));
         }
       } finally {
         if (isMounted) {
@@ -77,7 +78,7 @@ const IdentityVaultPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [navigate, seededUser]);
+  }, [navigate, seededUser, t]);
 
   useEffect(() => {
     if (!routeState?.focusClaim || !user) return;
@@ -103,9 +104,14 @@ const IdentityVaultPage = () => {
       trust: activeTrust,
       currentAvatar: user?.avatar,
     });
+  const getTierCopy = (tier: AvatarTier) => ({
+    eyebrow: t(`identityVault.avatarTiers.${tier}.eyebrow`),
+    title: t(`identityVault.avatarTiers.${tier}.title`),
+    description: t(`identityVault.avatarTiers.${tier}.description`),
+    lockedHint: t(`identityVault.avatarTiers.${tier}.lockedHint`),
+  });
   const avatarSections = AVATAR_TIER_ORDER.map((tier) => ({
     tier,
-    meta: AVATAR_TIER_META[tier],
     access: avatarAccess.tiers[tier],
     options: getAvatarOptionsByTier(tier).map((item) => ({
       ...item,
@@ -114,9 +120,18 @@ const IdentityVaultPage = () => {
       isCurrent: user?.avatar === item.key,
     })),
   }));
-  const selectedAvatarOption = getAvatarOption(avatar);
+  const currentTierTitle = getTierCopy(avatarAccess.currentTier).title;
   const activeShortIdClaim = user?.shortIdClaim;
-  const shortClaimRangeLabel = activeShortIdClaim ? getShortClaimRangeLabel(activeShortIdClaim) : "5-20 characters";
+  const shortClaimRangeLabel = activeShortIdClaim
+    ? activeShortIdClaim.minClaimLength && activeShortIdClaim.maxClaimLength
+      ? t("identityVault.claimRange", {
+          min: activeShortIdClaim.minClaimLength,
+          max: activeShortIdClaim.maxClaimLength,
+        })
+      : t("identityVault.standardClaimRange", {
+          min: activeShortIdClaim.minStandardLength,
+        })
+    : t("identityVault.standardClaimRange", { min: 5 });
   const liveCleanIdValidation =
     user && activeShortIdClaim
       ? validateShortClaimInput({
@@ -125,42 +140,60 @@ const IdentityVaultPage = () => {
           claim: activeShortIdClaim,
         })
       : null;
-  const currentCleanIdValue = normalizedCleanId || cleanId.trim() || user?.cleanId || "handle";
+  const currentCleanIdValue =
+    normalizedCleanId || cleanId.trim() || user?.cleanId || t("profile.handleFallback");
   const cleanIdLength = currentCleanIdValue.length;
   const cleanIdIntent =
     cleanIdLength > 0 && cleanIdLength <= 2
-      ? "Ultra-short"
+      ? t("profile.cleanIdIntentUltraShort")
       : cleanIdLength > 0 && cleanIdLength <= 4
-        ? "Short"
-        : "Standard";
+        ? t("profile.cleanIdIntentShort")
+        : t("profile.cleanIdIntentStandard");
+  const trustToneLabel =
+    activeTrust.band === "clear"
+      ? t("profile.trustToneClear")
+      : activeTrust.band === "steady"
+        ? t("profile.trustToneSteady")
+        : activeTrust.band === "fragile"
+          ? t("profile.trustToneFragile")
+          : t("profile.trustToneBlurred");
+  const claimDetailText = liveCleanIdValidation
+    ? t("identityVault.cleanIdValidation")
+    : activeShortIdClaim?.state === "locked"
+      ? t("identityVault.claimDetailLocked")
+      : activeShortIdClaim?.state === "claimable"
+        ? t("identityVault.claimDetailClaimable")
+        : t("identityVault.claimDetailClaimed");
 
   const ledgerRows = useMemo(() => {
     if (!user) return [];
     return [
       {
-        label: "Active span",
+        label: t("identityVault.activeSpan"),
         value:
           user.trust.metrics.accountAgeDays > 0
-            ? `${user.trust.metrics.accountAgeDays} days`
-            : "Born today",
+            ? t("identityVault.days", { count: user.trust.metrics.accountAgeDays })
+            : t("identityVault.bornToday"),
       },
       {
-        label: "Quiet record",
+        label: t("identityVault.quietRecord"),
         value:
           user.trust.metrics.moderationPenalties === 0
-            ? "No disturbance marks"
-            : `${user.trust.metrics.moderationPenalties} moderation marks`,
+            ? t("identityVault.noDisturbanceMarks")
+            : t("identityVault.moderationMarks", {
+                count: user.trust.metrics.moderationPenalties,
+              }),
       },
       {
-        label: "Avatar tier",
-        value: AVATAR_TIER_META[avatarAccess.currentTier].title,
+        label: t("identityVault.encryptionKeys"),
+        value: currentTierTitle,
       },
       {
-        label: "Claim window",
+        label: t("identityVault.claimWindow"),
         value: shortClaimRangeLabel,
       },
     ];
-  }, [avatarAccess.currentTier, shortClaimRangeLabel, user]);
+  }, [currentTierTitle, shortClaimRangeLabel, t, user]);
 
   const leave = (nextUser?: ProfileUser | null) => {
     if (isLeaving) return;
@@ -187,12 +220,12 @@ const IdentityVaultPage = () => {
     if (!user || !activeShortIdClaim) return;
 
     if (!normalizedCleanId) {
-      setStatus("CleanID is required.");
+      setStatus(t("identityVault.cleanIdRequired"));
       return;
     }
 
     if (liveCleanIdValidation) {
-      setStatus(liveCleanIdValidation);
+      setStatus(t("identityVault.cleanIdValidation"));
       return;
     }
 
@@ -200,12 +233,12 @@ const IdentityVaultPage = () => {
     const avatarChanged = avatar !== user.avatar;
 
     if (!cleanIdChanged && !avatarChanged) {
-      setStatus("Nothing changed in the vault.");
+      setStatus(t("identityVault.nothingChanged"));
       return;
     }
 
     setIsSaving(true);
-    setStatus("Saving identity vault...");
+    setStatus(t("identityVault.savingStatus"));
 
     let nextUser = user;
 
@@ -232,7 +265,7 @@ const IdentityVaultPage = () => {
               cleanIdData.message ||
               cleanIdData.details ||
               cleanIdRaw ||
-              "Failed to update CleanID."
+              t("identityVault.cleanIdUpdateFailed")
           );
           return;
         }
@@ -262,7 +295,12 @@ const IdentityVaultPage = () => {
           }
         }
         if (!profileResponse.ok) {
-          setStatus(profileData.error || profileData.message || profileData.details || "Failed to update avatar.");
+          setStatus(
+            profileData.error ||
+              profileData.message ||
+              profileData.details ||
+              t("identityVault.avatarUpdateFailed")
+          );
           return;
         }
 
@@ -275,9 +313,9 @@ const IdentityVaultPage = () => {
       }
 
       setUser(nextUser);
-      setStatus("Identity vault updated.");
+      setStatus(t("identityVault.updated"));
     } catch {
-      setStatus("Unable to connect to server.");
+      setStatus(t("identityVault.connectionError"));
     } finally {
       setIsSaving(false);
     }
@@ -290,10 +328,10 @@ const IdentityVaultPage = () => {
           <header className="identity-vault-nav">
             <button type="button" className="identity-vault-back-button" onClick={handleBack}>
               <span aria-hidden="true">{"\u2190"}</span>
-              <span>Back</span>
+              <span>{t("common.back")}</span>
             </button>
           </header>
-          <p className="identity-vault-loading">Loading the identity vault...</p>
+          <p className="identity-vault-loading">{t("identityVault.loading")}</p>
         </main>
       </div>
     );
@@ -306,10 +344,10 @@ const IdentityVaultPage = () => {
           <header className="identity-vault-nav">
             <button type="button" className="identity-vault-back-button" onClick={handleBack}>
               <span aria-hidden="true">{"\u2190"}</span>
-              <span>Back</span>
+              <span>{t("common.back")}</span>
             </button>
           </header>
-          <p className="identity-vault-loading">Identity vault unavailable.</p>
+          <p className="identity-vault-loading">{t("identityVault.unavailable")}</p>
         </main>
       </div>
     );
@@ -326,7 +364,7 @@ const IdentityVaultPage = () => {
             disabled={isSaving}
           >
             <span aria-hidden="true">{"\u2190"}</span>
-            <span>Back</span>
+            <span>{t("common.back")}</span>
           </button>
         </header>
 
@@ -336,21 +374,21 @@ const IdentityVaultPage = () => {
               <img
                 className={getAvatarToneClass(avatar)}
                 src={getAvatarUrl(avatar)}
-                alt={`${user.name || "User"} avatar`}
+                alt={t("profile.avatarAlt", {
+                  name: user.name || t("common.user"),
+                })}
               />
             </div>
             <div className="identity-vault-copy">
-              <p className="identity-vault-eyebrow">Identity Vault</p>
-              <h1>Privilege belongs below the surface.</h1>
-              <p>
-                Short-handle claims and noble avatars live here so the profile page can stay calm and unadvertised.
-              </p>
+              <p className="identity-vault-eyebrow">{t("identityVault.vault")}</p>
+              <h1>{t("identityVault.heroTitle")}</h1>
+              <p>{t("identityVault.heroCopy")}</p>
             </div>
           </div>
           <div className="identity-vault-meta">
             <span>@{currentCleanIdValue}</span>
-            <span>{selectedAvatarOption.family}</span>
-            <span>{getTrustToneLabel(activeTrust)}</span>
+            <span>{currentTierTitle}</span>
+            <span>{trustToneLabel}</span>
             <span>{shortClaimRangeLabel}</span>
           </div>
         </section>
@@ -359,16 +397,18 @@ const IdentityVaultPage = () => {
           <form className="identity-vault-form" onSubmit={handleSave}>
             <section className={`identity-vault-claim identity-vault-claim-${activeShortIdClaim.tier}`}>
               <div className="identity-vault-section-head">
-                <p className="identity-vault-eyebrow">Short ID Claim</p>
-                <h2>Your purity allows identity to condense.</h2>
+                <p className="identity-vault-eyebrow">{t("identityVault.shortClaimEyebrow")}</p>
+                <h2>{t("identityVault.shortClaimTitle")}</h2>
                 <p>
-                  Current window {shortClaimRangeLabel}. Standard handles remain 5-20 characters. Shorter claims open
-                  only when the signal is clean enough.
+                  {t("identityVault.shortClaimCopy", {
+                    range: shortClaimRangeLabel,
+                    min: activeShortIdClaim.minStandardLength,
+                  })}
                 </p>
               </div>
 
               <label className="identity-vault-field" htmlFor="vault-clean-id">
-                <span className="identity-vault-field-label">Identity handle</span>
+                <span className="identity-vault-field-label">{t("identityVault.identityHandle")}</span>
                 <input
                   ref={cleanIdFieldRef}
                   className="identity-vault-input"
@@ -384,20 +424,19 @@ const IdentityVaultPage = () => {
               <div className="identity-vault-claim-preview">
                 <span className={`identity-vault-token identity-vault-token-${activeShortIdClaim.tier}`}>@{currentCleanIdValue}</span>
                 <div className="identity-vault-claim-copy">
-                  <strong>{cleanIdIntent} handle</strong>
-                  <span>{liveCleanIdValidation || activeShortIdClaim.detail}</span>
+                  <strong>{t("profile.handleLabel", { intent: cleanIdIntent })}</strong>
+                  <span>{claimDetailText}</span>
                 </div>
               </div>
             </section>
 
             <fieldset className="profile-avatars identity-vault-library">
-              <legend>Avatar library</legend>
+              <legend>{t("identityVault.avatarLibrary")}</legend>
               <div className="profile-avatar-head">
                 <p className="profile-hint">
-                  Every tier stays human, muted, and composed. The difference is not noise. It is depth, history,
-                  and restraint.
+                  {t("identityVault.avatarLibraryNote")}
                 </p>
-                <span className="profile-avatar-current-pill">{AVATAR_TIER_META[avatarAccess.currentTier].title}</span>
+                <span className="profile-avatar-current-pill">{currentTierTitle}</span>
               </div>
 
               <div className="profile-avatar-sections">
@@ -408,14 +447,18 @@ const IdentityVaultPage = () => {
                   >
                     <div className="profile-avatar-tier-head">
                       <div>
-                        <p className="profile-settings-eyebrow">{section.meta.eyebrow}</p>
-                        <h4>{section.meta.title}</h4>
+                        <p className="profile-settings-eyebrow">{getTierCopy(section.tier).eyebrow}</p>
+                        <h4>{getTierCopy(section.tier).title}</h4>
                         <p className="profile-hint">
-                          {section.access.unlocked ? section.meta.description : section.access.hint}
+                          {section.access.unlocked
+                            ? getTierCopy(section.tier).description
+                            : getTierCopy(section.tier).lockedHint}
                         </p>
                       </div>
                       <span className={`profile-avatar-tier-pill ${section.access.unlocked ? "open" : "locked"}`}>
-                        {section.access.unlocked ? "Open" : section.access.title}
+                        {section.access.unlocked
+                          ? t("identityVault.unlock")
+                          : t("identityVault.lockedForNow")}
                       </span>
                     </div>
                     <div className="profile-avatar-grid">
@@ -437,9 +480,9 @@ const IdentityVaultPage = () => {
                           <em>
                             {item.unlocked
                               ? item.isCurrent
-                                ? "Current mark"
-                                : "Available now"
-                              : "Locked for now"}
+                                ? t("identityVault.currentMark")
+                                : t("identityVault.availableNow")
+                              : t("identityVault.lockedForNow")}
                           </em>
                         </label>
                       ))}
@@ -456,14 +499,14 @@ const IdentityVaultPage = () => {
                 onClick={handleBack}
                 disabled={isSaving}
               >
-                Close
+                {t("common.close")}
               </button>
               <button
                 type="submit"
                 className="identity-vault-action identity-vault-action-primary"
                 disabled={isSaving || Boolean(liveCleanIdValidation)}
               >
-                {isSaving ? "Saving..." : "Save Identity"}
+                {isSaving ? t("identityVault.saving") : t("identityVault.saveIdentity")}
               </button>
             </div>
 
@@ -476,11 +519,9 @@ const IdentityVaultPage = () => {
 
           <aside className="identity-vault-ledger">
             <div className="identity-vault-section-head">
-              <p className="identity-vault-eyebrow">Identity Reading</p>
-              <h2>Stored signal</h2>
-              <p>
-                This page holds the marks that feel rarer, slower, and more guarded than ordinary profile edits.
-              </p>
+              <p className="identity-vault-eyebrow">{t("identityVault.secureStorage")}</p>
+              <h2>{t("identityVault.storedSignal")}</h2>
+              <p>{t("identityVault.storedSignalCopy")}</p>
             </div>
             <div className="identity-vault-ledger-list">
               {ledgerRows.map((row) => (
