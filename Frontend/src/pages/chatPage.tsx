@@ -51,7 +51,7 @@ const IMAGE_EXTENSION_REGEX =
   /\.(?:png|jpe?g|gif|webp|bmp|svg|heic|heif|avif)(?:\?.*)?$/i;
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const CONVERSATIONS_RETURN_KEY = "cleanchat:conversations-return";
-const CHAT_OVERLAY_EXIT_MS = 220;
+const CHAT_OVERLAY_EXIT_MS = 300;
 
 const isHttpUrl = (value: string) => /^https?:\/\/\S+$/i.test(value);
 

@@ -2,9 +2,17 @@
 
 :root {
   color-scheme: light;
+  -webkit-tap-highlight-color: transparent;
   --motion-smooth: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-quick: 220ms;
   --motion-medium: 360ms;
+  --motion-ios-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --motion-ios-duration: 300ms;
+  --motion-ios-transition:
+    transform var(--motion-ios-duration) var(--motion-ios-spring),
+    opacity var(--motion-ios-duration) ease;
+  --touch-press-transition: all 0.1s ease;
+  --focus-ring-color: rgba(22, 149, 94, 0.42);
   --ghost-button-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
   --ghost-button-bg-hover: linear-gradient(180deg, rgba(255, 255, 255, 0.19), rgba(255, 255, 255, 0.1));
   --ghost-button-bg-press: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
@@ -27,6 +35,54 @@
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+:where(
+    a,
+    button,
+    li,
+    summary,
+    [role="button"],
+    [role="tab"],
+    [role="link"],
+    [tabindex],
+    input,
+    textarea,
+    select,
+    label
+  ) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:where(
+    a,
+    button,
+    summary,
+    [role="button"],
+    [role="tab"],
+    [role="link"],
+    [tabindex],
+    input,
+    textarea,
+    select
+  ):focus:not(:focus-visible) {
+  outline: none;
+}
+
+:where(
+    a,
+    button,
+    summary,
+    [role="button"],
+    [role="tab"],
+    [role="link"],
+    [tabindex],
+    input,
+    textarea,
+    select
+  ):focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
 }
 
 html,
@@ -84,18 +140,19 @@ button {
   position: absolute;
   inset: 0;
   opacity: 0;
-  visibility: hidden;
   pointer-events: none;
   z-index: 1;
   contain: layout paint style;
-  transform: translateZ(0);
+  transform: translateX(0) translateZ(0);
+  transition: opacity var(--motion-ios-duration) ease;
+  will-change: transform, opacity;
 }
 
 .hybrid-root-view.is-active {
   opacity: 1;
-  visibility: visible;
   pointer-events: auto;
   z-index: 2;
+  animation: hybrid-root-view-enter var(--motion-ios-duration) var(--motion-ios-spring) both;
 }
 
 .hybrid-root-view.is-sleeping {
@@ -115,12 +172,14 @@ button {
   inset: 0;
   pointer-events: auto;
   background-color: #f7f1e7;
+  transition: var(--motion-ios-transition);
 }
 
 .hybrid-chat-overlay {
   overflow: hidden;
   background-color: #f7f1e7;
   isolation: isolate;
+  will-change: transform, opacity;
 }
 
 .app-route-stage-spatial-forward {
@@ -175,10 +234,29 @@ button {
   }
 }
 
+@keyframes hybrid-root-view-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(15px) translateZ(0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0) translateZ(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .app-route-stage,
   .app-route-stage-spatial-forward,
-  .app-route-stage-spatial-back {
+  .app-route-stage-spatial-back,
+  .hybrid-root-view.is-active {
     animation: none;
+  }
+
+  .hybrid-root-view,
+  .hybrid-detail-surface,
+  .hybrid-chat-overlay {
+    transition: none;
   }
 }

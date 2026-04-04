@@ -7,6 +7,11 @@
   --accent-soft: rgba(31, 138, 91, 0.16);
   --bubble-me: linear-gradient(135deg, #1d8a5b, #45b874);
   --bubble-them: #f3efe6;
+  --chat-overlay-curve: var(--motion-ios-spring, cubic-bezier(0.32, 0.72, 0, 1));
+  --chat-overlay-duration: var(--motion-ios-duration, 300ms);
+  --chat-overlay-transition:
+    transform var(--chat-overlay-duration) var(--chat-overlay-curve),
+    opacity var(--chat-overlay-duration) ease;
   --motion-smooth-local: var(--motion-smooth, cubic-bezier(0.22, 1, 0.36, 1));
   --motion-quick-local: var(--motion-quick, 220ms);
   --motion-medium-local: var(--motion-medium, 360ms);
@@ -26,12 +31,14 @@
   position: relative;
   transform: translateX(0);
   opacity: 1;
-  animation: chat-overlay-in var(--motion-medium-local) var(--motion-smooth-local) both;
+  animation: chat-overlay-in var(--chat-overlay-duration) var(--chat-overlay-curve) both;
+  transition: var(--chat-overlay-transition);
+  will-change: transform, opacity;
 }
 
 .chat-shell.is-closing {
   pointer-events: none;
-  animation: chat-overlay-out 220ms var(--motion-smooth-local) forwards;
+  animation: chat-overlay-out var(--chat-overlay-duration) var(--chat-overlay-curve) forwards;
 }
 
 .chat-panel {
@@ -776,7 +783,7 @@
 @keyframes chat-overlay-in {
   0% {
     transform: translateX(100%);
-    opacity: 1;
+    opacity: 0.9;
   }
 
   100% {
@@ -793,7 +800,7 @@
 
   100% {
     transform: translateX(100%);
-    opacity: 1;
+    opacity: 0.9;
   }
 }
 
