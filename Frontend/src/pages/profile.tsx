@@ -22,7 +22,6 @@ import {
 import { clearAuthToken } from "../utils/auth";
 import {
   FALLBACK_CLEAN_ID_TRUST,
-  getTrustToneLabel,
 } from "../utils/cleanIdTrust";
 import {
   ensurePushSubscriptionForCurrentUser,
@@ -654,6 +653,14 @@ const ProfilePage = () => {
       : activeTrust.band === "steady"
         ? t("profile.purityActionSteady")
         : t("profile.purityActionDefault");
+  const activeTrustToneLabel =
+    activeTrust.band === "clear"
+      ? t("profile.trustToneClear")
+      : activeTrust.band === "steady"
+        ? t("profile.trustToneSteady")
+        : activeTrust.band === "fragile"
+          ? t("profile.trustToneFragile")
+          : t("profile.trustToneBlurred");
   const activeCleanIdLength = activeCleanId.trim().length;
   const cleanIdIntent =
     activeCleanIdLength > 0 && activeCleanIdLength <= 2
@@ -713,7 +720,7 @@ const ProfilePage = () => {
                 <strong>{activeTrust.title}</strong>
                 <span className="profile-aura-score">
                   {t("profile.signalScore", {
-                    label: getTrustToneLabel(activeTrust),
+                    label: activeTrustToneLabel,
                     score: activeTrust.score,
                   })}
                 </span>

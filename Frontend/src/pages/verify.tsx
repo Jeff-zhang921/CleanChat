@@ -1,17 +1,11 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useTranslation } from "react-i18next";
 import { apiClient } from "../utils/apiClient";
 import { setAuthToken } from "../utils/auth";
 import { ensurePushSubscriptionForCurrentUser } from "../utils/notifications";
-import {
-  PretextMessageDeck,
-  PretextSignalPanel,
-  getPretextAuthStyles,
-  usePretextCompact,
-  usePretextPointer,
-} from "./login";
+import "./verify.css";
 
 const CODE_LENGTH = 6;
 const PENDING_EMAIL_KEY = "cleanchat:pending-email";
@@ -50,8 +44,6 @@ const VerifyPage = () => {
   const [code, setCode] = useState("");
   const [status, setStatus] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const compact = usePretextCompact();
-  const { pointer, bindings } = usePretextPointer();
 
   useEffect(() => {
     if (!emailFromState || emailFromState === storedEmail) {
@@ -62,11 +54,8 @@ const VerifyPage = () => {
     setStoredEmail(emailFromState);
   }, [emailFromState, storedEmail]);
 
-  const email = useMemo(() => emailFromState || storedEmail, [emailFromState, storedEmail]);
-  const emailParts = useMemo(() => email.split("@"), [email]);
+  const email = emailFromState || storedEmail;
   const normalizedCode = code.trim();
-  const codeProgress = email ? Math.min(1, 0.24 + normalizedCode.length / CODE_LENGTH) : 0.12;
-  const styles = getPretextAuthStyles(compact, pointer);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -118,108 +107,44 @@ const VerifyPage = () => {
   };
 
   return (
-    <div style={styles.shell} {...(compact ? {} : bindings)}>
-      <main style={styles.frame}>
-        <section style={styles.card}>
-          <div style={styles.glowA} />
-          <div style={styles.glowB} />
+    <main className="verify-page">
+      <form onSubmit={handleSubmit} className="verify-form">
+        <h1 className="verify-title">{t("auth.enterSixDigitCodeTitle")}</h1>
+        <p className="verify-copy">
+          {email ? t("auth.codeSentTo", { email }) : t("auth.returnLoginForCode")}
+        </p>
 
-          <div style={styles.topRow}>
-            <p style={styles.kicker}>{t("auth.stepTwoOfTwo")}</p>
-            <span style={styles.badge}>{t("auth.verifyCode")}</span>
-          </div>
+        <label className="verify-label" htmlFor="code">
+          {t("auth.verificationCode")}
+        </label>
+        <input
+          className="verify-input"
+          id="code"
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={CODE_LENGTH}
+          value={code}
+          onChange={(event) => setCode(event.target.value)}
+          placeholder={t("auth.codePlaceholder")}
+          required
+        />
 
-          <div style={styles.hero}>
-            <h1 style={styles.heroTitle}>{t("auth.enterSixDigitCodeTitle")}</h1>
-            <p style={styles.heroCopy}>
-              {email
-                ? t("auth.codeSentTo", { email })
-                : t("auth.returnLoginForCode")}
-            </p>
-          </div>
+        <button className="verify-primary" type="submit" disabled={isSubmitting || !email}>
+          {isSubmitting ? t("auth.verifying") : t("auth.enterCleanChat")}
+        </button>
+      </form>
 
-          <div style={styles.chipRow}>
-            {[
-              t("auth.codeDigitsProgress", { current: normalizedCode.length, total: CODE_LENGTH }),
-              email ? t("auth.mailboxLinked") : t("auth.mailboxMissing"),
-              t("auth.oneTimeEntry"),
-            ].map((item) => (
-              <span key={item} style={styles.chip}>
-                {item}
-              </span>
-            ))}
-          </div>
+      <button className="verify-secondary" type="button" onClick={() => navigate("/login")}>
+        {t("auth.backToLogin")}
+      </button>
 
-          <div style={styles.divider} />
-
-          <div style={styles.signalRow}>
-            <PretextSignalPanel
-              progress={codeProgress}
-              compact={compact}
-              heading={
-                normalizedCode.length === CODE_LENGTH
-                  ? t("auth.allDigitsReady")
-                  : t("auth.waitingFullCode")
-              }
-              caption={
-                email
-                  ? t("auth.verifyOnceOnly")
-                  : t("auth.routeIncomplete")
-              }
-            />
-          </div>
-
-          <form onSubmit={handleSubmit} style={styles.form}>
-            <label style={styles.label} htmlFor="code">
-              {t("auth.verificationCode")}
-            </label>
-            <input
-              style={{
-                ...styles.input,
-                textAlign: "center",
-                letterSpacing: "0.24em",
-                fontWeight: 700,
-              }}
-              id="code"
-              type="text"
-              inputMode="numeric"
-              maxLength={CODE_LENGTH}
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
-              placeholder={t("auth.codePlaceholder")}
-              required
-            />
-
-            <div style={styles.helperRow}>
-              <PretextMessageDeck
-                compact={compact}
-                pointer={pointer}
-                emailLocal={emailParts[0] || ""}
-                emailDomain={emailParts[1] || ""}
-              />
-            </div>
-
-            <button
-              style={{ ...styles.primaryButton, opacity: isSubmitting || !email ? 0.72 : 1 }}
-              type="submit"
-              disabled={isSubmitting || !email}
-            >
-              {isSubmitting ? t("auth.verifying") : t("auth.enterCleanChat")}
-            </button>
-          </form>
-
-          <button style={styles.secondaryButton} type="button" onClick={() => navigate("/login")}>
-            {t("auth.backToLogin")}
-          </button>
-
-          {status && (
-            <p style={styles.status} role="status">
-              {status}
-            </p>
-          )}
-        </section>
-      </main>
-    </div>
+      {status && (
+        <p className="verify-status" role="status">
+          {status}
+        </p>
+      )}
+    </main>
   );
 };
 

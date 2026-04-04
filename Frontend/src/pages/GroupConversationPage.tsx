@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import BottomNav from "../components/BottomNav";
 import { BACKEND_URL } from "../config";
 import { GROUP_AVATAR_OPTIONS, type GroupAvatarKey } from "../constants/groupAvatars";
@@ -28,11 +29,20 @@ type GroupSummary = {
   lastMessageAt: string | null;
 };
 
-const formatTime = (time?: string | null) => {
-  if (!time) return "New";
+const formatTime = (time?: string | null, fallback = "") => {
+  if (!time) return fallback;
   const date = new Date(time);
-  if (Number.isNaN(date.getTime())) return "New";
+  if (Number.isNaN(date.getTime())) return fallback;
   return date.toLocaleDateString();
+};
+
+const GROUP_AVATAR_LABEL_KEYS: Record<GroupAvatarKey, string> = {
+  orbit: "groups.avatarOptionOrbit",
+  pixel: "groups.avatarOptionPixel",
+  flare: "groups.avatarOptionFlare",
+  bloom: "groups.avatarOptionBloom",
+  canyon: "groups.avatarOptionCanyon",
+  tide: "groups.avatarOptionTide",
 };
 
 const SearchGlyph = () => (
@@ -45,10 +55,11 @@ const SearchGlyph = () => (
 );
 
 const GroupConversationPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [me, setMe] = useState<SessionUser | null>(null);
   const [groups, setGroups] = useState<GroupSummary[]>([]);
-  const [status, setStatus] = useState("Loading groups...");
+  const [status, setStatus] = useState(() => t("groups.loadingGroups"));
   const [query, setQuery] = useState("");
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
@@ -79,7 +90,7 @@ const GroupConversationPage = () => {
     });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      setStatus(data.message || data.error || "Failed to load groups.");
+      setStatus(data.message || data.error || t("groups.loadingFailed"));
       return;
     }
 
@@ -98,13 +109,13 @@ const GroupConversationPage = () => {
           credentials: "include",
         });
         if (!meResponse.ok) {
-          if (isMounted) setStatus("Please login first.");
+          if (isMounted) setStatus(t("groups.loginRequired"));
           return;
         }
 
         const meData = await meResponse.json().catch(() => ({}));
         if (!meData.user) {
-          if (isMounted) setStatus("Please login first.");
+          if (isMounted) setStatus(t("groups.loginRequired"));
           return;
         }
 
@@ -113,7 +124,7 @@ const GroupConversationPage = () => {
           await refreshGroups();
         }
       } catch {
-        if (isMounted) setStatus("Failed to load groups.");
+        if (isMounted) setStatus(t("groups.loadingFailed"));
       }
     };
 
@@ -149,7 +160,7 @@ const GroupConversationPage = () => {
   const handleJoinGroup = async (group: GroupSummary) => {
     setWorkingGroupId(group.id);
     setWorkingAction("join");
-    setStatus(`Joining ${group.name}...`);
+    setStatus(t("groups.joiningGroup", { name: group.name }));
 
     try {
       const response = await fetch(`${BACKEND_URL}/chat/groups/${encodeURIComponent(group.id)}/join`, {
@@ -158,7 +169,7 @@ const GroupConversationPage = () => {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setStatus(data.message || data.error || "Failed to join group.");
+        setStatus(data.message || data.error || t("groups.joinFailed"));
         return;
       }
 
@@ -167,13 +178,13 @@ const GroupConversationPage = () => {
         prev.map((item) => (item.id === group.id ? joinedGroup ?? { ...item, joined: true } : item))
       );
       if (data.pendingApproval) {
-        setStatus(data.message || "Join request sent. Wait for owner approval.");
+        setStatus(data.message || t("groups.joinRequestSent"));
         return;
       }
       setStatus("");
       openGroupChat(joinedGroup ?? { ...group, joined: true, joinRequestStatus: "none" });
     } catch {
-      setStatus("Failed to join group.");
+      setStatus(t("groups.joinFailed"));
     } finally {
       setWorkingGroupId(null);
       setWorkingAction(null);
@@ -184,16 +195,16 @@ const GroupConversationPage = () => {
     const name = newGroupName.trim().replace(/\s+/g, " ");
     const description = newGroupDescription.trim();
     if (name.length < 2 || name.length > 48) {
-      setStatus("Group name must be 2-48 characters.");
+      setStatus(t("groups.groupNameLength"));
       return;
     }
     if (description.length > 180) {
-      setStatus("Description must be 180 characters or less.");
+      setStatus(t("groups.groupDescriptionLength"));
       return;
     }
 
     setIsCreating(true);
-    setStatus("Creating group...");
+    setStatus(t("groups.creatingGroup"));
     try {
       const response = await fetch(`${BACKEND_URL}/chat/groups`, {
         method: "POST",
@@ -208,13 +219,13 @@ const GroupConversationPage = () => {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setStatus(data.message || data.error || "Failed to create group.");
+        setStatus(data.message || data.error || t("groups.createFailed"));
         return;
       }
 
       const createdGroup = data.group as GroupSummary | undefined;
       if (!createdGroup) {
-        setStatus("Group created but response is missing group data.");
+        setStatus(t("groups.createMissingData"));
         return;
       }
       setGroups((prev) => [createdGroup, ...prev.filter((item) => item.id !== createdGroup.id)]);
@@ -226,7 +237,7 @@ const GroupConversationPage = () => {
       setStatus("");
       openGroupChat(createdGroup);
     } catch {
-      setStatus("Failed to create group.");
+      setStatus(t("groups.createFailed"));
     } finally {
       setIsCreating(false);
     }
@@ -235,7 +246,7 @@ const GroupConversationPage = () => {
   const handleLeaveGroup = async (group: GroupSummary) => {
     setWorkingGroupId(group.id);
     setWorkingAction("leave");
-    setStatus(`Leaving ${group.name}...`);
+    setStatus(t("groups.leavingGroup", { name: group.name }));
 
     try {
       const response = await fetch(`${BACKEND_URL}/chat/groups/${encodeURIComponent(group.id)}/leave`, {
@@ -244,7 +255,7 @@ const GroupConversationPage = () => {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setStatus(data.message || data.error || "Failed to leave group.");
+        setStatus(data.message || data.error || t("groups.leaveFailed"));
         return;
       }
 
@@ -258,7 +269,7 @@ const GroupConversationPage = () => {
       );
       setStatus("");
     } catch {
-      setStatus("Failed to leave group.");
+      setStatus(t("groups.leaveFailed"));
     } finally {
       setWorkingGroupId(null);
       setWorkingAction(null);
@@ -280,7 +291,7 @@ const GroupConversationPage = () => {
 
     setWorkingGroupId(group.id);
     setWorkingAction("delete");
-    setStatus(`Deleting ${group.name}...`);
+    setStatus(t("groups.deletingGroup", { name: group.name }));
 
     try {
       const response = await fetch(`${BACKEND_URL}/chat/groups/${encodeURIComponent(group.id)}`, {
@@ -289,13 +300,13 @@ const GroupConversationPage = () => {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setStatus(data.message || data.error || "Failed to delete group.");
+        setStatus(data.message || data.error || t("groups.deleteFailed"));
         return;
       }
       setGroups((prev) => prev.filter((item) => item.id !== group.id));
       setStatus("");
     } catch {
-      setStatus("Failed to delete group.");
+      setStatus(t("groups.deleteFailed"));
     } finally {
       setWorkingGroupId(null);
       setWorkingAction(null);
@@ -309,7 +320,7 @@ const GroupConversationPage = () => {
 
     setWorkingGroupId(group.id);
     setWorkingAction("avatar");
-    setStatus(`Updating avatar for ${group.name}...`);
+    setStatus(t("groups.updatingAvatar", { name: group.name }));
 
     try {
       const response = await fetch(`${BACKEND_URL}/chat/groups/${encodeURIComponent(group.id)}/avatar`, {
@@ -320,7 +331,7 @@ const GroupConversationPage = () => {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setStatus(data.message || data.error || "Failed to update avatar.");
+        setStatus(data.message || data.error || t("groups.updateAvatarFailed"));
         return;
       }
       const updatedGroup = data.group as GroupSummary | undefined;
@@ -336,7 +347,7 @@ const GroupConversationPage = () => {
       setStatus("");
       setPendingAvatarGroup(null);
     } catch {
-      setStatus("Failed to update avatar.");
+      setStatus(t("groups.updateAvatarFailed"));
     } finally {
       setWorkingGroupId(null);
       setWorkingAction(null);
@@ -351,7 +362,7 @@ const GroupConversationPage = () => {
     await handleJoinGroup(group);
   };
 
-  const heroName = me?.name || me?.cleanId || me?.email || "CleanChat";
+  const heroName = me?.name || me?.cleanId || me?.email || t("common.cleanChat");
   const hasQuery = query.trim().length > 0;
   const joinedGroups = filteredGroups.filter((group) => group.joined);
   const discoverGroups = filteredGroups.filter((group) => !group.joined);
@@ -363,22 +374,23 @@ const GroupConversationPage = () => {
     setQuery("");
     setIsSearchExpanded(false);
   };
+  const getGroupAvatarLabel = (key: GroupAvatarKey) => t(GROUP_AVATAR_LABEL_KEYS[key]);
 
   const renderGroupCard = (group: GroupSummary) => {
     const isWorking = workingGroupId === group.id;
     const isPendingRequest = group.joinRequestStatus === "pending";
     const actionLabel = isPendingRequest
-      ? "Requested"
+      ? t("groups.requested")
       : isWorking && workingAction === "join"
         ? group.requiresApproval
-          ? "Requesting..."
-          : "Joining..."
+          ? t("groups.requesting")
+          : t("groups.joining")
         : group.requiresApproval
-          ? "Request Join"
-          : "Join Group";
-    const leaveLabel = isWorking && workingAction === "leave" ? "Leaving..." : "Leave";
-    const deleteLabel = isWorking && workingAction === "delete" ? "Deleting..." : "Delete";
-    const avatarLabel = isWorking && workingAction === "avatar" ? "Saving..." : "Avatar";
+          ? t("groups.requestJoin")
+          : t("groups.joinGroup");
+    const leaveLabel = isWorking && workingAction === "leave" ? t("groups.leaving") : t("groups.leave");
+    const deleteLabel = isWorking && workingAction === "delete" ? t("groups.deleting") : t("groups.delete");
+    const avatarLabel = isWorking && workingAction === "avatar" ? t("groups.saving") : t("groups.avatar");
     const canOpenByCard = group.joined && !isWorking && !isCreating;
 
     return (
@@ -398,22 +410,25 @@ const GroupConversationPage = () => {
         }}
       >
         <div className="avatar">
-          <img src={group.avatarUrl} alt={`${group.name} avatar`} />
+          <img src={group.avatarUrl} alt={t("groups.groupAvatarAlt", { name: group.name })} />
         </div>
         <div className="conversation-body">
           <div className="conversation-top">
             <h3>{group.name}</h3>
             <p className="role">
-              {group.joined ? "Joined" : isPendingRequest ? "Requested" : "Discover"}
+              {group.joined ? t("groups.roleJoined") : isPendingRequest ? t("groups.roleRequested") : t("groups.roleDiscover")}
             </p>
-            <span className="time">{formatTime(group.lastMessageAt)}</span>
+            <span className="time">{formatTime(group.lastMessageAt, t("groups.newTag"))}</span>
           </div>
           <p className="preview">{group.lastMessagePreview}</p>
           <p className="conversation-subline">
-            {group.memberCount} members - {group.description} -{" "}
-            {group.requiresApproval ? "Verification required" : "Open join"}
+            {t("groups.groupMetaLine", {
+              members: t("groups.members", { count: group.memberCount }),
+              description: group.description || t("groups.groupFallback"),
+              joinRule: group.requiresApproval ? t("groups.verificationRequired") : t("groups.openJoin"),
+            })}
             {group.isOwner && group.pendingRequestCount > 0
-              ? ` - ${group.pendingRequestCount} pending request(s)`
+              ? ` - ${t("groups.pendingRequests", { count: group.pendingRequestCount })}`
               : ""}
           </p>
         </div>
@@ -428,7 +443,7 @@ const GroupConversationPage = () => {
                 openGroupChat(group);
               }}
             >
-              Open Chat
+              {t("groups.openChat")}
             </button>
             <button
               type="button"
@@ -519,9 +534,9 @@ const GroupConversationPage = () => {
         <header className="conversations-hero conversations-hero-compact">
           <div className="conversations-title-wrap">
             <p className="eyebrow">{heroName}</p>
-            <h1 className="page-title">Groups</h1>
+            <h1 className="page-title">{t("groups.title")}</h1>
             <p className="page-copy">
-              Create a room, browse communities, and manage the ones you own.
+              {t("groups.pageCopy")}
             </p>
           </div>
         </header>
@@ -531,7 +546,7 @@ const GroupConversationPage = () => {
             <button
               type="button"
               className="search-launcher"
-              aria-label="Open group search"
+              aria-label={t("groups.openSearch")}
               onClick={openSearch}
             >
               <SearchGlyph />
@@ -540,7 +555,7 @@ const GroupConversationPage = () => {
           <div className={`search-shell ${isSearchOpen ? "expanded" : ""}`}>
             <div className="search-field">
               <label className="sr-only" htmlFor="group-search">
-                Search groups
+                {t("groups.searchGroups")}
               </label>
               <div className="search-input-wrap">
                 <span className="search-icon">
@@ -550,7 +565,7 @@ const GroupConversationPage = () => {
                   ref={searchInputRef}
                   id="group-search"
                   type="text"
-                  placeholder="Search by group name"
+                  placeholder={t("groups.searchPlaceholder")}
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   onFocus={openSearch}
@@ -568,10 +583,10 @@ const GroupConversationPage = () => {
                 <button
                   type="button"
                   className="search-dismiss"
-                  aria-label="Close group search"
+                  aria-label={t("groups.closeSearch")}
                   onClick={closeSearch}
                 >
-                  Close
+                  {t("common.close")}
                 </button>
               </div>
             </div>
@@ -580,11 +595,14 @@ const GroupConversationPage = () => {
 
         <div className="groups-stage-bar">
           <div className="groups-stage-copy">
-            <h2>{hasQuery ? "Search results" : "Your circles first"}</h2>
+            <h2>{hasQuery ? t("groups.searchResults") : t("groups.yourCirclesFirst")}</h2>
             <span>
               {hasQuery
-                ? `${filteredGroups.length} groups visible`
-                : `${joinedGroups.length} joined · ${discoverGroups.length} to discover`}
+                ? t("groups.visibleCount", { count: filteredGroups.length })
+                : t("groups.joinedAndDiscover", {
+                    joined: joinedGroups.length,
+                    discover: discoverGroups.length,
+                  })}
             </span>
           </div>
           <button
@@ -592,22 +610,22 @@ const GroupConversationPage = () => {
             className="group-action create groups-create-trigger"
             onClick={() => setIsCreatePanelOpen(true)}
           >
-            Create Group
+            {t("groups.createGroup")}
           </button>
         </div>
 
         {status && <div className="status-text">{status}</div>}
 
-        {!status && filteredGroups.length === 0 && <div className="status-text">No groups found.</div>}
+        {!status && filteredGroups.length === 0 && <div className="status-text">{t("groups.noGroupsFound")}</div>}
 
         {filteredGroups.length > 0 && (
           <div className="groups-sections">
             {joinedGroups.length > 0 && (
-              <section className="groups-section" aria-label="Joined groups">
+              <section className="groups-section" aria-label={t("groups.joinedGroups")}>
                 <div className="groups-section-head">
                   <div>
-                    <h3>Joined groups</h3>
-                    <p>Your active rooms stay at the top for faster re-entry.</p>
+                    <h3>{t("groups.joinedGroups")}</h3>
+                    <p>{t("groups.joinedGroupsHint")}</p>
                   </div>
                 </div>
                 <div className="conversations-list">{joinedGroups.map(renderGroupCard)}</div>
@@ -615,11 +633,11 @@ const GroupConversationPage = () => {
             )}
 
             {discoverGroups.length > 0 && (
-              <section className="groups-section" aria-label="Discover groups">
+              <section className="groups-section" aria-label={t("groups.discoverGroups")}>
                 <div className="groups-section-head">
                   <div>
-                    <h3>{joinedGroups.length > 0 ? "Discover more" : "Community rooms"}</h3>
-                    <p>Browse calmer spaces before deciding to open a new one.</p>
+                    <h3>{joinedGroups.length > 0 ? t("groups.discoverMore") : t("groups.communityRooms")}</h3>
+                    <p>{t("groups.discoverHint")}</p>
                   </div>
                 </div>
                 <div className="conversations-list">{discoverGroups.map(renderGroupCard)}</div>
@@ -631,7 +649,7 @@ const GroupConversationPage = () => {
       <button
         type="button"
         className="group-action create groups-fab"
-        aria-label="Create group"
+        aria-label={t("groups.createGroup")}
         onClick={() => setIsCreatePanelOpen(true)}
       >
         <span className="groups-fab-icon" aria-hidden="true">
@@ -650,9 +668,9 @@ const GroupConversationPage = () => {
           >
             <div className="groups-create-head">
               <div>
-                <p className="eyebrow">New Room</p>
-                <h3 id="create-group-title">Create Group</h3>
-                <p>Start a room only when the conversation needs its own quiet space.</p>
+                <p className="eyebrow">{t("groups.newRoom")}</p>
+                <h3 id="create-group-title">{t("groups.createGroup")}</h3>
+                <p>{t("groups.createGroupHint")}</p>
               </div>
               <button
                 type="button"
@@ -660,7 +678,7 @@ const GroupConversationPage = () => {
                 onClick={() => setIsCreatePanelOpen(false)}
                 disabled={isCreating}
               >
-                Close
+                {t("common.close")}
               </button>
             </div>
 
@@ -670,7 +688,7 @@ const GroupConversationPage = () => {
                   type="text"
                   value={newGroupName}
                   onChange={(event) => setNewGroupName(event.target.value)}
-                  placeholder="Group name (2-48 chars)"
+                  placeholder={t("groups.groupNamePlaceholder")}
                   maxLength={48}
                   disabled={isCreating}
                 />
@@ -678,7 +696,7 @@ const GroupConversationPage = () => {
                   type="text"
                   value={newGroupDescription}
                   onChange={(event) => setNewGroupDescription(event.target.value)}
-                  placeholder="Description (optional, max 180)"
+                  placeholder={t("groups.groupDescriptionPlaceholder")}
                   maxLength={180}
                   disabled={isCreating}
                 />
@@ -689,14 +707,14 @@ const GroupConversationPage = () => {
                     onChange={(event) => setNewGroupRequiresApproval(event.target.checked)}
                     disabled={isCreating}
                   />
-                  Require verification to join
+                  {t("groups.requireVerification")}
                 </label>
                 <button type="button" className="group-action create" onClick={handleCreateGroup} disabled={isCreating}>
-                  {isCreating ? "Creating..." : "Create"}
+                  {isCreating ? t("groups.creating") : t("common.create")}
                 </button>
               </div>
               <div className="group-avatar-picker">
-                <p>Group avatar</p>
+                <p>{t("groups.groupAvatar")}</p>
                 <div className="group-avatar-options">
                   {GROUP_AVATAR_OPTIONS.map((option) => (
                     <button
@@ -706,8 +724,8 @@ const GroupConversationPage = () => {
                       onClick={() => setNewGroupAvatarKey(option.key)}
                       disabled={isCreating}
                     >
-                      <img src={option.url} alt={`${option.label} avatar`} />
-                      <span>{option.label}</span>
+                      <img src={option.url} alt={t("groups.avatarOptionAlt", { label: getGroupAvatarLabel(option.key) })} />
+                      <span>{getGroupAvatarLabel(option.key)}</span>
                     </button>
                   ))}
                 </div>
@@ -719,10 +737,9 @@ const GroupConversationPage = () => {
       {pendingDeleteGroup && (
         <div className="groups-delete-overlay" role="presentation">
           <div className="groups-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-group-title">
-            <h3 id="delete-group-title">Delete "{pendingDeleteGroup.name}"?</h3>
+            <h3 id="delete-group-title">{t("groups.deleteGroupTitle", { name: pendingDeleteGroup.name })}</h3>
             <p>
-              This will permanently delete the group, all group messages, and all membership data for this group.
-              This action cannot be undone.
+              {t("groups.deleteGroupHint")}
             </p>
             <div className="groups-delete-actions">
               <button
@@ -731,7 +748,7 @@ const GroupConversationPage = () => {
                 onClick={() => setPendingDeleteGroup(null)}
                 disabled={workingAction === "delete"}
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
@@ -741,7 +758,7 @@ const GroupConversationPage = () => {
                 }}
                 disabled={workingAction === "delete"}
               >
-                {workingAction === "delete" ? "Deleting..." : "Delete Group"}
+                {workingAction === "delete" ? t("groups.deleting") : t("groups.deleteGroup")}
               </button>
             </div>
           </div>
@@ -750,7 +767,7 @@ const GroupConversationPage = () => {
       {pendingAvatarGroup && (
         <div className="groups-avatar-overlay" role="presentation">
           <div className="groups-avatar-modal" role="dialog" aria-modal="true" aria-labelledby="group-avatar-title">
-            <h3 id="group-avatar-title">Choose Avatar for "{pendingAvatarGroup.name}"</h3>
+            <h3 id="group-avatar-title">{t("groups.chooseAvatar", { name: pendingAvatarGroup.name })}</h3>
             <div className="groups-avatar-options">
               {GROUP_AVATAR_OPTIONS.map((option) => (
                 <button
@@ -760,8 +777,8 @@ const GroupConversationPage = () => {
                   onClick={() => setPendingAvatarKey(option.key)}
                   disabled={workingAction === "avatar"}
                 >
-                  <img src={option.url} alt={`${option.label} avatar`} />
-                  <span>{option.label}</span>
+                  <img src={option.url} alt={t("groups.avatarOptionAlt", { label: getGroupAvatarLabel(option.key) })} />
+                  <span>{getGroupAvatarLabel(option.key)}</span>
                 </button>
               ))}
             </div>
@@ -772,7 +789,7 @@ const GroupConversationPage = () => {
                 onClick={() => setPendingAvatarGroup(null)}
                 disabled={workingAction === "avatar"}
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
@@ -782,7 +799,7 @@ const GroupConversationPage = () => {
                 }}
                 disabled={workingAction === "avatar"}
               >
-                {workingAction === "avatar" ? "Saving..." : "Save Avatar"}
+                {workingAction === "avatar" ? t("groups.saving") : t("groups.saveAvatar")}
               </button>
             </div>
           </div>
