@@ -25,6 +25,7 @@ import {
   fallbackCleanIdTrustSnapshot,
 } from "../cleanIdTrust";
 import { authMiddleware } from "../auth";
+import { deleteConversation } from "../controllers/conversation";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -1650,39 +1651,7 @@ router.patch("/threads/:threadId/block", async (req, res) => {
   });
 });
 
-router.delete("/threads/:threadId", async (req, res) => {
-  const userId = req.user?.userId;
-  if (!ensureAuth(userId)) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
-  const threadId = parsePositiveInt(req.params.threadId);
-  if (!threadId) {
-    res.status(400).json({ message: "Invalid thread ID" });
-    return;
-  }
-
-  const thread = await getThreadForUser(threadId, userId);
-  if (!thread) {
-    res.status(404).json({ message: "Thread not found" });
-    return;
-  }
-
-  const deletedMessages = await prisma.chatMessage.deleteMany({
-    where: { threadId },
-  });
-
-  await prisma.chatThread.delete({
-    where: { id: threadId },
-  });
-
-  res.json({
-    threadId,
-    deletedMessages: deletedMessages.count,
-    message: "Thread deleted for both participants.",
-  });
-});
+router.delete("/threads/:threadId", deleteConversation);
 
 router.get("/threads/:threadId/messages", async (req, res) => {
   const userId = req.user?.userId;

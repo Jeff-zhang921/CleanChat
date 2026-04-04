@@ -262,6 +262,7 @@
     "deleteHint": "此操作會永久刪除雙方的溝通紀錄且無法復原。",
     "deleting": "刪除中...",
     "deleteFailed": "刪除聊天失敗。",
+    "deletedToast": "會話已刪除",
     "deleteConfirmTitle": "確定要刪除聊天嗎？",
     "deleteConfirmBody": "此操作會永久刪除雙方的溝通紀錄且無法復原。",
     "deleteConfirmAction": "確認刪除"

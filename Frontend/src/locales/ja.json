@@ -262,6 +262,7 @@
     "deleteHint": "この操作は双方の会話履歴を完全に削除し、元に戻せません。",
     "deleting": "削除中...",
     "deleteFailed": "チャットの削除に失敗しました。",
+    "deletedToast": "会話を削除しました。",
     "deleteConfirmTitle": "このチャットを削除しますか？",
     "deleteConfirmBody": "この操作は双方の会話履歴を完全に削除し、元に戻せません。",
     "deleteConfirmAction": "完全に削除"

@@ -262,6 +262,7 @@
     "deleteHint": "This will permanently erase the thread for both sides and cannot be undone.",
     "deleting": "Deleting...",
     "deleteFailed": "Failed to delete chat.",
+    "deletedToast": "Conversation deleted.",
     "deleteConfirmTitle": "Delete this chat?",
     "deleteConfirmBody": "This action permanently deletes both sides' conversation history and cannot be undone.",
     "deleteConfirmAction": "Delete permanently"

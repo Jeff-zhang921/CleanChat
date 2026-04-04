@@ -10,6 +10,7 @@ import {
 } from "../constants/avatarCatalog";
 import { BACKEND_URL } from "../config";
 import { GENDER_ARIA_KEY_MAP, normalizeGender, type GenderValue } from "../utils/gender";
+import { dispatchConversationDeleted } from "../utils/conversationEvents";
 import "./chatSettings.css";
 
 type ChatSettingsLocationState = {
@@ -192,7 +193,11 @@ const ChatSettingsPage = () => {
     setStatus("");
 
     try {
-      const response = await fetch(`${BACKEND_URL}/chat/threads/${threadId}`, {
+      const deleteUrl = BACKEND_URL.endsWith("/api")
+        ? `${BACKEND_URL}/conversations/${threadId}`
+        : `${BACKEND_URL}/api/conversations/${threadId}`;
+
+      const response = await fetch(deleteUrl, {
         method: "DELETE",
         credentials: "include",
       });
@@ -207,7 +212,12 @@ const ChatSettingsPage = () => {
         return;
       }
 
-      navigate(fallbackFromPath, { replace: true });
+      dispatchConversationDeleted({
+        threadId,
+        toast: t("chatSettings.deletedToast"),
+      });
+      setShowDeleteConfirm(false);
+      navigate("/conversations", { replace: true });
     } catch {
       setStatus(t("chatSettings.deleteFailed"));
       setIsDeleting(false);

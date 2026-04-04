@@ -3,6 +3,7 @@ import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import profileRouter from "./src/routes/profile";
 import chatRouter from "./src/routes/chat";
+import conversationsRouter from "./src/routes/conversations";
 import authRouter from "./src/routes/auth";
 import http from "http";
 import { initSocket } from "./src/socket";
@@ -43,6 +44,8 @@ app.use(express.json());
 app.use("/auth", authRouter);
 app.use("/profile", profileRouter);
 app.use("/chat", chatRouter);
+app.use("/conversations", conversationsRouter);
+app.use("/api/conversations", conversationsRouter);
 
 const PORT = Number(process.env.PORT || 4000);
 

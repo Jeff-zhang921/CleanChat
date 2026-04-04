@@ -262,6 +262,7 @@
     "deleteHint": "이 작업은 양측의 대화 기록을 영구 삭제하며 되돌릴 수 없습니다.",
     "deleting": "삭제 중...",
     "deleteFailed": "채팅 삭제에 실패했습니다.",
+    "deletedToast": "대화가 삭제되었습니다.",
     "deleteConfirmTitle": "채팅을 삭제할까요?",
     "deleteConfirmBody": "이 작업은 양측의 대화 기록을 영구 삭제하며 되돌릴 수 없습니다.",
     "deleteConfirmAction": "영구 삭제"

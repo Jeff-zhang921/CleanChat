@@ -22,6 +22,10 @@ import {
   type GenderValue,
 } from "../utils/gender";
 import { clearAuthToken, getAuthToken } from "../utils/auth";
+import {
+  CONVERSATION_DELETED_EVENT,
+  type ConversationDeletedDetail,
+} from "../utils/conversationEvents";
 import { showMessageNotification } from "../utils/notifications";
 import {
   clearUnreadCount,
@@ -445,6 +449,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   const groupsRef = useRef<GroupSummary[]>([]);
   const unreadCountsRef = useRef<ConversationUnreadCounts>(readUnreadCounts());
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const statusToastTimeoutRef = useRef<number | null>(null);
 
   const updateUnreadCounts = (updater: (current: ConversationUnreadCounts) => ConversationUnreadCounts) => {
     setUnreadCounts((current) => {
@@ -501,6 +506,14 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   useEffect(() => {
     unreadCountsRef.current = unreadCounts;
   }, [unreadCounts]);
+
+  useEffect(() => {
+    return () => {
+      if (statusToastTimeoutRef.current !== null) {
+        window.clearTimeout(statusToastTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!isSearchExpanded) return;
@@ -809,6 +822,36 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       window.removeEventListener("cleanchat:simulate-inbox", handler as EventListener);
     };
   }, [incrementGroupUnread, incrementThreadUnread, t]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<ConversationDeletedDetail>;
+      const detail = customEvent.detail;
+      if (!detail || !Number.isInteger(detail.threadId) || detail.threadId <= 0) {
+        return;
+      }
+
+      setThreads((prev) => prev.filter((thread) => thread.id !== detail.threadId));
+      clearConversationUnread(getThreadUnreadKey(detail.threadId));
+
+      const toastMessage = detail.toast?.trim() || t("chatSettings.deletedToast");
+      setStatus(toastMessage);
+
+      if (statusToastTimeoutRef.current !== null) {
+        window.clearTimeout(statusToastTimeoutRef.current);
+      }
+
+      statusToastTimeoutRef.current = window.setTimeout(() => {
+        setStatus((current) => (current === toastMessage ? "" : current));
+        statusToastTimeoutRef.current = null;
+      }, 1400);
+    };
+
+    window.addEventListener(CONVERSATION_DELETED_EVENT, handler as EventListener);
+    return () => {
+      window.removeEventListener(CONVERSATION_DELETED_EVENT, handler as EventListener);
+    };
+  }, [clearConversationUnread, t]);
 
   useEffect(() => {
     const query = searchTerm.trim().toLowerCase();
