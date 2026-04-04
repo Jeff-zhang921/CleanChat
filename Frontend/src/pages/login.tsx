@@ -9,6 +9,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { BACKEND_URL } from "../config";
+import { setPreferredLanguage, type SupportedLanguage } from "../i18n";
 import { clearAuthToken, getAuthToken } from "../utils/auth";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -165,6 +166,28 @@ export const getPretextAuthStyles = (compact: boolean, pointer: PointerState) =>
     color: authPalette.inkSoft,
     fontSize: "0.8rem",
     fontWeight: 700,
+    whiteSpace: "nowrap",
+  } satisfies CSSProperties,
+  utilityRow: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "0.44rem",
+  } satisfies CSSProperties,
+  languageSwitch: {
+    border: "1px solid rgba(255, 255, 255, 0.14)",
+    borderRadius: "999px",
+    padding: "0.36rem 0.76rem",
+    font: "inherit",
+    fontSize: "0.78rem",
+    fontWeight: 700,
+    letterSpacing: "0.01em",
+    color: authPalette.inkSoft,
+    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0.2))",
+    backdropFilter: "blur(12px) saturate(1.02)",
+    boxShadow:
+      "inset 0 1px 0 rgba(255, 255, 255, 0.32), 0 12px 24px rgba(24, 34, 24, 0.06)",
+    cursor: "pointer",
+    transition: "all 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
     whiteSpace: "nowrap",
   } satisfies CSSProperties,
   hero: {
@@ -472,7 +495,7 @@ const setPendingEmail = (email: string) => {
 };
 
 const LoginPage = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("");
@@ -482,6 +505,8 @@ const LoginPage = () => {
   const { pointer, bindings } = usePretextPointer();
 
   const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
+  const currentLanguage = (i18n.language?.toLowerCase().startsWith("en") ? "en" : "zh") as SupportedLanguage;
+  const nextLanguage = (currentLanguage === "zh" ? "en" : "zh") as SupportedLanguage;
   const emailParts = useMemo(() => normalizedEmail.split("@"), [normalizedEmail]);
   const emailLocal = emailParts[0] || "";
   const emailDomain = emailParts[1] || "";
@@ -608,6 +633,10 @@ const LoginPage = () => {
     }
   };
 
+  const handleLanguageToggle = () => {
+    void setPreferredLanguage(nextLanguage);
+  };
+
   return (
     <div style={styles.shell} {...(compact ? {} : bindings)}>
       <main style={styles.frame}>
@@ -617,7 +646,22 @@ const LoginPage = () => {
 
           <div style={styles.topRow}>
             <p style={styles.kicker}>{t("auth.privateEntry")}</p>
-            <span style={styles.badge}>{t("auth.emailSignIn")}</span>
+            <span style={styles.utilityRow}>
+              <span style={styles.badge}>{t("auth.emailSignIn")}</span>
+              <button
+                type="button"
+                style={styles.languageSwitch}
+                onClick={handleLanguageToggle}
+                aria-label={t("auth.languageSwitchAria", {
+                  language: nextLanguage === "en" ? "English" : "中文",
+                })}
+                title={t("auth.languageSwitchAria", {
+                  language: nextLanguage === "en" ? "English" : "中文",
+                })}
+              >
+                {nextLanguage === "en" ? t("auth.switchToEnglish") : t("auth.switchToChinese")}
+              </button>
+            </span>
           </div>
 
           <div style={styles.hero}>

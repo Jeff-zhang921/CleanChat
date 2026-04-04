@@ -206,7 +206,10 @@
     "verificationCode": "Verification code",
     "codePlaceholder": "123456",
     "enterCleanChat": "Enter CleanChat",
-    "backToLogin": "Back to login"
+    "backToLogin": "Back to login",
+    "switchToEnglish": "English",
+    "switchToChinese": "中文",
+    "languageSwitchAria": "Switch language to {{language}}"
   },
   "profile": {
     "notFound": "Profile not found.",

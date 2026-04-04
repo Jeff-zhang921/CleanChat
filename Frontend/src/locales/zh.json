@@ -206,7 +206,10 @@
     "verificationCode": "验证码",
     "codePlaceholder": "123456",
     "enterCleanChat": "进入 CleanChat",
-    "backToLogin": "返回登录"
+    "backToLogin": "返回登录",
+    "switchToEnglish": "English",
+    "switchToChinese": "中文",
+    "languageSwitchAria": "切换语言为 {{language}}"
   },
   "profile": {
     "notFound": "未找到资料。",
