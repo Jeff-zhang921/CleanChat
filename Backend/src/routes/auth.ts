@@ -261,7 +261,14 @@ router.post("/email/verify", async (req, res) => {
 
   const existingUser = await prisma.user.findUnique({
     where: { email },
-    select: { id: true, email: true, name: true, avatar: true, cleanId: true },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      avatar: true,
+      cleanId: true,
+      gender: true,
+    },
   });
 
   const isNewUser = !existingUser;
@@ -272,6 +279,7 @@ router.post("/email/verify", async (req, res) => {
           email,
           name: email.split("@")[0],
           avatar: DEFAULT_AVATAR,
+          gender: "hidden",
           cleanId: await generateUniqueCleanId(),
         },
       });
@@ -303,6 +311,7 @@ router.get("/me", authMiddleware, async (req, res) => {
         name: true,
         cleanId: true,
         avatar: true,
+        gender: true,
       },
     });
     if (!user) {

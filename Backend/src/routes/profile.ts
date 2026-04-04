@@ -19,6 +19,20 @@ import { getVapidPublicKey } from "../push";
 const router = Router();
 const prisma = new PrismaClient();
 
+const GENDER_VALUES = ["male", "female", "non_binary", "hidden"] as const;
+type GenderValue = (typeof GENDER_VALUES)[number];
+
+const parseGender = (value: unknown): GenderValue | null => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return (GENDER_VALUES as readonly string[]).includes(normalized)
+    ? (normalized as GenderValue)
+    : null;
+};
+
 router.use(authMiddleware);
 
 const loadCurrentUser = (userId: number) =>
@@ -30,6 +44,7 @@ const loadCurrentUser = (userId: number) =>
       name: true,
       cleanId: true,
       avatar: true,
+      gender: true,
     },
   });
 
@@ -196,6 +211,9 @@ router.patch("/me", async (req, res) => {
     ? (avatarRaw as Avatar)
     : null;
   const avatarProvided = typeof avatarRaw === "string";
+  const genderRaw = req.body?.gender;
+  const gender = parseGender(genderRaw);
+  const genderProvided = typeof genderRaw === "string";
 
   if (avatarProvided && avatar === null) {
     return res.status(400).json({
@@ -204,16 +222,26 @@ router.patch("/me", async (req, res) => {
     });
   }
 
-  const updates: { name?: string; avatar?: Avatar } = {};
+  if (genderProvided && gender === null) {
+    return res.status(400).json({
+      error: "Unsupported gender value.",
+      details: `Allowed values: ${GENDER_VALUES.join(", ")}`,
+    });
+  }
+
+  const updates: { name?: string; avatar?: Avatar; gender?: GenderValue } = {};
   if (name !== null) {
     updates.name = name;
   }
   if (avatar !== null) {
     updates.avatar = avatar;
   }
+  if (gender !== null) {
+    updates.gender = gender;
+  }
 
   if (Object.keys(updates).length === 0) {
-    return res.status(400).json({ error: "Invalid name or avatar" });
+    return res.status(400).json({ error: "Invalid name, avatar, or gender" });
   }
 
   const currentAvatar =
@@ -248,6 +276,7 @@ router.patch("/me", async (req, res) => {
         name: true,
         cleanId: true,
         avatar: true,
+        gender: true,
       },
     });
     const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [
@@ -373,7 +402,14 @@ router.patch("/clean-id", async (req, res) => {
   const updatedUser = await prisma.user.update({
     where: { id: sessionUser.id },
     data: { cleanId: cleanIdRaw },
-    select: { id: true, email: true, name: true, cleanId: true, avatar: true },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      cleanId: true,
+      avatar: true,
+      gender: true,
+    },
   });
   const nextTrustSnapshots = await buildCleanIdTrustSnapshots(prisma, [
     updatedUser.id,

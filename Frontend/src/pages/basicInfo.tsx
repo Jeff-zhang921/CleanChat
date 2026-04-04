@@ -8,8 +8,10 @@ import {
   type AvatarAccess,
   type AvatarKey,
 } from "../constants/avatarCatalog";
+import GenderPicker from "../components/GenderPicker";
 import { BACKEND_URL } from "../config";
 import { type CleanIdTrustSnapshot } from "../utils/cleanIdTrust";
+import { normalizeGender, type GenderValue } from "../utils/gender";
 import "./basicInfo.css";
 
 const CLEAN_ID_REGEX = /^[a-z0-9_]{5,20}$/;
@@ -20,6 +22,7 @@ type ProfileUser = {
   name: string;
   cleanId: string;
   avatar: AvatarKey;
+  gender?: GenderValue | string;
   trust?: CleanIdTrustSnapshot;
   avatarAccess?: AvatarAccess;
 };
@@ -31,6 +34,7 @@ const BasicInfoPage = () => {
   const [nickname, setNickname] = useState("");
   const [cleanId, setCleanId] = useState("");
   const [avatar, setAvatar] = useState<AvatarKey>("AVATAR_LEO");
+  const [gender, setGender] = useState<GenderValue>("hidden");
   const [status, setStatus] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [user, setUser] = useState<ProfileUser | null>(null);
@@ -72,6 +76,7 @@ const BasicInfoPage = () => {
         setNickname(user.name ?? "");
         setCleanId(user.cleanId ?? "");
         setAvatar(user.avatar ?? "AVATAR_LEO");
+        setGender(normalizeGender(user.gender));
       } catch {
         if (isMounted) {
           setStatus("Unable to load profile.");
@@ -146,6 +151,7 @@ const BasicInfoPage = () => {
         body: JSON.stringify({
           name: trimmedName,
           avatar,
+          gender,
         }),
       });
 
@@ -269,6 +275,10 @@ const BasicInfoPage = () => {
               </div>
               <p className="basic-hint">{avatarAccess.tiers.trusted.hint}</p>
             </article>
+          </section>
+
+          <section className="basic-gender-row">
+            <GenderPicker value={gender} onChange={setGender} />
           </section>
 
           <label className="basic-label" htmlFor="nickname">

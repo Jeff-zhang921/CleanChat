@@ -14,6 +14,12 @@ import {
   type CleanIdTrustSnapshot,
   getTrustToneLabel,
 } from "../utils/cleanIdTrust";
+import {
+  GENDER_ARIA_KEY_MAP,
+  getGenderIcon,
+  normalizeGender,
+  type GenderValue,
+} from "../utils/gender";
 import { clearAuthToken, getAuthToken } from "../utils/auth";
 import { showMessageNotification } from "../utils/notifications";
 import {
@@ -33,6 +39,7 @@ type UserSummary = {
   email: string;
   cleanId: string;
   avatar: AvatarKey;
+  gender?: string | null;
   trust: CleanIdTrustSnapshot;
 };
 
@@ -65,6 +72,7 @@ type ConversationItem = {
   name: string;
   email?: string;
   cleanId: string;
+  gender?: GenderValue;
   avatarUrl: string;
   role: string;
   preview: string;
@@ -907,6 +915,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         name: displayName,
         email: other.email,
         cleanId: other.cleanId,
+        gender: normalizeGender(other.gender),
         avatarUrl: resolveAvatarUrl(other.avatar),
         role: t("conversations.roleDirect"),
         preview: getConversationPreview(latestMessage?.body, {
@@ -1115,6 +1124,15 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         <div className="conversation-top">
           <div className="conversation-heading">
             <h3>{item.name}</h3>
+            {item.chatType === "direct" && item.gender && (
+              <span
+                className="conversation-gender-icon"
+                role="img"
+                aria-label={t(GENDER_ARIA_KEY_MAP[item.gender])}
+              >
+                {getGenderIcon(item.gender)}
+              </span>
+            )}
             <p className="role">{item.role}</p>
           </div>
           <div className="conversation-meta-stack">

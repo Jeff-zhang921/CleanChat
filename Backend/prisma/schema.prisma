@@ -19,6 +19,7 @@ model User {
   name              String
   cleanId           String             @unique
   avatar            Avatar             @default(AVATAR_LEO)
+  gender            String             @default("hidden")
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   AThread           ChatThread[]       @relation("AThreads")

@@ -192,6 +192,7 @@ router.get("/users/search", async (req, res) => {
       email: true,
       cleanId: true,
       avatar: true,
+      gender: true,
     },
     orderBy: { cleanId: "asc" },
     take: 20,
@@ -485,11 +486,9 @@ router.post(
     );
     if (!approved.approved) {
       if (approved.reason === "forbidden") {
-        res
-          .status(403)
-          .json({
-            message: "Only the group creator can approve join requests.",
-          });
+        res.status(403).json({
+          message: "Only the group creator can approve join requests.",
+        });
         return;
       }
       if (approved.reason === "request_not_found") {
@@ -531,11 +530,9 @@ router.post(
     );
     if (!rejected.rejected) {
       if (rejected.reason === "forbidden") {
-        res
-          .status(403)
-          .json({
-            message: "Only the group creator can reject join requests.",
-          });
+        res.status(403).json({
+          message: "Only the group creator can reject join requests.",
+        });
         return;
       }
       if (rejected.reason === "request_not_found") {
@@ -685,6 +682,7 @@ router.get("/threads", async (req, res) => {
           email: true,
           cleanId: true,
           avatar: true,
+          gender: true,
         },
       },
       UserB: {
@@ -694,6 +692,7 @@ router.get("/threads", async (req, res) => {
           email: true,
           cleanId: true,
           avatar: true,
+          gender: true,
         },
       },
       Messages: {

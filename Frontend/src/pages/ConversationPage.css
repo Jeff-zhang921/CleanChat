@@ -9,6 +9,7 @@
   --line: #ddd7ca;
   --accent: #1f8a5b;
   --accent-soft: rgba(31, 138, 91, 0.16);
+  --text-secondary: #6b756b;
   --unread-glass: linear-gradient(140deg, rgba(64, 83, 104, 0.34), rgba(94, 112, 128, 0.2));
   --unread-border: rgba(214, 226, 237, 0.45);
   --unread-ink: #eaf3ff;
@@ -511,6 +512,17 @@ button.conversation-card {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.conversation-gender-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  line-height: 1;
+  color: var(--text-secondary, var(--muted));
+  opacity: 0.92;
 }
 
 .role {

@@ -32,6 +32,13 @@
     "ja": "日本語",
     "saved": "語言已切換。"
   },
+  "gender": {
+    "pickerAria": "性別圖示選擇器",
+    "male": "男",
+    "female": "女",
+    "nonBinary": "非線性",
+    "hidden": "隱藏"
+  },
   "settings": {
     "unavailable": "目前無法載入設定。",
     "title": "設定",

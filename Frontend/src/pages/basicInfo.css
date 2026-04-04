@@ -173,6 +173,13 @@
   margin-top: 0.2rem;
 }
 
+.basic-gender-row {
+  margin-top: 0.28rem;
+  border-top: 1px solid rgba(24, 34, 24, 0.08);
+  border-bottom: 1px solid rgba(24, 34, 24, 0.08);
+  padding: 0.36rem 0.08rem;
+}
+
 .basic-avatar-roadmap-card {
   border: 1px solid rgba(24, 34, 24, 0.08);
   border-radius: 1rem;

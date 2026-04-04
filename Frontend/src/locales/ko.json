@@ -32,6 +32,13 @@
     "ja": "日本語",
     "saved": "언어가 변경되었습니다."
   },
+  "gender": {
+    "pickerAria": "성별 아이콘 선택",
+    "male": "남성",
+    "female": "여성",
+    "nonBinary": "기타",
+    "hidden": "비공개"
+  },
   "settings": {
     "unavailable": "지금은 설정을 불러올 수 없습니다.",
     "title": "설정",

@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import GenderPicker from "../components/GenderPicker";
 import { BACKEND_URL } from "../config";
 import { validateShortClaimInput } from "../utils/cleanIdClaim";
+import { type GenderValue } from "../utils/gender";
 import { hydrateProfileUser, type ProfileRouteState, type ProfileUser } from "../utils/profileUser";
 import "./profileEdit.css";
 
@@ -17,6 +19,7 @@ const ProfileEditPage = () => {
   const [user, setUser] = useState<ProfileUser | null>(seededUser);
   const [nickname, setNickname] = useState(seededUser?.name ?? "");
   const [cleanId, setCleanId] = useState(seededUser?.cleanId ?? "");
+  const [gender, setGender] = useState<GenderValue>(seededUser?.gender ?? "hidden");
   const [status, setStatus] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
@@ -25,6 +28,7 @@ const ProfileEditPage = () => {
     if (!user) return;
     setNickname(user.name ?? "");
     setCleanId(user.cleanId ?? "");
+    setGender(user.gender);
   }, [user]);
 
   useEffect(() => {
@@ -110,7 +114,11 @@ const ProfileEditPage = () => {
       return;
     }
 
-    if (trimmedName === user.name && normalizedCleanId === user.cleanId) {
+    if (
+      trimmedName === user.name &&
+      normalizedCleanId === user.cleanId &&
+      gender === user.gender
+    ) {
       leave(user);
       return;
     }
@@ -147,7 +155,7 @@ const ProfileEditPage = () => {
         }
       }
 
-      if (trimmedName !== user.name) {
+      if (trimmedName !== user.name || gender !== user.gender) {
         const response = await fetch(`${BACKEND_URL}/profile/me`, {
           method: "PATCH",
           headers: {
@@ -156,6 +164,7 @@ const ProfileEditPage = () => {
           credentials: "include",
           body: JSON.stringify({
             name: trimmedName,
+            gender,
           }),
         });
 
@@ -279,6 +288,10 @@ const ProfileEditPage = () => {
               required
             />
           </label>
+
+          <section className="profile-edit-gender-row">
+            <GenderPicker value={gender} onChange={setGender} disabled={isSaving} />
+          </section>
 
           <p className="profile-edit-caption">
             This page stays free of identity perks on purpose. It only edits the visible account fields.
