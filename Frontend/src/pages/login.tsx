@@ -8,9 +8,12 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { BACKEND_URL } from "../config";
+import { clearAuthToken, getAuthToken } from "../utils/auth";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PENDING_EMAIL_KEY = "cleanchat:pending-email";
+const AUTH_RESTORE_MAX_ATTEMPTS = 3;
+const AUTH_RESTORE_RETRY_MS = 1200;
 
 type PointerState = {
   x: number;
@@ -477,6 +480,7 @@ const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRestoringSession, setIsRestoringSession] = useState(false);
   const compact = usePretextCompact();
   const { pointer, bindings } = usePretextPointer();
 
@@ -491,6 +495,70 @@ const LoginPage = () => {
       : Math.min(0.5, 0.18 + normalizedEmail.length / 44)
     : 0.14;
   const styles = getPretextAuthStyles(compact, pointer);
+
+  useEffect(() => {
+    let isMounted = true;
+    const token = getAuthToken();
+    if (!token) {
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const restoreSession = async () => {
+      if (!isMounted) {
+        return;
+      }
+      setIsRestoringSession(true);
+      setStatus("Restoring your session...");
+
+      for (let attempt = 1; attempt <= AUTH_RESTORE_MAX_ATTEMPTS; attempt++) {
+        try {
+          const response = await fetch(`${BACKEND_URL}/auth/me`, {
+            credentials: "include",
+          });
+
+          if (response.ok) {
+            if (isMounted) {
+              setStatus("");
+              navigate("/conversations", { replace: true });
+            }
+            return;
+          }
+
+          if (response.status === 401 || response.status === 403) {
+            if (isMounted) {
+              clearAuthToken();
+              setStatus("");
+            }
+            return;
+          }
+        } catch {
+          // Retry while backend wakes from cold start.
+        }
+
+        if (attempt < AUTH_RESTORE_MAX_ATTEMPTS) {
+          await new Promise((resolve) =>
+            window.setTimeout(resolve, AUTH_RESTORE_RETRY_MS * attempt),
+          );
+        }
+      }
+
+      if (isMounted) {
+        setStatus("Session found, but server is waking up. Please try again in a moment.");
+      }
+    };
+
+    void restoreSession().finally(() => {
+      if (isMounted) {
+        setIsRestoringSession(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [navigate]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -620,11 +688,11 @@ const LoginPage = () => {
             </p>
 
             <button
-              style={{ ...styles.primaryButton, opacity: isSubmitting ? 0.72 : 1 }}
+              style={{ ...styles.primaryButton, opacity: isSubmitting || isRestoringSession ? 0.72 : 1 }}
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isRestoringSession}
             >
-              {isSubmitting ? "Sending code..." : "Continue to Code"}
+              {isRestoringSession ? "Checking session..." : isSubmitting ? "Sending code..." : "Continue to Code"}
             </button>
           </form>
 

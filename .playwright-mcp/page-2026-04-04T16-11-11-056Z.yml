@@ -1,0 +1,33 @@
+- generic [ref=e3]:
+  - generic:
+    - img
+  - main [ref=e7]:
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - paragraph [ref=e10]: Private entry
+        - generic [ref=e11]: Email sign-in
+      - generic [ref=e12]:
+        - heading "Start with your email." [level=1] [ref=e13]
+        - paragraph [ref=e14]: One address. One 6-digit code. Then straight into your conversations. No password reset theater and no profile wall before you can talk.
+      - generic [ref=e15]:
+        - generic [ref=e16]: no password
+        - generic [ref=e17]: quiet handoff
+        - generic [ref=e18]: works for groups
+      - generic [ref=e22]:
+        - generic [ref=e23]:
+          - generic [ref=e24]: Entry status
+          - strong [ref=e25]: Address looks good. Ready to send the code.
+          - generic [ref=e26]: Continue and CleanChat sends a 6-digit code to this mailbox.
+        - generic [ref=e27]: Ready
+      - generic [ref=e30]:
+        - generic [ref=e31]: Email address
+        - textbox "Email address" [ref=e32]:
+          - /placeholder: you@example.com
+          - text: qa.cleanchat.regression@gmail.com
+        - generic [ref=e34]:
+          - generic [ref=e40]: alias qa.cleanchat.regression
+          - generic [ref=e41]: relay gmail.com
+          - generic [ref=e37]: one-time code
+        - paragraph [ref=e38]: We only use this address to deliver the code and reconnect you to the right conversation entry.
+        - button "Continue to Code" [ref=e44] [cursor=pointer]
+      - status [ref=e43]: "Failed to send verification code email: Invalid `prisma.loginCode.findFirst()` invocation: Can't reach database server at `ep-steep-hall-a1m63qrw-pooler.ap-southeast-1.aws.neon.tech:5432` Please make sure your database server is running at `ep-steep-hall-a1m63qrw-pooler.ap-southeast-1.aws.neon.tech:5432`."

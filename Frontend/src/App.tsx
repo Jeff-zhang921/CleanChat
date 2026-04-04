@@ -14,6 +14,7 @@ import PurityDetailPage from './pages/purityDetail'
 import IdentityVaultPage from './pages/identityVault'
 import ProfileSettingsPage from './pages/profileSettings'
 import type { ProfileRouteState } from './utils/profileUser';
+import { getAuthToken } from './utils/auth';
 
 type PretextBackdropVariant = 'auth' | 'app';
 
@@ -195,6 +196,11 @@ const PretextBackdrop = ({ variant }: { variant: PretextBackdropVariant }) => {
   );
 };
 
+const HomeRedirect = () => {
+  const hasToken = getAuthToken().length > 0;
+  return <Navigate to={hasToken ? '/conversations' : '/login'} replace />;
+};
+
 const RoutedApp = () => {
   const location = useLocation();
   const routeState = (location.state as ProfileRouteState | null) ?? null;
@@ -216,7 +222,7 @@ const RoutedApp = () => {
       <div style={{ position: 'relative', zIndex: 1 }}>
         <div className={routeStageClass} key={`${location.pathname}${location.search}${routeState?.spatialTransition ?? ''}`}>
           <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/" element={<HomeRedirect />} />
             <Route path="/login" element={<LoginPage/>} />
             <Route path="/verify" element={<VerifyPage />} />
             <Route path="/basic-info" element={<BasicInfoPage />} />
@@ -228,7 +234,7 @@ const RoutedApp = () => {
             <Route path="/conversations" element={<ConversationsPage />} />
             <Route path="/groups" element={<GroupConversationPage />} />
             <Route path="/chat" element={<ChatPage />} />
-            <Route path="*" element={<Navigate to="/login" replace />} />
+            <Route path="*" element={<HomeRedirect />} />
             {/* <Route path="/personal" element={<PersonalPage />} /> */}
           </Routes>
         </div>

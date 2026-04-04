@@ -1,0 +1,31 @@
+- generic [ref=e3]:
+  - generic:
+    - img
+  - main [ref=e7]:
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - paragraph [ref=e10]: Private entry
+        - generic [ref=e11]: Email sign-in
+      - generic [ref=e12]:
+        - heading "Start with your email." [level=1] [ref=e13]
+        - paragraph [ref=e14]: One address. One 6-digit code. Then straight into your conversations. No password reset theater and no profile wall before you can talk.
+      - generic [ref=e15]:
+        - generic [ref=e16]: no password
+        - generic [ref=e17]: quiet handoff
+        - generic [ref=e18]: works for groups
+      - generic [ref=e22]:
+        - generic [ref=e23]:
+          - generic [ref=e24]: Entry status
+          - strong [ref=e25]: Waiting for a clean email address.
+          - generic [ref=e26]: Type the address you want to use, and we will route the code there.
+        - generic [ref=e27]: Idle
+      - generic [ref=e30]:
+        - generic [ref=e31]: Email address
+        - textbox "Email address" [ref=e32]:
+          - /placeholder: you@example.com
+        - generic [ref=e34]:
+          - generic [ref=e35]: alias appears after typing
+          - generic [ref=e36]: relay follows your domain
+          - generic [ref=e37]: one-time code
+        - paragraph [ref=e38]: We only use this address to deliver the code and reconnect you to the right conversation entry.
+        - button "Continue to Code" [ref=e39] [cursor=pointer]
