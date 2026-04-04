@@ -352,17 +352,6 @@ export const PretextSignalPanel = ({
             minWidth: 0,
           }}
         >
-          <span
-            style={{
-              fontSize: "0.74rem",
-              fontWeight: 700,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: authPalette.accent,
-            }}
-          >
-            Entry status
-          </span>
           <strong
             style={{
               fontSize: compact ? "0.98rem" : "1.04rem",
@@ -488,12 +477,6 @@ const LoginPage = () => {
   const emailParts = useMemo(() => normalizedEmail.split("@"), [normalizedEmail]);
   const emailLocal = emailParts[0] || "";
   const emailDomain = emailParts[1] || "";
-  const emailReady = EMAIL_REGEX.test(normalizedEmail);
-  const emailProgress = normalizedEmail
-    ? emailReady
-      ? Math.min(1, 0.56 + normalizedEmail.length / 38)
-      : Math.min(0.5, 0.18 + normalizedEmail.length / 44)
-    : 0.14;
   const styles = getPretextAuthStyles(compact, pointer);
 
   useEffect(() => {
@@ -647,18 +630,9 @@ const LoginPage = () => {
 
           <div style={styles.divider} />
 
-          <div style={styles.signalRow}>
-            <PretextSignalPanel
-              progress={emailProgress}
-              compact={compact}
-              heading={emailReady ? "Address looks good. Ready to send the code." : "Waiting for a clean email address."}
-              caption={
-                emailReady
-                  ? "Continue and CleanChat sends a 6-digit code to this mailbox."
-                  : "Type the address you want to use, and we will route the code there."
-              }
-            />
-          </div>
+          <p style={{ ...styles.note, position: "relative", zIndex: 1 }}>
+            Passwordless sign-in with a single 6-digit code sent to your inbox.
+          </p>
 
           <form onSubmit={handleSubmit} style={styles.form}>
             <label style={styles.label} htmlFor="email">
