@@ -7,6 +7,7 @@ import {
   getGroupById,
   isGroupMember,
   listGroupMemberIds,
+  listGroupMessages,
   normalizeGroupId,
 } from "../groupStore";
 
@@ -20,6 +21,7 @@ const IMAGE_URL_REGEX =
 const IMAGE_EXTENSION_REGEX =
   /\.(?:png|jpe?g|gif|webp|bmp|svg|heic|heif|avif)(?:\?.*)?$/i;
 const PUSH_BODY_MAX_CHARS = 160;
+const RECALLED_MESSAGE_BODY = "__CLEANCHAT_RECALLED__";
 
 const isHttpUrl = (value: string) => /^https?:\/\/\S+$/i.test(value);
 
@@ -43,6 +45,10 @@ const getImageUrlFromMessage = (body: string) => {
 };
 
 const formatPushPreview = (body: string) => {
+  if (body === RECALLED_MESSAGE_BODY) {
+    return "A message was recalled.";
+  }
+
   if (getImageUrlFromMessage(body)) {
     return "sent a photo";
   }
@@ -271,7 +277,14 @@ export function initSocket(server: HTTPServer) {
     socket.on("message:send", async (data: unknown) => {
       const payload =
         typeof data === "object" && data !== null
-          ? (data as { threadId?: unknown; content?: unknown; body?: unknown })
+          ? (data as {
+              threadId?: unknown;
+              content?: unknown;
+              body?: unknown;
+              parentMessageId?: unknown;
+              quoteSenderName?: unknown;
+              quotePreview?: unknown;
+            })
           : {};
       const { threadId } = payload;
       const content =
@@ -280,6 +293,22 @@ export function initSocket(server: HTTPServer) {
           : typeof payload.body === "string"
             ? payload.body
             : "";
+      const parentMessageIdRaw =
+        typeof payload.parentMessageId === "number"
+          ? payload.parentMessageId
+          : Number(payload.parentMessageId);
+      const parentMessageId =
+        Number.isInteger(parentMessageIdRaw) && parentMessageIdRaw > 0
+          ? parentMessageIdRaw
+          : null;
+      const quoteSenderName =
+        typeof payload.quoteSenderName === "string"
+          ? payload.quoteSenderName.trim().slice(0, 80)
+          : "";
+      const quotePreview =
+        typeof payload.quotePreview === "string"
+          ? payload.quotePreview.trim().slice(0, 220)
+          : "";
       const validThreadId = ensureThreadValid(threadId);
       if (!validThreadId) {
         emitChatError("Invalid thread ID");
@@ -302,6 +331,37 @@ export function initSocket(server: HTTPServer) {
         emitChatError("Content cannot be empty");
         return;
       }
+
+      let resolvedParentMessageId: number | null = null;
+      let resolvedQuoteSenderName = quoteSenderName || null;
+      let resolvedQuotePreview = quotePreview || null;
+
+      if (parentMessageId) {
+        const parentMessage = await prisma.chatMessage.findUnique({
+          where: { id: parentMessageId },
+          select: {
+            id: true,
+            threadId: true,
+            senderId: true,
+            body: true,
+          },
+        });
+
+        if (parentMessage && parentMessage.threadId === validThreadId) {
+          resolvedParentMessageId = parentMessage.id;
+          if (!resolvedQuotePreview) {
+            resolvedQuotePreview =
+              parentMessage.body.trim().slice(0, 220) || null;
+          }
+          if (!resolvedQuoteSenderName) {
+            resolvedQuoteSenderName =
+              parentMessage.senderId === sessionUser.id
+                ? sessionUser.name?.trim() || sessionUser.cleanId || null
+                : null;
+          }
+        }
+      }
+
       const message = await prisma.chatMessage.create({
         data: {
           threadId: validThreadId,
@@ -325,6 +385,9 @@ export function initSocket(server: HTTPServer) {
         body: message.body,
         senderId: message.senderId,
         createdAt: message.createdAt,
+        parentMessageId: resolvedParentMessageId,
+        quoteSenderName: resolvedQuoteSenderName,
+        quotePreview: resolvedQuotePreview,
       };
 
       io.to(`thread:${validThreadId}`).emit("message:new", messagePayload);
@@ -412,30 +475,28 @@ export function initSocket(server: HTTPServer) {
             return;
           }
 
-          await prisma.chatMessage.delete({
+          await prisma.chatMessage.update({
             where: { id: targetMessage.id },
-          });
-          const latestMessage = await prisma.chatMessage.findFirst({
-            where: { threadId: validThreadId },
-            orderBy: { createdAt: "desc" },
-            select: { createdAt: true },
-          });
-          await prisma.chatThread.update({
-            where: { id: validThreadId },
-            data: { lastMessageAt: latestMessage?.createdAt ?? null },
+            data: { body: RECALLED_MESSAGE_BODY },
           });
 
-          const deletedPayload = {
+          const recalledPayload = {
             id: targetMessage.id,
             threadId: validThreadId,
             deletedBy: sessionUser.id,
           };
           io.to(`thread:${validThreadId}`).emit(
-            "message:deleted",
-            deletedPayload,
+            "message:recalled",
+            recalledPayload,
           );
-          io.to(`user:${thread.AID}`).emit("message:deleted", deletedPayload);
-          io.to(`user:${thread.BID}`).emit("message:deleted", deletedPayload);
+          io.to(`thread:${validThreadId}`).emit(
+            "message:deleted",
+            recalledPayload,
+          );
+          io.to(`user:${thread.AID}`).emit("message:recalled", recalledPayload);
+          io.to(`user:${thread.BID}`).emit("message:recalled", recalledPayload);
+          io.to(`user:${thread.AID}`).emit("message:deleted", recalledPayload);
+          io.to(`user:${thread.BID}`).emit("message:deleted", recalledPayload);
           reply(true);
         } catch {
           const errorMessage = "Failed to delete message.";
@@ -448,7 +509,14 @@ export function initSocket(server: HTTPServer) {
     socket.on("group:message:send", (data: unknown) => {
       const payload =
         typeof data === "object" && data !== null
-          ? (data as { groupId?: unknown; content?: unknown; body?: unknown })
+          ? (data as {
+              groupId?: unknown;
+              content?: unknown;
+              body?: unknown;
+              parentMessageId?: unknown;
+              quoteSenderName?: unknown;
+              quotePreview?: unknown;
+            })
           : {};
       const groupId = ensureGroupId(payload.groupId);
       if (!groupId) {
@@ -470,12 +538,52 @@ export function initSocket(server: HTTPServer) {
           : typeof payload.body === "string"
             ? payload.body
             : "";
+      const parentMessageIdRaw =
+        typeof payload.parentMessageId === "number"
+          ? payload.parentMessageId
+          : Number(payload.parentMessageId);
+      const parentMessageId =
+        Number.isInteger(parentMessageIdRaw) && parentMessageIdRaw > 0
+          ? parentMessageIdRaw
+          : null;
+      const quoteSenderName =
+        typeof payload.quoteSenderName === "string"
+          ? payload.quoteSenderName.trim().slice(0, 80)
+          : "";
+      const quotePreview =
+        typeof payload.quotePreview === "string"
+          ? payload.quotePreview.trim().slice(0, 220)
+          : "";
       if (content.trim() === "") {
         emitChatError("Content cannot be empty");
         return;
       }
 
-      const message = appendGroupMessage(groupId, sessionUser, content.trim());
+      let resolvedParentMessageId: number | null = null;
+      let resolvedQuoteSenderName = quoteSenderName || null;
+      let resolvedQuotePreview = quotePreview || null;
+
+      if (parentMessageId) {
+        const parentMessage = listGroupMessages(groupId).find(
+          (item) => item.id === parentMessageId,
+        );
+        if (parentMessage) {
+          resolvedParentMessageId = parentMessage.id;
+          if (!resolvedQuoteSenderName) {
+            resolvedQuoteSenderName = parentMessage.senderName || null;
+          }
+          if (!resolvedQuotePreview) {
+            resolvedQuotePreview =
+              parentMessage.body.trim().slice(0, 220) || null;
+          }
+        }
+      }
+
+      const message = appendGroupMessage(groupId, sessionUser, content.trim(), {
+        parentMessageId: resolvedParentMessageId,
+        quoteSenderName: resolvedQuoteSenderName,
+        quotePreview: resolvedQuotePreview,
+      });
       socket.join(`group:${groupId}`);
       const memberIds = listGroupMemberIds(groupId);
       memberIds.forEach((memberId) => {
@@ -561,17 +669,28 @@ export function initSocket(server: HTTPServer) {
         }
 
         socket.join(`group:${groupId}`);
-        const deletedPayload = {
+        const recalledPayload = {
           id: deleted.message.id,
           groupId,
           deletedBy: sessionUser.id,
         };
-        io.to(`group:${groupId}`).emit("group:message:deleted", deletedPayload);
+        io.to(`group:${groupId}`).emit(
+          "group:message:recalled",
+          recalledPayload,
+        );
+        io.to(`group:${groupId}`).emit(
+          "group:message:deleted",
+          recalledPayload,
+        );
         const memberIds = listGroupMemberIds(groupId);
         memberIds.forEach((memberId) => {
           io.to(`user:${memberId}`).emit(
+            "group:message:recalled",
+            recalledPayload,
+          );
+          io.to(`user:${memberId}`).emit(
             "group:message:deleted",
-            deletedPayload,
+            recalledPayload,
           );
         });
         reply(true);

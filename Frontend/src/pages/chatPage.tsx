@@ -1,11 +1,23 @@
-import { forwardRef, type CSSProperties, type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  type CSSProperties,
+  type ChangeEvent,
+  type PointerEvent as ReactPointerEvent,
+  type MouseEvent as ReactMouseEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Virtuoso, type ListProps, type ScrollerProps, type VirtuosoHandle } from "react-virtuoso";
 import { useLocation, useNavigate } from "react-router-dom";
 import { io, type Socket } from "socket.io-client";
 import { useTranslation } from "react-i18next";
 import { getAvatarToneClass, type AvatarKey } from "../constants/avatarCatalog";
+import MessageContextMenu from "../components/MessageContextMenu";
 import { BACKEND_URL, SOCKET_URL } from "../config";
 import { useViewportOverscan } from "../hooks/useViewportOverscan";
+import { useToast } from "../hooks/useToast";
 import { getNotificationPermission, showMessageNotification } from "../utils/notifications";
 import { clearAuthToken, getAuthToken } from "../utils/auth";
 import { clearGroupUnread, clearThreadUnread } from "../utils/unreadCounts";
@@ -19,13 +31,17 @@ type ChatMessage = {
   senderName?: string;
   body: string;
   createdAt: string;
+  parentMessageId?: number | null;
+  quoteSenderName?: string | null;
+  quotePreview?: string | null;
 };
 
-type MessageDeletedPayload = {
+type MessageRecallPayload = {
   id: number;
   threadId?: number;
   groupId?: string;
-  deletedBy: number;
+  deletedBy?: number;
+  recalledBy?: number;
 };
 
 type ChatMode = "direct" | "group";
@@ -57,6 +73,18 @@ type ChatRenderItem =
       message: ChatMessage;
     };
 
+type QuoteDraft = {
+  parentMessageId: number;
+  senderName: string;
+  preview: string;
+};
+
+type MessageContextMenuState = {
+  messageId: number;
+  anchorX: number;
+  anchorY: number;
+};
+
 const IMAGE_MESSAGE_PREFIX = "IMG::";
 const IMAGE_URL_REGEX =
   /^https:\/\/(?:utfs\.io|(?:[a-z0-9-]+\.)?ufs\.sh|[^/\s]*uploadthing\.com)\//i;
@@ -67,6 +95,7 @@ const CONVERSATIONS_RETURN_KEY = "cleanchat:conversations-return";
 const CHAT_OVERLAY_EXIT_MS = 300;
 const TEMPORAL_GROUP_GAP_MS = 5 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const RECALLED_MESSAGE_BODY = "__CLEANCHAT_RECALLED__";
 
 const isHttpUrl = (value: string) => /^https?:\/\/\S+$/i.test(value);
 
@@ -88,6 +117,8 @@ const getImageUrlFromMessage = (body: string) => {
 
 const formatNotificationBody = (body: string, sentPhotoLabel: string) =>
   getImageUrlFromMessage(body) ? sentPhotoLabel : body;
+
+const isRecalledMessageBody = (body: string) => body === RECALLED_MESSAGE_BODY;
 
 const parsePositiveInt = (value: string | null) => {
   if (!value) {
@@ -310,6 +341,8 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const historyHydratedRef = useRef(false);
   const sendPulseTimeoutRef = useRef<number | null>(null);
   const closeTimeoutRef = useRef<number | null>(null);
+  const longPressTimeoutRef = useRef<number | null>(null);
+  const longPressOriginRef = useRef<{ x: number; y: number } | null>(null);
   const isAtBottomRef = useRef(true);
 
   const [status, setStatus] = useState("");
@@ -331,6 +364,9 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const [isSendPulseVisible, setIsSendPulseVisible] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [isClosing, setIsClosing] = useState(false);
+  const [contextMenu, setContextMenu] = useState<MessageContextMenuState | null>(null);
+  const [quoteDraft, setQuoteDraft] = useState<QuoteDraft | null>(null);
+  const { toast, showToast } = useToast();
 
   const refocusMessageInput = () => {
     if (typeof window === "undefined") return;
@@ -338,6 +374,57 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       messageInputRef.current?.focus({ preventScroll: true });
     });
   };
+
+  const clearLongPressTimeout = () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (longPressTimeoutRef.current !== null) {
+      window.clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+  };
+
+  const showMiniToast = (nextMessage: string) => {
+    showToast(nextMessage, { durationMs: 200 });
+  };
+
+  const getMessagePlainText = (msg: ChatMessage) => {
+    if (isRecalledMessageBody(msg.body)) {
+      return msg.senderId === me?.id ? t("chat.recalledBySelf") : t("chat.recalledByOther");
+    }
+
+    const imageUrl = getImageUrlFromMessage(msg.body);
+    if (imageUrl) {
+      return imageUrl;
+    }
+    return msg.body.trim();
+  };
+
+  const getMessagePreviewText = (msg: ChatMessage) => {
+    if (isRecalledMessageBody(msg.body)) {
+      return t("chat.quoteFallbackPreview");
+    }
+
+    const imageUrl = getImageUrlFromMessage(msg.body);
+    if (imageUrl) {
+      return t("chat.photoPreview");
+    }
+    return msg.body.trim().replace(/\s+/g, " ").slice(0, 140);
+  };
+
+  const resolveQuoteSenderName = (msg: ChatMessage) => {
+    if (msg.senderId === me?.id) {
+      return t("chat.you");
+    }
+    if (chatMode === "group") {
+      return msg.senderName?.trim() || chatLabel || t("common.user");
+    }
+    return chatLabel || t("common.user");
+  };
+
+  const getRecallMarkerText = (msg: ChatMessage) =>
+    msg.senderId === me?.id ? t("chat.recalledBySelf") : t("chat.recalledByOther");
 
   const beginHistoryLoad = ({ preserveExisting = false }: { preserveExisting?: boolean } = {}) => {
     const token = historyLoadTokenRef.current + 1;
@@ -440,6 +527,23 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     }
   };
 
+  const markMessageAsRecalled = (messageId: number) => {
+    setMessages((prev) =>
+      prev.map((item) =>
+        item.id === messageId
+          ? {
+              ...item,
+              body: RECALLED_MESSAGE_BODY,
+              parentMessageId: null,
+              quoteSenderName: null,
+              quotePreview: null,
+            }
+          : item,
+      ),
+    );
+    setDeletingMessageIds((prev) => prev.filter((id) => id !== messageId));
+  };
+
   const connectSocket = async () => {
     if (socketRef.current) return;
 
@@ -509,7 +613,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       }
     });
 
-    socket.on("message:deleted", (payload: MessageDeletedPayload) => {
+    const handleDirectRecalled = (payload: MessageRecallPayload) => {
       const activeThreadId = threadIdRef.current;
       if (
         typeof payload.threadId === "number" &&
@@ -518,9 +622,11 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       ) {
         return;
       }
-      setMessages((prev) => prev.filter((item) => item.id !== payload.id));
-      setDeletingMessageIds((prev) => prev.filter((id) => id !== payload.id));
-    });
+      markMessageAsRecalled(payload.id);
+    };
+
+    socket.on("message:recalled", handleDirectRecalled);
+    socket.on("message:deleted", handleDirectRecalled);
 
     socket.on("group:message:new", (msg: ChatMessage) => {
       setMessages((prev) => [...prev, msg]);
@@ -545,7 +651,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       }
     });
 
-    socket.on("group:message:deleted", (payload: MessageDeletedPayload) => {
+    const handleGroupRecalled = (payload: MessageRecallPayload) => {
       const activeGroupId = groupIdRef.current;
       if (
         typeof payload.groupId === "string" &&
@@ -554,9 +660,11 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       ) {
         return;
       }
-      setMessages((prev) => prev.filter((item) => item.id !== payload.id));
-      setDeletingMessageIds((prev) => prev.filter((id) => id !== payload.id));
-    });
+      markMessageAsRecalled(payload.id);
+    };
+
+    socket.on("group:message:recalled", handleGroupRecalled);
+    socket.on("group:message:deleted", handleGroupRecalled);
   };
 
   useEffect(() => {
@@ -706,6 +814,9 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       socketRef.current.emit("group:message:send", {
         groupId,
         body: trimmed,
+        parentMessageId: quoteDraft?.parentMessageId,
+        quoteSenderName: quoteDraft?.senderName,
+        quotePreview: quoteDraft?.preview,
       });
     } else {
       if (!threadId) {
@@ -715,15 +826,26 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       socketRef.current.emit("message:send", {
         threadId,
         body: trimmed,
+        parentMessageId: quoteDraft?.parentMessageId,
+        quoteSenderName: quoteDraft?.senderName,
+        quotePreview: quoteDraft?.preview,
       });
     }
     setMessageBody("");
+    setQuoteDraft(null);
     setStatus("");
+    setContextMenu(null);
     refocusMessageInput();
     return true;
   };
 
-  const handleDeleteMessage = (targetMessage: ChatMessage) => {
+  const handleDeleteMessage = (
+    targetMessage: ChatMessage,
+    options?: {
+      bypassConfirm?: boolean;
+      withToast?: boolean;
+    }
+  ) => {
     const currentUser = meRef.current;
     if (!currentUser || currentUser.id !== targetMessage.senderId) {
       return;
@@ -732,7 +854,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       setStatus(t("chat.socketNotConnected"));
       return;
     }
-    if (!window.confirm(t("chat.deleteMessageConfirm"))) {
+    if (!options?.bypassConfirm && !window.confirm(t("chat.deleteMessageConfirm"))) {
       return;
     }
 
@@ -761,9 +883,12 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
             clearDeletingState();
             return;
           }
-          setMessages((prev) => prev.filter((item) => item.id !== targetMessage.id));
+          markMessageAsRecalled(targetMessage.id);
           clearDeletingState();
           setStatus("");
+          if (options?.withToast) {
+            showMiniToast(t("chat.recallToast"));
+          }
         }
       );
       return;
@@ -788,11 +913,119 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
           clearDeletingState();
           return;
         }
-        setMessages((prev) => prev.filter((item) => item.id !== targetMessage.id));
+        markMessageAsRecalled(targetMessage.id);
         clearDeletingState();
         setStatus("");
+        if (options?.withToast) {
+          showMiniToast(t("chat.recallToast"));
+        }
       }
     );
+  };
+
+  const activeContextMessage = useMemo(() => {
+    if (!contextMenu) {
+      return null;
+    }
+    return message.find((item) => item.id === contextMenu.messageId) ?? null;
+  }, [contextMenu, message]);
+
+  const openContextMenuAt = (targetMessage: ChatMessage, element: HTMLElement) => {
+    const rect = element.getBoundingClientRect();
+    setContextMenu({
+      messageId: targetMessage.id,
+      anchorX: rect.left + rect.width / 2,
+      anchorY: rect.top,
+    });
+  };
+
+  const handleMessagePointerDown = (event: ReactPointerEvent<HTMLElement>, targetMessage: ChatMessage) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+
+    clearLongPressTimeout();
+    longPressOriginRef.current = { x: event.clientX, y: event.clientY };
+    const anchorElement = event.currentTarget;
+
+    longPressTimeoutRef.current = window.setTimeout(() => {
+      openContextMenuAt(targetMessage, anchorElement);
+      longPressTimeoutRef.current = null;
+      longPressOriginRef.current = null;
+    }, 600);
+  };
+
+  const handleMessagePointerMove = (event: ReactPointerEvent<HTMLElement>) => {
+    const origin = longPressOriginRef.current;
+    if (!origin) {
+      return;
+    }
+
+    const deltaX = Math.abs(event.clientX - origin.x);
+    const deltaY = Math.abs(event.clientY - origin.y);
+    if (deltaX > 8 || deltaY > 8) {
+      clearLongPressTimeout();
+      longPressOriginRef.current = null;
+    }
+  };
+
+  const handleMessagePointerEnd = () => {
+    clearLongPressTimeout();
+    longPressOriginRef.current = null;
+  };
+
+  const handleMessageContextMenu = (event: ReactMouseEvent<HTMLElement>, targetMessage: ChatMessage) => {
+    event.preventDefault();
+    openContextMenuAt(targetMessage, event.currentTarget);
+  };
+
+  const handleCopyFromContextMenu = async () => {
+    if (!activeContextMessage) {
+      setContextMenu(null);
+      return;
+    }
+
+    const text = getMessagePlainText(activeContextMessage);
+    try {
+      await navigator.clipboard.writeText(text);
+      showMiniToast(t("chat.copyDone"));
+    } catch {
+      showMiniToast(t("chat.copyFailed"));
+    }
+    setContextMenu(null);
+  };
+
+  const handleQuoteFromContextMenu = () => {
+    if (!activeContextMessage) {
+      setContextMenu(null);
+      return;
+    }
+
+    setQuoteDraft({
+      parentMessageId: activeContextMessage.id,
+      senderName: resolveQuoteSenderName(activeContextMessage),
+      preview: getMessagePreviewText(activeContextMessage),
+    });
+    setContextMenu(null);
+    refocusMessageInput();
+  };
+
+  const handleRecallFromContextMenu = () => {
+    if (
+      !activeContextMessage ||
+      activeContextMessage.senderId !== me?.id ||
+      isRecalledMessageBody(activeContextMessage.body)
+    ) {
+      setContextMenu(null);
+      return;
+    }
+
+    setContextMenu(null);
+    handleDeleteMessage(activeContextMessage, { bypassConfirm: true, withToast: true });
   };
 
   const handleUploadImage = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -913,8 +1146,23 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       if (typeof window !== "undefined" && closeTimeoutRef.current !== null) {
         window.clearTimeout(closeTimeoutRef.current);
       }
+      if (typeof window !== "undefined" && longPressTimeoutRef.current !== null) {
+        window.clearTimeout(longPressTimeoutRef.current);
+      }
     };
   }, []);
+
+  useEffect(() => {
+    if (contextMenu && !message.some((item) => item.id === contextMenu.messageId)) {
+      setContextMenu(null);
+    }
+  }, [contextMenu, message]);
+
+  useEffect(() => {
+    if (quoteDraft && !message.some((item) => item.id === quoteDraft.parentMessageId)) {
+      setQuoteDraft(null);
+    }
+  }, [message, quoteDraft]);
 
   const chatLabel = other || (chatMode === "group" ? t("chat.groupChat") : t("chat.conversation"));
   const avatarFallback = chatLabel.trim().charAt(0).toUpperCase() || "?";
@@ -1213,11 +1461,30 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
                 const isMe = msg.senderId === me?.id;
                 const imageUrl = getImageUrlFromMessage(msg.body);
                 const isDeletingMessage = deletingMessageIds.includes(msg.id);
+                const isRecalled = isRecalledMessageBody(msg.body);
+
+                if (isRecalled) {
+                  return (
+                    <div className="chat-virtuoso-item">
+                      <div className="chat-recall-row" aria-live="polite">
+                        <p className="chat-recall-marker">{getRecallMarkerText(msg)}</p>
+                      </div>
+                    </div>
+                  );
+                }
 
                 return (
                   <div className="chat-virtuoso-item">
                     <div className={`chat-row ${isMe ? "me" : "them"}`}>
-                      <div className={`chat-bubble ${isMe ? "bubble-me" : "bubble-them"}`}>
+                      <div
+                        className={`chat-bubble ${isMe ? "bubble-me" : "bubble-them"}`}
+                        onPointerDown={(event) => handleMessagePointerDown(event, msg)}
+                        onPointerMove={handleMessagePointerMove}
+                        onPointerUp={handleMessagePointerEnd}
+                        onPointerCancel={handleMessagePointerEnd}
+                        onPointerLeave={handleMessagePointerEnd}
+                        onContextMenu={(event) => handleMessageContextMenu(event, msg)}
+                      >
                         {chatMode === "group" && !isMe && msg.senderName && (
                           <p className="group-sender">{msg.senderName}</p>
                         )}
@@ -1237,16 +1504,19 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
                         ) : (
                           <p>{msg.body}</p>
                         )}
-                        {isMe && (
-                          <div className="chat-meta-row">
-                            <button
-                              type="button"
-                              className="chat-delete-button"
-                              onClick={() => handleDeleteMessage(msg)}
-                              disabled={isDeletingMessage}
-                            >
-                              {isDeletingMessage ? t("chat.deleting") : t("chat.deleteAction")}
-                            </button>
+                        {(msg.quotePreview || msg.quoteSenderName || msg.parentMessageId) && (
+                          <div className="chat-quote-inline" aria-label={t("chat.quoteAction")}>
+                            <p className="chat-quote-inline-sender">
+                              {msg.quoteSenderName || t("chat.quoteFallbackSender")}
+                            </p>
+                            <p className="chat-quote-inline-body">
+                              {msg.quotePreview || t("chat.quoteFallbackPreview")}
+                            </p>
+                          </div>
+                        )}
+                        {isDeletingMessage && (
+                          <div className="chat-meta-row" aria-hidden="true">
+                            <span className="chat-delete-pending">{t("chat.deleting")}</span>
                           </div>
                         )}
                       </div>
@@ -1259,6 +1529,33 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
         </div>
 
         <footer className="chat-footer">
+          {quoteDraft && (
+            <div className="chat-quote-preview" role="status" aria-live="polite">
+              <span className="chat-quote-preview-line" aria-hidden="true" />
+              <div className="chat-quote-preview-copy">
+                <p>
+                  <strong>{quoteDraft.senderName}</strong>: {quoteDraft.preview}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="chat-quote-preview-clear"
+                aria-label={t("chat.clearQuote")}
+                onClick={() => setQuoteDraft(null)}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path
+                    d="M7 7 17 17M17 7 7 17"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
+
           <div className={`chat-input ${isComposerEngaged ? "engaged" : ""}`}>
             <input
               id="chat-photo-input"
@@ -1316,6 +1613,36 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
             </button>
           </div>
         </footer>
+
+        <MessageContextMenu
+          open={Boolean(contextMenu && activeContextMessage)}
+          anchorX={contextMenu?.anchorX ?? 0}
+          anchorY={contextMenu?.anchorY ?? 0}
+          canRecall={Boolean(
+            activeContextMessage &&
+              activeContextMessage.senderId === me?.id &&
+              !isRecalledMessageBody(activeContextMessage.body),
+          )}
+          labels={{
+            recall: t("chat.recallAction"),
+            copy: t("chat.copyAction"),
+            quote: t("chat.quoteAction"),
+          }}
+          onRecall={handleRecallFromContextMenu}
+          onCopy={handleCopyFromContextMenu}
+          onQuote={handleQuoteFromContextMenu}
+          onClose={() => setContextMenu(null)}
+        />
+
+        {toast.message && (
+          <div
+            className={`chat-mini-toast ${toast.visible ? "is-visible" : "is-hidden"}`}
+            role="status"
+            aria-live="polite"
+          >
+            {toast.message}
+          </div>
+        )}
 
         {previewImageUrl && (
           <div className="image-viewer-overlay" onClick={handleCloseImagePreview} role="presentation">

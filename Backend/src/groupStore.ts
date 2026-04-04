@@ -41,7 +41,12 @@ export type GroupMessage = {
   senderName: string;
   body: string;
   createdAt: string;
+  parentMessageId?: number | null;
+  quoteSenderName?: string | null;
+  quotePreview?: string | null;
 };
+
+const RECALLED_MESSAGE_BODY = "__CLEANCHAT_RECALLED__";
 
 export type GroupSummary = GroupDefinition & {
   joined: boolean;
@@ -147,14 +152,20 @@ export const normalizeGroupId = (raw: unknown): string | null => {
   return normalized;
 };
 
-export const getGroupById = (groupId: string) => groups.find((group) => group.id === groupId) ?? null;
+export const getGroupById = (groupId: string) =>
+  groups.find((group) => group.id === groupId) ?? null;
 
 const buildSummary = (group: GroupDefinition, userId: number): GroupSummary => {
   const members = getOrCreateMembers(group.id);
   const joinRequests = getOrCreateJoinRequests(group.id);
   const messages = groupMessages.get(group.id) ?? [];
-  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
-  const joinRequestStatus = members.has(userId) ? "none" : joinRequests.has(userId) ? "pending" : "none";
+  const lastMessage =
+    messages.length > 0 ? messages[messages.length - 1] : null;
+  const joinRequestStatus = members.has(userId)
+    ? "none"
+    : joinRequests.has(userId)
+      ? "pending"
+      : "none";
   return {
     ...group,
     joined: members.has(userId),
@@ -181,7 +192,7 @@ export const createGroup = (
   rawName: string,
   rawDescription: string,
   requiresApproval = false,
-  avatarKey?: GroupAvatarKey
+  avatarKey?: GroupAvatarKey,
 ) => {
   const name = normalizeGroupName(rawName);
   const description = rawDescription.trim();
@@ -276,7 +287,10 @@ export const leaveGroup = (groupId: string, userId: number) => {
   };
 };
 
-export const listGroupJoinRequests = (groupId: string, requestUserId: number) => {
+export const listGroupJoinRequests = (
+  groupId: string,
+  requestUserId: number,
+) => {
   const group = getGroupById(groupId);
   if (!group) {
     return { ok: false as const, reason: "not_found" as const };
@@ -288,7 +302,10 @@ export const listGroupJoinRequests = (groupId: string, requestUserId: number) =>
   const requests = getOrCreateJoinRequests(groupId);
   const requestList: GroupJoinRequest[] = [...requests.entries()]
     .map(([userId, requestedAt]) => ({ userId, requestedAt }))
-    .sort((a, b) => new Date(a.requestedAt).getTime() - new Date(b.requestedAt).getTime());
+    .sort(
+      (a, b) =>
+        new Date(a.requestedAt).getTime() - new Date(b.requestedAt).getTime(),
+    );
 
   return {
     ok: true as const,
@@ -297,7 +314,11 @@ export const listGroupJoinRequests = (groupId: string, requestUserId: number) =>
   };
 };
 
-export const approveGroupJoinRequest = (groupId: string, ownerUserId: number, targetUserId: number) => {
+export const approveGroupJoinRequest = (
+  groupId: string,
+  ownerUserId: number,
+  targetUserId: number,
+) => {
   const group = getGroupById(groupId);
   if (!group) {
     return { approved: false as const, reason: "not_found" as const };
@@ -319,7 +340,11 @@ export const approveGroupJoinRequest = (groupId: string, ownerUserId: number, ta
   };
 };
 
-export const rejectGroupJoinRequest = (groupId: string, ownerUserId: number, targetUserId: number) => {
+export const rejectGroupJoinRequest = (
+  groupId: string,
+  ownerUserId: number,
+  targetUserId: number,
+) => {
   const group = getGroupById(groupId);
   if (!group) {
     return { rejected: false as const, reason: "not_found" as const };
@@ -340,7 +365,11 @@ export const rejectGroupJoinRequest = (groupId: string, ownerUserId: number, tar
   };
 };
 
-export const updateGroupJoinPolicy = (groupId: string, ownerUserId: number, requiresApproval: boolean) => {
+export const updateGroupJoinPolicy = (
+  groupId: string,
+  ownerUserId: number,
+  requiresApproval: boolean,
+) => {
   const group = getGroupById(groupId);
   if (!group) {
     return { updated: false as const, reason: "not_found" as const };
@@ -366,7 +395,11 @@ export const updateGroupJoinPolicy = (groupId: string, ownerUserId: number, requ
   };
 };
 
-export const updateGroupAvatar = (groupId: string, ownerUserId: number, avatarKey: GroupAvatarKey) => {
+export const updateGroupAvatar = (
+  groupId: string,
+  ownerUserId: number,
+  avatarKey: GroupAvatarKey,
+) => {
   const group = getGroupById(groupId);
   if (!group) {
     return { updated: false as const, reason: "not_found" as const };
@@ -400,9 +433,22 @@ export const listGroupMessages = (groupId: string): GroupMessage[] => {
   return messages ? [...messages] : [];
 };
 
-export const appendGroupMessage = (groupId: string, sender: SessionUser, body: string): GroupMessage => {
+export const appendGroupMessage = (
+  groupId: string,
+  sender: SessionUser,
+  body: string,
+  quote?: {
+    parentMessageId?: number | null;
+    quoteSenderName?: string | null;
+    quotePreview?: string | null;
+  },
+): GroupMessage => {
   const messages = groupMessages.get(groupId) ?? [];
-  const senderName = sender.name?.trim() || sender.cleanId || sender.email.split("@")[0] || "User";
+  const senderName =
+    sender.name?.trim() ||
+    sender.cleanId ||
+    sender.email.split("@")[0] ||
+    "User";
   const message: GroupMessage = {
     id: nextGroupMessageId++,
     groupId,
@@ -410,6 +456,12 @@ export const appendGroupMessage = (groupId: string, sender: SessionUser, body: s
     senderName,
     body,
     createdAt: new Date().toISOString(),
+    parentMessageId:
+      typeof quote?.parentMessageId === "number" && quote.parentMessageId > 0
+        ? quote.parentMessageId
+        : null,
+    quoteSenderName: quote?.quoteSenderName?.trim() || null,
+    quotePreview: quote?.quotePreview?.trim() || null,
   };
 
   messages.push(message);
@@ -421,7 +473,11 @@ export const appendGroupMessage = (groupId: string, sender: SessionUser, body: s
   return message;
 };
 
-export const deleteGroupMessage = (groupId: string, messageId: number, requestUserId: number) => {
+export const deleteGroupMessage = (
+  groupId: string,
+  messageId: number,
+  requestUserId: number,
+) => {
   const messages = groupMessages.get(groupId);
   if (!messages) {
     return { deleted: false as const, reason: "not_found" as const };
@@ -437,7 +493,15 @@ export const deleteGroupMessage = (groupId: string, messageId: number, requestUs
     return { deleted: false as const, reason: "forbidden" as const };
   }
 
-  messages.splice(targetIndex, 1);
+  const recalledMessage: GroupMessage = {
+    ...targetMessage,
+    body: RECALLED_MESSAGE_BODY,
+    parentMessageId: null,
+    quoteSenderName: null,
+    quotePreview: null,
+  };
+
+  messages[targetIndex] = recalledMessage;
   groupMessages.set(groupId, messages);
-  return { deleted: true as const, message: targetMessage };
+  return { deleted: true as const, message: recalledMessage };
 };

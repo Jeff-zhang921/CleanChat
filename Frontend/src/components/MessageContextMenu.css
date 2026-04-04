@@ -1,0 +1,60 @@
+.message-context-menu {
+  position: fixed;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.14rem;
+  transform: translate(-50%, calc(-100% - 0.5rem));
+  border: 1px solid rgba(26, 34, 26, 0.1);
+  border-radius: 999px;
+  background: rgba(246, 244, 239, 0.78);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.message-context-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.26rem;
+  height: 1.92rem;
+  padding: 0 0.58rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #1a2520;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.message-context-action svg {
+  width: 0.82rem;
+  height: 0.82rem;
+  display: block;
+}
+
+.message-context-action:hover:not(:disabled),
+.message-context-action:focus-visible {
+  background: rgba(26, 34, 26, 0.1);
+  outline: none;
+}
+
+.message-context-action:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+@media (max-width: 640px) {
+  .message-context-menu {
+    transform: translate(-50%, calc(-100% - 0.44rem));
+  }
+
+  .message-context-action {
+    height: 1.86rem;
+    padding: 0 0.5rem;
+    font-size: 0.69rem;
+  }
+}
