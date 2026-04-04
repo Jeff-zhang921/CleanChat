@@ -1,6 +1,6 @@
 import type { Server as HTTPServer } from "http";
 import { Server } from "socket.io";
-import { PrismaClient } from "@prisma/client";
+import { ChatRequestStatus, PrismaClient } from "@prisma/client";
 import {
   appendGroupMessage,
   deleteGroupMessage,
@@ -160,7 +160,7 @@ export function initSocket(server: HTTPServer) {
       return thread;
     };
     const ensureDirectMessagingAllowed = async (
-      thread: { AID: number; BID: number },
+      thread: { id: number; AID: number; BID: number },
       senderId: number,
     ) => {
       const recipientId = thread.AID === senderId ? thread.BID : thread.AID;
@@ -189,6 +189,26 @@ export function initSocket(server: HTTPServer) {
       });
       if (outgoingBlock) {
         return "Unblock this user before sending messages.";
+      }
+
+      const acceptedRequest = await prisma.chatRequest.findFirst({
+        where: {
+          status: ChatRequestStatus.ACCEPTED,
+          OR: [
+            { requesterId: senderId, recipientId },
+            { requesterId: recipientId, recipientId: senderId },
+          ],
+        },
+        select: { id: true },
+      });
+      if (!acceptedRequest) {
+        const existingMessage = await prisma.chatMessage.findFirst({
+          where: { threadId: thread.id },
+          select: { id: true },
+        });
+        if (!existingMessage) {
+          return "Chat request has not been accepted yet.";
+        }
       }
 
       return null;

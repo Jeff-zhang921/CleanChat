@@ -469,7 +469,6 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [searchUsers, setSearchUsers] = useState<UserSummary[]>([]);
   const [searchStatus, setSearchStatus] = useState("");
-  const [openingUserId, setOpeningUserId] = useState<number | null>(null);
   const [unreadCounts, setUnreadCounts] = useState<ConversationUnreadCounts>(() => readUnreadCounts());
   const socketRef = useRef<Socket | null>(null);
   const meRef = useRef<SessionUser | null>(null);
@@ -985,45 +984,19 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     });
   };
 
-  const handleOpenUser = async (user: UserSummary) => {
+  const handleOpenUser = (user: UserSummary) => {
     const existingThreadId = threadByUserId.get(user.id);
     if (existingThreadId) {
       handleOpenThread(existingThreadId, user.cleanId || user.email, resolveAvatarUrl(user.avatar), user.avatar);
       return;
     }
 
-    setOpeningUserId(user.id);
-    setSearchStatus(t("conversations.creatingConversation"));
-
-    try {
-      const response = await fetch(`${BACKEND_URL}/chat/threads`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({ BId: user.id }),
-      });
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setSearchStatus(data.message || data.error || t("conversations.createConversationFailed"));
-        return;
-      }
-
-      const threadId = data?.thread?.id;
-      if (typeof threadId !== "number") {
-        setSearchStatus(t("conversations.createConversationMissingThread"));
-        return;
-      }
-
-      setSearchStatus("");
-      handleOpenThread(threadId, user.cleanId || user.email, resolveAvatarUrl(user.avatar), user.avatar);
-    } catch {
-      setSearchStatus(t("conversations.createConversationFailed"));
-    } finally {
-      setOpeningUserId(null);
-    }
+    navigate(`/profile/user/${user.id}`, {
+      state: {
+        fromPath: "/conversations",
+        user,
+      },
+    });
   };
 
   const openSearch = () => {
@@ -1066,11 +1039,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   const renderSearchUserCard = (_index: number, user: UserSummary) => {
     const hasThread = threadByUserId.has(user.id);
     const actionLabel =
-      openingUserId === user.id
-        ? t("conversations.opening")
-        : hasThread
-          ? t("conversations.openChat")
-          : t("conversations.startChat");
+      hasThread ? t("conversations.openChat") : t("conversations.requestChat");
 
     return (
       <div className="conversations-virtual-item">
@@ -1079,9 +1048,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
           className="conversation-card"
           data-conversation-user-id={user.id}
           onClick={() => {
-            if (openingUserId !== user.id) {
-              handleOpenUser(user);
-            }
+            handleOpenUser(user);
           }}
         >
           <div className="avatar">

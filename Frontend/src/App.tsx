@@ -10,7 +10,11 @@ import LoginPage from './pages/login'
 import VerifyPage from './pages/verify'
 import BasicInfoPage from './pages/basicInfo'
 import ProfilePage from './pages/profile'
+import UserProfilePage from './pages/userProfile'
 import ProfileEditPage from './pages/profileEdit'
+import SendChatRequestPage from './pages/sendChatRequest'
+import UserRequestPage from './pages/userRequestPage'
+import GroupRequestPage from './pages/groupRequestPage'
 import PurityDetailPage from './pages/purityDetail'
 import IdentityVaultPage from './pages/identityVault'
 import ProfileSettingsPage from './pages/profileSettings'
@@ -18,9 +22,23 @@ import { getAuthToken } from './utils/auth';
 
 type PretextBackdropVariant = 'auth' | 'app';
 type RootViewKey = 'conversations' | 'groups' | 'profile' | 'settings';
-type DetailViewKey = 'chat' | 'chat-settings' | 'profile-edit' | 'profile-purity' | 'profile-vault' | null;
+type DetailViewKey =
+  | 'chat'
+  | 'chat-settings'
+  | 'profile-edit'
+  | 'profile-purity'
+  | 'profile-vault'
+  | 'profile-user'
+  | 'send-chat-request'
+  | 'user-requests'
+  | 'group-requests'
+  | null;
 type ChatRouteState = {
   fromPath?: '/conversations' | '/groups';
+};
+
+type DetailRouteState = {
+  fromPath?: '/conversations' | '/groups' | '/profile';
 };
 
 const backdropPalettes = {
@@ -222,6 +240,10 @@ const resolveRootViewFromPath = (
 const resolveDetailViewFromPath = (pathname: string): DetailViewKey => {
   if (pathname === '/chat/settings') return 'chat-settings';
   if (pathname === '/chat' || pathname.startsWith('/chat/')) return 'chat';
+  if (/^\/profile\/user\/\d+$/.test(pathname)) return 'profile-user';
+  if (pathname === '/profile/request-chat') return 'send-chat-request';
+  if (pathname === '/profile/requests/users') return 'user-requests';
+  if (pathname === '/profile/requests/groups') return 'group-requests';
   if (pathname === '/profile/edit') return 'profile-edit';
   if (pathname === '/profile/purity') return 'profile-purity';
   if (pathname === '/profile/vault') return 'profile-vault';
@@ -234,6 +256,10 @@ const isKnownHybridPath = (pathname: string) => {
   if (pathname === '/profile') return true;
   if (pathname === '/profile/settings') return true;
   if (pathname === '/profile/edit') return true;
+  if (/^\/profile\/user\/\d+$/.test(pathname)) return true;
+  if (pathname === '/profile/request-chat') return true;
+  if (pathname === '/profile/requests/users') return true;
+  if (pathname === '/profile/requests/groups') return true;
   if (pathname === '/profile/purity') return true;
   if (pathname === '/profile/vault') return true;
   if (pathname === '/chat' || pathname.startsWith('/chat/')) return true;
@@ -297,7 +323,30 @@ const HybridAppShell = () => {
       return;
     }
 
-    if (detailView === 'profile-edit' || detailView === 'profile-purity' || detailView === 'profile-vault') {
+    if (detailView === 'profile-user' || detailView === 'send-chat-request') {
+      const detailState = (location.state as DetailRouteState | null) ?? null;
+      const baseView: RootViewKey =
+        detailState?.fromPath === '/groups'
+          ? 'groups'
+          : detailState?.fromPath === '/conversations'
+            ? 'conversations'
+            : 'profile';
+
+      lastRootViewRef.current = baseView;
+      setActiveRootView((current) => (current === baseView ? current : baseView));
+      setMountedRootViews((current) =>
+        current[baseView] ? current : { ...current, [baseView]: true }
+      );
+      return;
+    }
+
+    if (
+      detailView === 'profile-edit' ||
+      detailView === 'profile-purity' ||
+      detailView === 'profile-vault' ||
+      detailView === 'user-requests' ||
+      detailView === 'group-requests'
+    ) {
       lastRootViewRef.current = 'profile';
       setActiveRootView((current) => (current === 'profile' ? current : 'profile'));
       setMountedRootViews((current) =>
@@ -339,6 +388,38 @@ const HybridAppShell = () => {
       return (
         <div className="hybrid-detail-surface" role="presentation">
           <ChatSettingsPage />
+        </div>
+      );
+    }
+
+    if (detailView === 'profile-user') {
+      return (
+        <div className="hybrid-detail-surface" role="presentation">
+          <UserProfilePage />
+        </div>
+      );
+    }
+
+    if (detailView === 'send-chat-request') {
+      return (
+        <div className="hybrid-detail-surface" role="presentation">
+          <SendChatRequestPage />
+        </div>
+      );
+    }
+
+    if (detailView === 'user-requests') {
+      return (
+        <div className="hybrid-detail-surface" role="presentation">
+          <UserRequestPage />
+        </div>
+      );
+    }
+
+    if (detailView === 'group-requests') {
+      return (
+        <div className="hybrid-detail-surface" role="presentation">
+          <GroupRequestPage />
         </div>
       );
     }

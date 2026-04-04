@@ -192,6 +192,7 @@
 
 .chat-bar-actions {
   margin-left: auto;
+  margin-right: -0.24rem;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -201,18 +202,19 @@
 .chat-more-button {
   width: 2.42rem;
   height: 2.42rem;
+  padding: 0;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: var(--ghost-button-bg);
-  backdrop-filter: var(--ghost-button-blur);
-  -webkit-backdrop-filter: var(--ghost-button-blur);
+  border: 0;
+  background: transparent;
   color: #2d3c33;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--ghost-button-shadow);
+  box-shadow: none;
   cursor: pointer;
-  transition: var(--ghost-button-transition);
+  transition:
+    background-color var(--motion-quick-local) var(--motion-smooth-local),
+    color var(--motion-quick-local) var(--motion-smooth-local);
 }
 
 .chat-more-button svg {
@@ -222,10 +224,12 @@
 }
 
 .chat-more-button:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.22);
-  background: var(--ghost-button-bg-hover);
-  box-shadow: var(--ghost-button-shadow-hover);
-  transform: translateY(-1px);
+  background: rgba(45, 60, 51, 0.1);
+  color: #1f2d25;
+}
+
+.chat-more-button:active:not(:disabled) {
+  background: rgba(45, 60, 51, 0.16);
 }
 
 .chat-more-button:disabled {
@@ -235,7 +239,7 @@
 
 .chat-more-button:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(63, 104, 81, 0.2);
+  background: rgba(45, 60, 51, 0.14);
 }
 
 .chat-body {

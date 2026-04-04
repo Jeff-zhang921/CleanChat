@@ -922,10 +922,6 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const hasDraft = messageBody.trim().length > 0;
   const isComposerEngaged = isComposerFocused || hasDraft || isUploadingImage;
   const showHistorySkeleton = isHistoryLoading && message.length === 0;
-  const statusLabel = isHistoryLoading
-    ? t("chat.loadingHistory")
-    : status || (isConnected ? t("common.connected") : t("common.notConnected"));
-  const statusTone = isHistoryLoading || isUploadingImage ? "busy" : isConnected ? "online" : "";
   const chatKicker = chatMode === "group" ? t("chat.groupThread") : t("chat.privateLine");
   const backLabel = fromPath === "/groups" ? t("nav.groups") : t("nav.chats");
   const canOpenSettings = chatMode === "direct" && typeof threadId === "number";
@@ -1162,7 +1158,6 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
                 <EllipsisGlyph />
               </button>
             )}
-            <span className={`status-pill chat-bar-status ${statusTone}`}>{statusLabel}</span>
           </div>
         </div>
 

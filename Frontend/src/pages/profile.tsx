@@ -259,6 +259,22 @@ const ProfilePage = () => {
     });
   };
 
+  const openUserRequestHub = () => {
+    navigate("/profile/requests/users", {
+      state: {
+        fromPath: "/profile",
+      },
+    });
+  };
+
+  const openGroupRequestHub = () => {
+    navigate("/profile/requests/groups", {
+      state: {
+        fromPath: "/profile",
+      },
+    });
+  };
+
   const cancelEdit = () => {
     resetFormToUser();
     setStatus("");
@@ -748,11 +764,26 @@ const ProfilePage = () => {
                 <button
                   type="button"
                   className="profile-action-row"
-                  onClick={() => void handleToggleGroupAccess()}
+                  onClick={openUserRequestHub}
                 >
                   <span className="profile-action-row-copy">
                     <span className="profile-action-row-title">
-                      {showGroupAccess ? t("profile.hideGroupAccess") : t("profile.manageGroupAccess")}
+                      {t("profile.manageUserRequests")}
+                    </span>
+                    <span className="profile-action-row-note">
+                      {t("profile.userRequestsNote")}
+                    </span>
+                  </span>
+                  <span className="profile-action-row-arrow" aria-hidden="true">{"\u2192"}</span>
+                </button>
+                <button
+                  type="button"
+                  className="profile-action-row"
+                  onClick={openGroupRequestHub}
+                >
+                  <span className="profile-action-row-copy">
+                    <span className="profile-action-row-title">
+                      {t("profile.manageGroupAccess")}
                     </span>
                     <span className="profile-action-row-note">
                       {t("profile.groupAccessNote")}
