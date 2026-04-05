@@ -10,6 +10,13 @@ import {
 import { BACKEND_URL } from "../config";
 import { getAuthToken } from "../utils/auth";
 import {
+  CONVERSATION_MUTES_UPDATED_EVENT,
+  normalizeConversationMutes,
+  readConversationMutes,
+  sumUnreadCountsExcludingMuted,
+  type ConversationMuteMap,
+} from "../utils/conversationMutes";
+import {
   readUnreadCounts,
   UNREAD_COUNTS_UPDATED_EVENT,
   type ConversationUnreadCounts,
@@ -31,9 +38,6 @@ type NotificationBadgeProviderProps = {
 
 const NotificationBadgeContext = createContext<NotificationBadgeContextValue | null>(null);
 
-const sumUnreadCounts = (counts: ConversationUnreadCounts) =>
-  Object.values(counts).reduce((sum, count) => sum + count, 0);
-
 const isCountsRecord = (value: unknown): value is ConversationUnreadCounts =>
   Boolean(value) && typeof value === "object";
 
@@ -43,11 +47,17 @@ export const NotificationBadgeProvider = ({
   const [unreadCounts, setUnreadCounts] = useState<ConversationUnreadCounts>(() =>
     readUnreadCounts(),
   );
+  const [mutedConversations, setMutedConversations] =
+    useState<ConversationMuteMap>(() => readConversationMutes());
   const [pendingDirectRequests, setPendingDirectRequests] = useState(0);
   const [pendingGroupRequests, setPendingGroupRequests] = useState(0);
 
   const syncUnreadFromStorage = useCallback(() => {
     setUnreadCounts(readUnreadCounts());
+  }, []);
+
+  const syncMutesFromStorage = useCallback(() => {
+    setMutedConversations(readConversationMutes());
   }, []);
 
   const refreshPendingCounts = useCallback(async () => {
@@ -112,13 +122,27 @@ export const NotificationBadgeProvider = ({
       syncUnreadFromStorage();
     };
 
+    const handleMuteEvent = (event: Event) => {
+      const customEvent = event as CustomEvent<unknown>;
+      if (customEvent.detail && typeof customEvent.detail === "object") {
+        setMutedConversations(normalizeConversationMutes(customEvent.detail));
+        return;
+      }
+      syncMutesFromStorage();
+    };
+
     const handleStorage = () => {
       syncUnreadFromStorage();
+      syncMutesFromStorage();
     };
 
     window.addEventListener(
       UNREAD_COUNTS_UPDATED_EVENT,
       handleUnreadEvent as EventListener,
+    );
+    window.addEventListener(
+      CONVERSATION_MUTES_UPDATED_EVENT,
+      handleMuteEvent as EventListener,
     );
     window.addEventListener("storage", handleStorage);
 
@@ -127,9 +151,13 @@ export const NotificationBadgeProvider = ({
         UNREAD_COUNTS_UPDATED_EVENT,
         handleUnreadEvent as EventListener,
       );
+      window.removeEventListener(
+        CONVERSATION_MUTES_UPDATED_EVENT,
+        handleMuteEvent as EventListener,
+      );
       window.removeEventListener("storage", handleStorage);
     };
-  }, [syncUnreadFromStorage]);
+  }, [syncMutesFromStorage, syncUnreadFromStorage]);
 
   useEffect(() => {
     if (!getAuthToken()) {
@@ -163,7 +191,10 @@ export const NotificationBadgeProvider = ({
   const value = useMemo<NotificationBadgeContextValue>(
     () => ({
       unreadCounts,
-      totalUnreadMessages: sumUnreadCounts(unreadCounts),
+      totalUnreadMessages: sumUnreadCountsExcludingMuted(
+        unreadCounts,
+        mutedConversations,
+      ),
       pendingDirectRequests,
       pendingGroupRequests,
       pendingVerificationTotal: pendingDirectRequests + pendingGroupRequests,
@@ -172,6 +203,7 @@ export const NotificationBadgeProvider = ({
     }),
     [
       unreadCounts,
+      mutedConversations,
       pendingDirectRequests,
       pendingGroupRequests,
       refreshPendingCounts,

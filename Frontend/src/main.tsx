@@ -5,9 +5,11 @@ import { registerSW } from "virtual:pwa-register";
 import App from './App';
 import './i18n';
 import { installAuthFetchInterceptor } from './utils/auth';
+import { ensureNotificationRegistration } from './utils/notifications';
 // import './index.css';
 
 installAuthFetchInterceptor();
+void ensureNotificationRegistration();
 
 const updateSW = registerSW({
   immediate: true,

@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
+import { clearThreadMuteForAllUsers } from "../muteStore";
 
 const prisma = new PrismaClient();
 
@@ -58,6 +59,8 @@ export const deleteConversation = async (
 
     return deletedMessages.count;
   });
+
+  clearThreadMuteForAllUsers(conversationId);
 
   response.status(200).json({
     conversationId,

@@ -26,6 +26,12 @@ import { useToast } from "../hooks/useToast";
 import { getNotificationPermission, showMessageNotification } from "../utils/notifications";
 import { clearAuthToken, getAuthToken } from "../utils/auth";
 import {
+  getGroupMuteKey,
+  getThreadMuteKey,
+  isConversationMuted,
+  readConversationMutes,
+} from "../utils/conversationMutes";
+import {
   clearDraftForTarget,
   readDraftForTarget,
   writeDraftForTarget,
@@ -52,6 +58,7 @@ type ChatLocationState = {
   groupId?: string;
   chatType?: ChatMode;
   fromPath?: "/conversations" | "/groups";
+  fromPush?: boolean;
 };
 
 type ChatPageProps = {
@@ -271,6 +278,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     const directPathMatch = location.pathname.match(/^\/chat\/(\d+)$/);
     const groupPathMatch = location.pathname.match(/^\/chat\/group\/([^/?#]+)$/);
     const params = new URLSearchParams(location.search);
+    const fromPush = params.get("fromPush") === "1";
     const pathThreadId = directPathMatch ? parsePositiveInt(directPathMatch[1]) : null;
     const pathGroupId = (() => {
       if (!groupPathMatch) {
@@ -292,7 +300,9 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       : undefined;
 
     if (!threadId && !groupId) {
-      return {};
+      return {
+        fromPush,
+      };
     }
 
     const chatType = params.get("chatType") === "group" || groupId ? "group" : "direct";
@@ -304,6 +314,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       groupId,
       other: title,
       fromPath: chatType === "group" ? "/groups" : "/conversations",
+      fromPush,
     };
   }, [location.pathname, location.search]);
   const resolvedState = useMemo<ChatLocationState>(
@@ -315,6 +326,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       groupId: locationState?.groupId ?? deepLinkState.groupId,
       chatType: locationState?.chatType ?? deepLinkState.chatType,
       fromPath: locationState?.fromPath ?? deepLinkState.fromPath,
+      fromPush: locationState?.fromPush ?? deepLinkState.fromPush,
     }),
     [deepLinkState, locationState]
   );
@@ -326,6 +338,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const avatarUrl = resolvedState.avatarUrl ?? "";
   const avatarToneClass = resolvedState.avatarKey ? getAvatarToneClass(resolvedState.avatarKey) : "";
   const fromPath = resolvedState.fromPath === "/groups" ? "/groups" : "/conversations";
+  const shouldForceBottomOnPushEntry = resolvedState.fromPush === true;
 
   const socketRef = useRef<Socket | null>(null);
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
@@ -346,6 +359,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const longPressTimeoutRef = useRef<number | null>(null);
   const longPressOriginRef = useRef<{ x: number; y: number } | null>(null);
   const isAtBottomRef = useRef(true);
+  const pushEntryAnchoredRef = useRef(false);
 
   const [status, setStatus] = useState("");
   const [threadId, setThreadId] = useState<number | null>(null);
@@ -458,7 +472,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     return null;
   }, [chatMode, groupId, threadId]);
 
-  const { scrollToBottomSmooth, scrollToBottomIfPinned } = useChatScroll({
+  const { scrollToBottomSmooth, scrollToBottomIfPinned, scrollIntoBottomNow } = useChatScroll({
     virtuosoRef,
     itemCount: timelineItems.length,
     isHistoryLoading,
@@ -503,7 +517,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   };
 
   const showMiniToast = (nextMessage: string) => {
-    showToast(nextMessage, { durationMs: 200 });
+    showToast(nextMessage);
   };
 
   const clearTextSelection = () => {
@@ -832,12 +846,16 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
         });
       }
 
+      const threadMuteKey =
+        typeof msg.threadId === "number" ? getThreadMuteKey(msg.threadId) : "";
+
       if (
         currentUser &&
         msg.senderId !== currentUser.id &&
         typeof document !== "undefined" &&
         document.hidden &&
-        getNotificationPermission() === "granted"
+        getNotificationPermission() === "granted" &&
+        !isConversationMuted(readConversationMutes(), threadMuteKey)
       ) {
         const title = other || t("chat.newMessage");
         showMessageNotification(title, formatNotificationBody(msg.body, t("chat.sentPhotoNotification")), {
@@ -883,12 +901,16 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
         });
       }
 
+      const groupMuteKey =
+        typeof msg.groupId === "string" ? getGroupMuteKey(msg.groupId) : "";
+
       if (
         currentUser &&
         msg.senderId !== currentUser.id &&
         typeof document !== "undefined" &&
         document.hidden &&
-        getNotificationPermission() === "granted"
+        getNotificationPermission() === "granted" &&
+        !isConversationMuted(readConversationMutes(), groupMuteKey)
       ) {
         const title = other || t("chat.groupMessage");
         showMessageNotification(title, formatNotificationBody(msg.body, t("chat.sentPhotoNotification")), {
@@ -938,6 +960,28 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   useEffect(() => {
     isAtBottomRef.current = isAtBottom;
   }, [isAtBottom]);
+
+  useEffect(() => {
+    pushEntryAnchoredRef.current = false;
+  }, [chatMode, groupId, threadId, shouldForceBottomOnPushEntry]);
+
+  useEffect(() => {
+    if (!shouldForceBottomOnPushEntry || pushEntryAnchoredRef.current) {
+      return;
+    }
+
+    if (isHistoryLoading || timelineItems.length === 0) {
+      return;
+    }
+
+    scrollIntoBottomNow();
+    pushEntryAnchoredRef.current = true;
+  }, [
+    isHistoryLoading,
+    scrollIntoBottomNow,
+    shouldForceBottomOnPushEntry,
+    timelineItems.length,
+  ]);
 
   useEffect(() => {
     let isDisposed = false;

@@ -11,6 +11,12 @@ import {
 import { BACKEND_URL } from "../config";
 import { dispatchGroupConversationLeft } from "../utils/conversationEvents";
 import { clearGroupUnread } from "../utils/unreadCounts";
+import {
+  getGroupMuteKey,
+  persistConversationMutes,
+  readConversationMutes,
+  setConversationMuted,
+} from "../utils/conversationMutes";
 import "./groupSettings.css";
 
 type GroupSettingsLocationState = {
@@ -28,6 +34,7 @@ type GroupSummary = {
   joined: boolean;
   isOwner: boolean;
   memberCount: number;
+  mutedByMe?: boolean;
 };
 
 type GroupMember = {
@@ -83,6 +90,8 @@ const GroupSettingsPage = () => {
   const [showAllMembers, setShowAllMembers] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
+  const [mutedByMe, setMutedByMe] = useState(false);
+  const [isUpdatingMute, setIsUpdatingMute] = useState(false);
 
   useEffect(() => {
     if (!groupId) {
@@ -168,7 +177,13 @@ const GroupSettingsPage = () => {
             typeof rawGroup.memberCount === "number" && rawGroup.memberCount >= 0
               ? rawGroup.memberCount
               : normalizedMembers.length,
+          mutedByMe: rawGroup.mutedByMe === true,
         });
+        const muted = rawGroup.mutedByMe === true;
+        setMutedByMe(muted);
+        const muteKey = getGroupMuteKey(groupId);
+        const nextMutes = setConversationMuted(readConversationMutes(), muteKey, muted);
+        persistConversationMutes(nextMutes);
         setMembers(normalizedMembers);
         setStatus("");
       } catch {
@@ -225,6 +240,53 @@ const GroupSettingsPage = () => {
     });
   };
 
+  const handleToggleMute = async () => {
+    if (!groupId || isUpdatingMute || isLeaving || isLoading) {
+      return;
+    }
+
+    const nextMuted = !mutedByMe;
+    setIsUpdatingMute(true);
+
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/chat/groups/${encodeURIComponent(groupId)}/mute`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ muted: nextMuted }),
+        },
+      );
+
+      const data = (await response.json().catch(() => ({}))) as {
+        mutedByMe?: boolean;
+        message?: string;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        setStatus(data.message || data.error || t("groupSettings.muteUpdateFailed"));
+        return;
+      }
+
+      const applied = typeof data.mutedByMe === "boolean" ? data.mutedByMe : nextMuted;
+      setMutedByMe(applied);
+
+      const muteKey = getGroupMuteKey(groupId);
+      const nextMutes = setConversationMuted(readConversationMutes(), muteKey, applied);
+      persistConversationMutes(nextMutes);
+
+      setStatus(applied ? t("groupSettings.mutedNow") : t("groupSettings.unmutedNow"));
+    } catch {
+      setStatus(t("groupSettings.muteUpdateFailed"));
+    } finally {
+      setIsUpdatingMute(false);
+    }
+  };
+
   const handleConfirmLeave = async () => {
     if (!groupId || isLeaving) {
       return;
@@ -253,6 +315,9 @@ const GroupSettingsPage = () => {
       }
 
       clearGroupUnread(groupId);
+      const muteKey = getGroupMuteKey(groupId);
+      const nextMutes = setConversationMuted(readConversationMutes(), muteKey, false);
+      persistConversationMutes(nextMutes);
       dispatchGroupConversationLeft({
         groupId,
         toast: t("groupSettings.leftToast"),
@@ -318,6 +383,26 @@ const GroupSettingsPage = () => {
           </div>
         </header>
 
+        <section className="group-settings-mute-card">
+          <div className="group-settings-row">
+            <div className="group-settings-row-copy">
+              <h2>{t("groupSettings.muteNotifications")}</h2>
+              <p>{t("groupSettings.muteHint")}</p>
+            </div>
+            <button
+              type="button"
+              className={`group-settings-toggle ${mutedByMe ? "is-on" : ""}`}
+              role="switch"
+              aria-checked={mutedByMe}
+              aria-label={t("groupSettings.muteNotifications")}
+              onClick={handleToggleMute}
+              disabled={isUpdatingMute || isLeaving}
+            >
+              <span className="group-settings-toggle-thumb" />
+            </button>
+          </div>
+        </section>
+
         <section className="group-settings-members-card">
           <div className="group-settings-members-head">
             <h2>{t("groupSettings.members")}</h2>
@@ -372,7 +457,7 @@ const GroupSettingsPage = () => {
             type="button"
             className="group-settings-leave-action"
             onClick={() => setShowLeaveConfirm(true)}
-            disabled={!group.joined || isLeaving}
+            disabled={!group.joined || isUpdatingMute || isLeaving}
           >
             {isLeaving ? t("groupSettings.leaving") : t("groupSettings.deleteAndLeave")}
           </button>

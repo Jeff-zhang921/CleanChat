@@ -11,6 +11,12 @@ import {
 import { BACKEND_URL } from "../config";
 import { GENDER_ARIA_KEY_MAP, normalizeGender, type GenderValue } from "../utils/gender";
 import { dispatchConversationDeleted } from "../utils/conversationEvents";
+import {
+  getThreadMuteKey,
+  persistConversationMutes,
+  readConversationMutes,
+  setConversationMuted,
+} from "../utils/conversationMutes";
 import "./chatSettings.css";
 
 type ChatSettingsLocationState = {
@@ -32,6 +38,7 @@ type ChatSettingsResponse = {
   };
   blockedByMe: boolean;
   blockedMe: boolean;
+  mutedByMe?: boolean;
 };
 
 const parsePositiveInt = (value: string | null | undefined) => {
@@ -61,6 +68,8 @@ const ChatSettingsPage = () => {
   const [blockedByMe, setBlockedByMe] = useState(false);
   const [blockedMe, setBlockedMe] = useState(false);
   const [isUpdatingBlock, setIsUpdatingBlock] = useState(false);
+  const [mutedByMe, setMutedByMe] = useState(false);
+  const [isUpdatingMute, setIsUpdatingMute] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -98,6 +107,11 @@ const ChatSettingsPage = () => {
         setOtherUser(data.otherUser);
         setBlockedByMe(Boolean(data.blockedByMe));
         setBlockedMe(Boolean(data.blockedMe));
+        const muted = Boolean(data.mutedByMe);
+        setMutedByMe(muted);
+        const muteKey = getThreadMuteKey(threadId);
+        const nextMutes = setConversationMuted(readConversationMutes(), muteKey, muted);
+        persistConversationMutes(nextMutes);
         setStatus("");
       } catch {
         if (isMounted) {
@@ -181,6 +195,50 @@ const ChatSettingsPage = () => {
       setStatus(t("chatSettings.blockUpdateFailed"));
     } finally {
       setIsUpdatingBlock(false);
+    }
+  };
+
+  const handleToggleMute = async () => {
+    if (!threadId || isUpdatingMute || loading) {
+      return;
+    }
+
+    const nextMuted = !mutedByMe;
+    setIsUpdatingMute(true);
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/chat/threads/${threadId}/mute`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ muted: nextMuted }),
+      });
+
+      const data = (await response.json().catch(() => ({}))) as {
+        mutedByMe?: boolean;
+        message?: string;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        setStatus(data.message || data.error || t("chatSettings.muteUpdateFailed"));
+        return;
+      }
+
+      const applied = typeof data.mutedByMe === "boolean" ? data.mutedByMe : nextMuted;
+      setMutedByMe(applied);
+
+      const muteKey = getThreadMuteKey(threadId);
+      const nextMutes = setConversationMuted(readConversationMutes(), muteKey, applied);
+      persistConversationMutes(nextMutes);
+
+      setStatus(applied ? t("chatSettings.mutedNow") : t("chatSettings.unmutedNow"));
+    } catch {
+      setStatus(t("chatSettings.muteUpdateFailed"));
+    } finally {
+      setIsUpdatingMute(false);
     }
   };
 
@@ -282,6 +340,24 @@ const ChatSettingsPage = () => {
         <section className="chat-settings-card">
           <div className="chat-settings-row">
             <div className="chat-settings-row-copy">
+              <h2>{t("chatSettings.muteNotifications")}</h2>
+              <p>{t("chatSettings.muteHint")}</p>
+            </div>
+            <button
+              type="button"
+              className={`chat-settings-toggle ${mutedByMe ? "is-on" : ""}`}
+              role="switch"
+              aria-checked={mutedByMe}
+              aria-label={t("chatSettings.muteNotifications")}
+              onClick={handleToggleMute}
+              disabled={isUpdatingBlock || isUpdatingMute || isDeleting}
+            >
+              <span className="chat-settings-toggle-thumb" />
+            </button>
+          </div>
+
+          <div className="chat-settings-row chat-settings-row-divider">
+            <div className="chat-settings-row-copy">
               <h2>{blockedByMe ? t("chatSettings.unblockUser") : t("chatSettings.blockUser")}</h2>
               <p>{t("chatSettings.blockHint")}</p>
               {blockedMe && <p className="chat-settings-note">{t("chatSettings.blockedByPeer")}</p>}
@@ -293,7 +369,7 @@ const ChatSettingsPage = () => {
               aria-checked={blockedByMe}
               aria-label={blockedByMe ? t("chatSettings.unblockUser") : t("chatSettings.blockUser")}
               onClick={handleToggleBlock}
-              disabled={isUpdatingBlock || isDeleting}
+              disabled={isUpdatingBlock || isUpdatingMute || isDeleting}
             >
               <span className="chat-settings-toggle-thumb" />
             </button>

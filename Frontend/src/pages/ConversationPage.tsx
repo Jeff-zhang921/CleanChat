@@ -30,7 +30,13 @@ import {
 } from "../utils/conversationEvents";
 import {
   ensurePushSubscriptionForCurrentUser,
+  getNotificationPermission,
+  getNotificationRuntimeSupport,
+  isAndroid13Plus,
+  isIOSDevice,
+  isStandalonePwa,
   showMessageNotification,
+  type NotificationPermissionState,
 } from "../utils/notifications";
 import {
   clearUnreadCount,
@@ -42,6 +48,18 @@ import {
   readUnreadCounts,
   type ConversationUnreadCounts,
 } from "../utils/unreadCounts";
+import {
+  CONVERSATION_MUTES_UPDATED_EVENT,
+  getGroupMuteKey,
+  getThreadMuteKey,
+  isConversationMuted,
+  normalizeConversationMutes,
+  persistConversationMutes,
+  readConversationMutes,
+  replaceConversationMutes,
+  setConversationMuted,
+  type ConversationMuteMap,
+} from "../utils/conversationMutes";
 import "./ConversationPage.css";
 
 type UserSummary = {
@@ -71,6 +89,7 @@ type ThreadResponse = {
     createdAt: string;
     senderId: number;
   }[];
+  mutedByMe?: boolean;
 };
 
 type ConversationItem = {
@@ -92,6 +111,7 @@ type ConversationItem = {
   subline: string;
   trust?: CleanIdTrustSnapshot;
   unreadCount: number;
+  muted: boolean;
 };
 
 type RealtimeMessage = {
@@ -112,6 +132,7 @@ type GroupSummary = {
   memberCount: number;
   lastMessagePreview: string;
   lastMessageAt: string | null;
+  mutedByMe?: boolean;
 };
 
 type GroupRealtimeMessage = {
@@ -316,6 +337,26 @@ const SearchGlyph = () => (
   </svg>
 );
 
+const MutedBellGlyph = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path
+      d="M9.2 18h5.6a2.8 2.8 0 0 1-5.6 0Zm2.8-13a5.2 5.2 0 0 1 5.2 5.2v3.3l1.2 1.7a1 1 0 0 1-.82 1.58H6.42a1 1 0 0 1-.82-1.58l1.2-1.7v-3.3A5.2 5.2 0 0 1 12 5Z"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="m5.2 4.8 13.6 14.4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
 const ConversationsVirtuosoScroller = forwardRef<HTMLDivElement, ScrollerProps>((props, ref) => (
   <div {...props} ref={ref} className="conversations-virtuoso-scroller" data-testid="conversations-list-scroller" />
 ));
@@ -343,6 +384,12 @@ type ConversationStageChromeProps = {
 type ConversationPageProps = {
   isDormant?: boolean;
 };
+
+type NotificationGuideMode =
+  | "permission-default"
+  | "permission-denied"
+  | "ios-install"
+  | null;
 
 const ConversationStageChrome = ({
   hasQuery,
@@ -441,6 +488,13 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   const [threads, setThreads] = useState<ThreadResponse[]>(() => initialCache?.threads ?? []);
   const [groups, setGroups] = useState<GroupSummary[]>(() => initialCache?.groups ?? []);
   const [status, setStatus] = useState("");
+  const [notificationPermission, setNotificationPermission] =
+    useState<NotificationPermissionState>(() => getNotificationPermission());
+  const [notificationGuideMode, setNotificationGuideMode] =
+    useState<NotificationGuideMode>(null);
+  const [notificationGuideStatus, setNotificationGuideStatus] = useState("");
+  const [isRequestingNotificationPermission, setIsRequestingNotificationPermission] =
+    useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(
     () => !initialCache || shouldShowReturnSkeletonRef.current
   );
@@ -449,11 +503,15 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   const [searchUsers, setSearchUsers] = useState<UserSummary[]>([]);
   const [searchStatus, setSearchStatus] = useState("");
   const [unreadCounts, setUnreadCounts] = useState<ConversationUnreadCounts>(() => readUnreadCounts());
+  const [mutedConversations, setMutedConversations] = useState<ConversationMuteMap>(() =>
+    readConversationMutes()
+  );
   const socketRef = useRef<Socket | null>(null);
   const meRef = useRef<SessionUser | null>(null);
   const threadsRef = useRef<ThreadResponse[]>([]);
   const groupsRef = useRef<GroupSummary[]>([]);
   const unreadCountsRef = useRef<ConversationUnreadCounts>(readUnreadCounts());
+  const mutedConversationsRef = useRef<ConversationMuteMap>(readConversationMutes());
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const statusToastTimeoutRef = useRef<number | null>(null);
 
@@ -472,6 +530,30 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     persistUnreadCounts(normalized);
     setUnreadCounts(normalized);
   }, []);
+
+  const updateMutedConversations = useCallback((
+    updater: (current: ConversationMuteMap) => ConversationMuteMap,
+  ) => {
+    setMutedConversations((current) => {
+      const next = normalizeConversationMutes(updater(current));
+      mutedConversationsRef.current = next;
+      persistConversationMutes(next);
+      return next;
+    });
+  }, []);
+
+  const replaceMutedConversations = useCallback((nextMutes: ConversationMuteMap) => {
+    const normalized = normalizeConversationMutes(nextMutes);
+    mutedConversationsRef.current = normalized;
+    persistConversationMutes(normalized);
+    setMutedConversations(normalized);
+  }, []);
+
+  const clearConversationMute = useCallback((conversationId: string) => {
+    updateMutedConversations((current) =>
+      setConversationMuted(current, conversationId, false)
+    );
+  }, [updateMutedConversations]);
 
   const refreshUnreadCountsFromBackend = useCallback(async () => {
     if (!getAuthToken()) {
@@ -496,6 +578,142 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       return false;
     }
   }, [replaceUnreadCounts]);
+
+  const refreshMutedConversationsFromBackend = useCallback(async () => {
+    if (!getAuthToken()) {
+      replaceMutedConversations({});
+      return false;
+    }
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/chat/mutes`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = (await response.json().catch(() => ({}))) as {
+        keys?: unknown;
+        directThreadIds?: unknown;
+        groupIds?: unknown;
+      };
+
+      let keys: string[] = [];
+      if (Array.isArray(data.keys)) {
+        keys = data.keys
+          .map((value) => (typeof value === "string" ? value.trim() : ""))
+          .filter(Boolean);
+      }
+
+      if (keys.length === 0) {
+        const directThreadIds = Array.isArray(data.directThreadIds)
+          ? data.directThreadIds
+          : [];
+        const groupIds = Array.isArray(data.groupIds) ? data.groupIds : [];
+
+        keys = [
+          ...directThreadIds
+            .map((value) => Number(value))
+            .filter((value) => Number.isInteger(value) && value > 0)
+            .map((threadId) => getThreadMuteKey(threadId)),
+          ...groupIds
+            .map((value) => (typeof value === "string" ? value.trim() : ""))
+            .filter(Boolean)
+            .map((groupId) => getGroupMuteKey(groupId)),
+        ];
+      }
+
+      replaceMutedConversations(replaceConversationMutes(keys));
+      return true;
+    } catch {
+      return false;
+    }
+  }, [replaceMutedConversations]);
+
+  const syncNotificationPermissionState = useCallback(async () => {
+    const runtime = await getNotificationRuntimeSupport();
+    setNotificationPermission(runtime.permission);
+
+    if (runtime.requiresStandaloneForIOS) {
+      setNotificationGuideMode("ios-install");
+      setNotificationGuideStatus("");
+      return;
+    }
+
+    if (runtime.permission === "default") {
+      setNotificationGuideMode("permission-default");
+      setNotificationGuideStatus("");
+      return;
+    }
+
+    if (runtime.permission === "denied") {
+      setNotificationGuideMode("permission-denied");
+      setNotificationGuideStatus("");
+      return;
+    }
+
+    setNotificationGuideMode(null);
+
+    const subscription = await ensurePushSubscriptionForCurrentUser({
+      requestPermission: false,
+    });
+    if (!subscription.ok) {
+      setNotificationGuideStatus(
+        subscription.reason || t("settings.notificationsNotGranted"),
+      );
+      return;
+    }
+
+    setNotificationGuideStatus("");
+  }, [t]);
+
+  const handleEnableNotificationsFromGuide = useCallback(async () => {
+    if (isRequestingNotificationPermission) {
+      return;
+    }
+
+    setIsRequestingNotificationPermission(true);
+    setNotificationGuideStatus("");
+
+    try {
+      const subscription = await ensurePushSubscriptionForCurrentUser({
+        requestPermission: true,
+      });
+
+      setNotificationPermission(subscription.permission);
+
+      if (subscription.ok) {
+        setNotificationGuideMode(null);
+        setNotificationGuideStatus(t("conversations.notificationsEnabled"));
+        return;
+      }
+
+      if (subscription.permission === "denied") {
+        setNotificationGuideMode("permission-denied");
+        setNotificationGuideStatus("");
+        return;
+      }
+
+      if (subscription.permission === "unsupported") {
+        if (isIOSDevice() && !isStandalonePwa()) {
+          setNotificationGuideMode("ios-install");
+          setNotificationGuideStatus("");
+          return;
+        }
+
+        setNotificationGuideStatus(t("settings.notificationsUnsupported"));
+        return;
+      }
+
+      setNotificationGuideMode("permission-default");
+      setNotificationGuideStatus(
+        subscription.reason || t("settings.notificationsNotGranted"),
+      );
+    } finally {
+      setIsRequestingNotificationPermission(false);
+    }
+  }, [isRequestingNotificationPermission, t]);
 
   const syncConversationReadState = useCallback(
     async (
@@ -579,6 +797,46 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   }, [unreadCounts]);
 
   useEffect(() => {
+    mutedConversationsRef.current = mutedConversations;
+  }, [mutedConversations]);
+
+  useEffect(() => {
+    const handleMuteEvent = (event: Event) => {
+      const customEvent = event as CustomEvent<unknown>;
+      if (customEvent.detail && typeof customEvent.detail === "object") {
+        const normalized = normalizeConversationMutes(customEvent.detail);
+        mutedConversationsRef.current = normalized;
+        setMutedConversations(normalized);
+        return;
+      }
+
+      const fromStorage = readConversationMutes();
+      mutedConversationsRef.current = fromStorage;
+      setMutedConversations(fromStorage);
+    };
+
+    const handleStorage = () => {
+      const fromStorage = readConversationMutes();
+      mutedConversationsRef.current = fromStorage;
+      setMutedConversations(fromStorage);
+    };
+
+    window.addEventListener(
+      CONVERSATION_MUTES_UPDATED_EVENT,
+      handleMuteEvent as EventListener,
+    );
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener(
+        CONVERSATION_MUTES_UPDATED_EVENT,
+        handleMuteEvent as EventListener,
+      );
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (statusToastTimeoutRef.current !== null) {
         window.clearTimeout(statusToastTimeoutRef.current);
@@ -658,6 +916,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         if (isMounted) {
           await Promise.all([refreshThreads(), refreshGroups()]);
           await refreshUnreadCountsFromBackend();
+          await refreshMutedConversationsFromBackend();
         }
       } catch {
         if (isMounted) setStatus(t("conversations.loadingFailed"));
@@ -681,17 +940,55 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     return () => {
       isMounted = false;
     };
-  }, [initialCache, refreshUnreadCountsFromBackend, t]);
+  }, [
+    initialCache,
+    refreshMutedConversationsFromBackend,
+    refreshUnreadCountsFromBackend,
+    t,
+  ]);
 
   useEffect(() => {
     if (!me) {
+      setNotificationGuideMode(null);
+      setNotificationGuideStatus("");
       return;
     }
 
-    void ensurePushSubscriptionForCurrentUser({
-      requestPermission: false,
-    });
-  }, [me]);
+    void syncNotificationPermissionState();
+
+    const refreshNotificationState = () => {
+      if (typeof document !== "undefined" && document.hidden) {
+        return;
+      }
+      void syncNotificationPermissionState();
+    };
+
+    window.addEventListener("focus", refreshNotificationState);
+    window.addEventListener("pageshow", refreshNotificationState);
+    document.addEventListener("visibilitychange", refreshNotificationState);
+
+    let permissionStatus: PermissionStatus | null = null;
+    const permissionsApi =
+      typeof navigator !== "undefined" ? navigator.permissions : undefined;
+    if (permissionsApi?.query) {
+      void permissionsApi
+        .query({ name: "notifications" as PermissionName })
+        .then((status) => {
+          permissionStatus = status;
+          permissionStatus.addEventListener("change", refreshNotificationState);
+        })
+        .catch(() => undefined);
+    }
+
+    return () => {
+      window.removeEventListener("focus", refreshNotificationState);
+      window.removeEventListener("pageshow", refreshNotificationState);
+      document.removeEventListener("visibilitychange", refreshNotificationState);
+      if (permissionStatus) {
+        permissionStatus.removeEventListener("change", refreshNotificationState);
+      }
+    };
+  }, [me, syncNotificationPermissionState]);
 
   useEffect(() => {
     if (!me) {
@@ -699,10 +996,12 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     }
 
     void refreshUnreadCountsFromBackend();
+    void refreshMutedConversationsFromBackend();
 
     const refreshWhenVisible = () => {
       if (!document.hidden) {
         void refreshUnreadCountsFromBackend();
+        void refreshMutedConversationsFromBackend();
       }
     };
 
@@ -718,7 +1017,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       window.removeEventListener("focus", refreshWhenVisible);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
-  }, [me, refreshUnreadCountsFromBackend]);
+  }, [me, refreshMutedConversationsFromBackend, refreshUnreadCountsFromBackend]);
 
   useEffect(() => {
     if (!me) return;
@@ -765,6 +1064,14 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         senderName = sender.cleanId || sender.name || sender.email;
       }
 
+      const mutedByMe = isConversationMuted(
+        mutedConversationsRef.current,
+        getThreadMuteKey(message.threadId),
+      );
+      if (mutedByMe) {
+        return;
+      }
+
       showMessageNotification(senderName, getNotificationBody(message.body, t("conversations.sentPhoto")), {
         tag: `thread-${message.threadId}`,
         target: {
@@ -800,6 +1107,14 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       const targetGroup = groupsRef.current.find((item) => item.id === message.groupId);
       const groupName = targetGroup?.name ?? t("groups.groupFallback");
       const senderName = message.senderName || t("groups.someone");
+      const mutedByMe = isConversationMuted(
+        mutedConversationsRef.current,
+        getGroupMuteKey(message.groupId),
+      );
+      if (mutedByMe) {
+        return;
+      }
+
       showMessageNotification(groupName, `${senderName}: ${getNotificationBody(message.body, t("conversations.sentPhoto"))}`, {
         tag: `group-${message.groupId}`,
         target: {
@@ -942,6 +1257,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
 
       setThreads((prev) => prev.filter((thread) => thread.id !== detail.threadId));
       clearConversationUnread(getThreadUnreadKey(detail.threadId));
+      clearConversationMute(getThreadMuteKey(detail.threadId));
 
       const toastMessage = detail.toast?.trim() || t("chatSettings.deletedToast");
       setStatus(toastMessage);
@@ -960,7 +1276,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     return () => {
       window.removeEventListener(CONVERSATION_DELETED_EVENT, handler as EventListener);
     };
-  }, [clearConversationUnread, t]);
+  }, [clearConversationMute, clearConversationUnread, t]);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -973,6 +1289,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
 
       setGroups((prev) => prev.filter((group) => group.id !== groupId));
       clearConversationUnread(getGroupUnreadKey(groupId));
+      clearConversationMute(getGroupMuteKey(groupId));
 
       const toastMessage = detail.toast?.trim() || t("groupSettings.leftToast");
       setStatus(toastMessage);
@@ -991,7 +1308,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     return () => {
       window.removeEventListener(GROUP_CONVERSATION_LEFT_EVENT, handler as EventListener);
     };
-  }, [clearConversationUnread, t]);
+  }, [clearConversationMute, clearConversationUnread, t]);
 
   useEffect(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -1078,6 +1395,10 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         subline: `@${other.cleanId}`,
         trust: other.trust ?? FALLBACK_CLEAN_ID_TRUST,
         unreadCount: unreadCounts[getThreadUnreadKey(item.id)] ?? 0,
+        muted: isConversationMuted(
+          mutedConversations,
+          getThreadMuteKey(item.id),
+        ),
       };
     });
 
@@ -1099,6 +1420,10 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         sortAt: group.lastMessageAt,
         subline: t("groups.members", { count: group.memberCount }),
         unreadCount: unreadCounts[getGroupUnreadKey(group.id)] ?? 0,
+        muted: isConversationMuted(
+          mutedConversations,
+          getGroupMuteKey(group.id),
+        ),
       }));
 
     return [...directItems, ...joinedGroupItems].sort((a, b) => {
@@ -1106,7 +1431,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       const bTime = toTimestamp(b.sortAt);
       return bTime - aTime;
     });
-  }, [threads, groups, me, unreadCounts, t, i18n.language]);
+  }, [threads, groups, me, mutedConversations, unreadCounts, t, i18n.language]);
 
   const skeletonCards = useMemo<ConversationSkeletonCard[]>(() => {
     if (conversations.length === 0) {
@@ -1195,6 +1520,19 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   const shouldShowEmptyState = !isInitialLoading && !hasQuery && !hasConversationResults;
   const shouldRenderSearchResults = !isInitialLoading && hasQuery && hasSearchResults;
   const shouldRenderConversations = !isInitialLoading && !hasQuery && hasConversationResults;
+  const shouldShowNotificationGuide =
+    Boolean(me) && notificationPermission !== "granted" && notificationGuideMode !== null;
+  const notificationGuideCopy =
+    notificationGuideMode === "ios-install"
+      ? t("conversations.notificationsIosPwaGuide")
+      : notificationGuideMode === "permission-denied"
+        ? isAndroid13Plus()
+          ? t("settings.notificationsBlockedAndroid")
+          : t("settings.notificationsBlockedBrowser")
+        : t("conversations.notificationsDefaultGuide");
+  const notificationGuideActionLabel = isRequestingNotificationPermission
+    ? t("conversations.notificationsEnabling")
+    : t("conversations.notificationsEnableAction");
 
   const renderSearchUserCard = (_index: number, user: UserSummary) => {
     const hasThread = threadByUserId.has(user.id);
@@ -1263,14 +1601,37 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
             <p className="role">{item.role}</p>
           </div>
           <div className="conversation-meta-stack">
-            <span className="time">{item.time}</span>
+            <span className="conversation-meta-time-row">
+              <span className="time">{item.time}</span>
+              {item.muted && (
+                <span
+                  className="conversation-muted-icon"
+                  role="img"
+                  aria-label={t("conversations.muted")}
+                >
+                  <MutedBellGlyph />
+                </span>
+              )}
+            </span>
             <span className="conversation-badge-slot" aria-hidden={item.unreadCount <= 0}>
-              <Badge
-                count={item.unreadCount}
-                size="compact"
-                className="conversation-unread-badge"
-                ariaLabel={t("conversations.unreadMessage", { count: item.unreadCount })}
-              />
+              {item.unreadCount > 0 && item.muted ? (
+                <span
+                  className="conversation-muted-unread-dot"
+                  role="img"
+                  aria-label={t("conversations.mutedUnreadMessage", {
+                    count: item.unreadCount,
+                  })}
+                />
+              ) : (
+                <Badge
+                  count={item.unreadCount}
+                  size="compact"
+                  className="conversation-unread-badge"
+                  ariaLabel={t("conversations.unreadMessage", {
+                    count: item.unreadCount,
+                  })}
+                />
+              )}
             </span>
           </div>
         </div>
@@ -1358,6 +1719,41 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
             onCloseSearch={closeSearch}
             onSearchChange={setSearchTerm}
           />
+
+          {shouldShowNotificationGuide && (
+            <p
+              className={`conversations-notification-guide ${
+                notificationGuideMode === "ios-install" ? "is-ios" : ""
+              }`}
+              role="status"
+            >
+              {notificationGuideMode === "ios-install" && (
+                <span
+                  className="conversations-notification-guide-arrow"
+                  aria-hidden="true"
+                >
+                  ↗
+                </span>
+              )}
+              <span>{notificationGuideCopy}</span>
+              {notificationGuideMode === "permission-default" && (
+                <button
+                  type="button"
+                  className="conversations-notification-guide-action"
+                  onClick={handleEnableNotificationsFromGuide}
+                  disabled={isRequestingNotificationPermission}
+                >
+                  {notificationGuideActionLabel}
+                </button>
+              )}
+            </p>
+          )}
+
+          {notificationGuideStatus && (
+            <p className="conversations-notification-guide-status" role="status">
+              {notificationGuideStatus}
+            </p>
+          )}
 
           {shouldShowInlineStatus && (
             <div className="status-text conversations-inline-status" role="status">

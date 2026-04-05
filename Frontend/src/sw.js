@@ -24,6 +24,7 @@ const DEFAULT_BODY = "Open CleanChat to continue the conversation.";
 const DEFAULT_ICON = "/icons/icon-192.png";
 const DEFAULT_BADGE = "/icons/icon-192.png";
 const DEFAULT_URL = "/conversations";
+const PUSH_ENTRY_QUERY_KEY = "fromPush";
 
 const isRecord = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
@@ -48,6 +49,27 @@ const normalizeRelativeUrl = (value) => {
   }
 };
 
+const appendPushEntryQuery = (value) => {
+  const normalized = normalizeRelativeUrl(value);
+  const fallback = `${DEFAULT_URL}?${PUSH_ENTRY_QUERY_KEY}=1`;
+  if (!normalized) {
+    return fallback;
+  }
+
+  try {
+    const parsed = new URL(normalized, self.location.origin);
+    if (parsed.origin !== self.location.origin) {
+      return fallback;
+    }
+    if (!parsed.searchParams.has(PUSH_ENTRY_QUERY_KEY)) {
+      parsed.searchParams.set(PUSH_ENTRY_QUERY_KEY, "1");
+    }
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return fallback;
+  }
+};
+
 const normalizePositiveInt = (value) => {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0) {
@@ -66,23 +88,29 @@ const normalizeString = (value) => {
 
 const buildUrlFromPayload = (payload) => {
   const explicitUrl = normalizeRelativeUrl(payload.url);
+  let candidateUrl = DEFAULT_URL;
+
   if (explicitUrl) {
-    return explicitUrl;
+    candidateUrl = explicitUrl;
+    return appendPushEntryQuery(candidateUrl);
   }
 
   if (payload.chatType === "group" && payload.groupId) {
-    return `/chat/group/${encodeURIComponent(payload.groupId)}`;
+    candidateUrl = `/chat/group/${encodeURIComponent(payload.groupId)}`;
+    return appendPushEntryQuery(candidateUrl);
   }
 
   if (payload.threadId) {
-    return `/chat/${payload.threadId}`;
+    candidateUrl = `/chat/${payload.threadId}`;
+    return appendPushEntryQuery(candidateUrl);
   }
 
   if (payload.groupId) {
-    return `/chat/group/${encodeURIComponent(payload.groupId)}`;
+    candidateUrl = `/chat/group/${encodeURIComponent(payload.groupId)}`;
+    return appendPushEntryQuery(candidateUrl);
   }
 
-  return DEFAULT_URL;
+  return appendPushEntryQuery(candidateUrl);
 };
 
 const parsePushPayload = (event) => {
@@ -106,16 +134,30 @@ const parsePushPayload = (event) => {
         ? payload.target
         : {};
 
+  const senderName =
+    normalizeString(data.senderName) ||
+    normalizeString(payload.senderName) ||
+    normalizeString(target.senderName) ||
+    undefined;
+
+  const summary =
+    normalizeString(data.summary) ||
+    normalizeString(payload.summary) ||
+    normalizeString(target.summary) ||
+    undefined;
+
   const title =
     normalizeString(notification.title) ||
     normalizeString(payload.title) ||
     normalizeString(data.title) ||
+    senderName ||
     DEFAULT_TITLE;
 
   const body =
     normalizeString(notification.body) ||
     normalizeString(payload.body) ||
     normalizeString(data.body) ||
+    summary ||
     DEFAULT_BODY;
 
   const tag =

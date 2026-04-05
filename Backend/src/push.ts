@@ -12,6 +12,8 @@ type PushEnvelope = {
     chatType?: PushChatType;
     threadId?: number;
     groupId?: string;
+    senderName?: string;
+    summary?: string;
   };
 };
 
@@ -64,6 +66,14 @@ const buildPayload = (envelope: PushEnvelope) => {
       groupId:
         typeof data.groupId === "string" && data.groupId.trim()
           ? data.groupId.trim()
+          : undefined,
+      senderName:
+        typeof data.senderName === "string" && data.senderName.trim()
+          ? data.senderName.trim().slice(0, 120)
+          : undefined,
+      summary:
+        typeof data.summary === "string" && data.summary.trim()
+          ? data.summary.trim().slice(0, 260)
           : undefined,
       url:
         typeof data.url === "string" && data.url.trim().startsWith("/")

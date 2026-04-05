@@ -27,6 +27,16 @@ import {
 } from "../cleanIdTrust";
 import { authMiddleware } from "../auth";
 import { deleteConversation } from "../controllers/conversation";
+import {
+  clearGroupMuteForAllUsers,
+  clearGroupMuteForUser,
+  isGroupMutedForUser,
+  isThreadMutedForUser,
+  listMutedGroupIdsForUser,
+  listMutedThreadIdsForUser,
+  setGroupMutedForUser,
+  setThreadMutedForUser,
+} from "../muteStore";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -418,6 +428,26 @@ router.get("/unread-count", async (req, res) => {
   } catch {
     res.status(500).json({ message: "Failed to compute unread counts." });
   }
+});
+
+router.get("/mutes", (req, res) => {
+  const sessionUserId = req.user?.userId;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const directThreadIds = listMutedThreadIdsForUser(sessionUserId);
+  const groupIds = listMutedGroupIdsForUser(sessionUserId);
+
+  res.json({
+    directThreadIds,
+    groupIds,
+    keys: [
+      ...directThreadIds.map((threadId) => directUnreadKey(threadId)),
+      ...groupIds.map((groupId) => groupUnreadKey(groupId)),
+    ],
+  });
 });
 
 router.post("/unread/read", async (req, res) => {
@@ -1319,7 +1349,12 @@ router.get("/groups", async (req, res) => {
     return;
   }
 
-  res.json({ groups: listGroupsForUser(sessionUserId) });
+  const groups = listGroupsForUser(sessionUserId).map((group) => ({
+    ...group,
+    mutedByMe: isGroupMutedForUser(sessionUserId, group.id),
+  }));
+
+  res.json({ groups });
 });
 
 router.post("/groups", async (req, res) => {
@@ -1432,6 +1467,8 @@ router.post("/groups/:groupId/leave", async (req, res) => {
     return;
   }
 
+  clearGroupMuteForUser(sessionUserId, groupId);
+
   res.status(200).json({ group: left.summary, alreadyLeft: left.alreadyLeft });
 });
 
@@ -1489,8 +1526,52 @@ router.get("/groups/:groupId/settings", async (req, res) => {
       : [];
 
   res.status(200).json({
-    group: summary,
+    group: {
+      ...summary,
+      mutedByMe: isGroupMutedForUser(sessionUserId, groupId),
+    },
     members,
+  });
+});
+
+router.patch("/groups/:groupId/mute", async (req, res) => {
+  const sessionUserId = req.user?.userId;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const groupId = normalizeGroupId(req.params.groupId);
+  if (!groupId) {
+    res.status(400).json({ message: "Invalid group ID." });
+    return;
+  }
+
+  if (typeof req.body?.muted !== "boolean") {
+    res.status(400).json({ message: "muted must be a boolean." });
+    return;
+  }
+
+  const group = getGroupById(groupId);
+  if (!group) {
+    res.status(404).json({ message: "Group not found." });
+    return;
+  }
+
+  if (!isGroupMember(groupId, sessionUserId)) {
+    res.status(403).json({ message: "Join the group before chatting." });
+    return;
+  }
+
+  const mutedByMe = setGroupMutedForUser(
+    sessionUserId,
+    groupId,
+    req.body.muted,
+  );
+
+  res.status(200).json({
+    groupId,
+    mutedByMe,
   });
 });
 
@@ -1732,6 +1813,8 @@ router.delete("/groups/:groupId", async (req, res) => {
     return;
   }
 
+  clearGroupMuteForAllUsers(groupId);
+
   res.status(200).json({ message: "Group deleted." });
 });
 
@@ -1880,6 +1963,7 @@ router.get("/threads", async (req, res) => {
   res.json(
     threads.map((thread) => ({
       ...thread,
+      mutedByMe: isThreadMutedForUser(userId, thread.id),
       UserA: {
         ...thread.UserA,
         trust:
@@ -1956,6 +2040,39 @@ router.get("/threads/:threadId/settings", async (req, res) => {
     otherUser,
     blockedByMe: Boolean(blockedByMe),
     blockedMe: Boolean(blockedMe),
+    mutedByMe: isThreadMutedForUser(userId, threadId),
+  });
+});
+
+router.patch("/threads/:threadId/mute", async (req, res) => {
+  const userId = req.user?.userId;
+  if (!ensureAuth(userId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const threadId = parsePositiveInt(req.params.threadId);
+  if (!threadId) {
+    res.status(400).json({ message: "Invalid thread ID" });
+    return;
+  }
+
+  if (typeof req.body?.muted !== "boolean") {
+    res.status(400).json({ message: "muted must be a boolean." });
+    return;
+  }
+
+  const thread = await getThreadForUser(threadId, userId);
+  if (!thread) {
+    res.status(404).json({ message: "Thread not found" });
+    return;
+  }
+
+  const mutedByMe = setThreadMutedForUser(userId, threadId, req.body.muted);
+
+  res.json({
+    threadId,
+    mutedByMe,
   });
 });
 

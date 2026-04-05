@@ -1,6 +1,8 @@
 import { apiClient } from "./apiClient";
 
-type NotificationPermissionState = NotificationPermission | "unsupported";
+export type NotificationPermissionState =
+  | NotificationPermission
+  | "unsupported";
 
 type NotificationTarget =
   | {
@@ -20,13 +22,26 @@ type ShowNotificationOptions = {
   target?: NotificationTarget;
 };
 
+export type NotificationRuntimeSupport = {
+  permission: NotificationPermissionState;
+  pushSupported: boolean;
+  serviceWorkerReady: boolean;
+  isIOSDevice: boolean;
+  isStandalonePwa: boolean;
+  requiresStandaloneForIOS: boolean;
+};
+
 const isSupported = () =>
   typeof window !== "undefined" && "Notification" in window;
 const hasServiceWorker = () =>
   typeof navigator !== "undefined" && "serviceWorker" in navigator;
+const hasPushManager = () =>
+  typeof window !== "undefined" && "PushManager" in window;
 const DEBUG_PREFIX = "[CleanChat][notifications]";
-const READY_TIMEOUT_MS = 4500;
+const READY_TIMEOUT_MS = 12000;
 const FALLBACK_ROUTE = "/conversations";
+const SW_SCRIPT_URL = "/sw.js";
+const PUSH_ENTRY_QUERY_KEY = "fromPush";
 let cachedVapidPublicKey = "";
 
 type PushSubscriptionResult = {
@@ -69,6 +84,27 @@ const normalizeRelativeUrl = (value: unknown): string | null => {
     return `${parsed.pathname}${parsed.search}${parsed.hash}`;
   } catch {
     return null;
+  }
+};
+
+const appendPushEntryQuery = (value: string) => {
+  if (typeof window === "undefined") {
+    return value;
+  }
+
+  try {
+    const parsed = new URL(value, window.location.origin);
+    if (parsed.origin !== window.location.origin) {
+      return value;
+    }
+
+    if (!parsed.searchParams.has(PUSH_ENTRY_QUERY_KEY)) {
+      parsed.searchParams.set(PUSH_ENTRY_QUERY_KEY, "1");
+    }
+
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return value;
   }
 };
 
@@ -140,6 +176,41 @@ const getNotificationRoute = (target?: NotificationTarget): string => {
   return `/chat/group/${encodeURIComponent(groupId)}`;
 };
 
+const isLocalhost = () => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return (
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1"
+  );
+};
+
+export const isIOSDevice = () => {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  return /iPad|iPhone|iPod/i.test(navigator.userAgent);
+};
+
+export const isStandalonePwa = () => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const mediaStandalone = window.matchMedia(
+    "(display-mode: standalone)",
+  ).matches;
+  const navigatorStandalone =
+    (window.navigator as Navigator & { standalone?: boolean }).standalone ===
+    true;
+  return mediaStandalone || navigatorStandalone;
+};
+
+export const requiresIOSPwaForPush = () => isIOSDevice() && !isStandalonePwa();
+
 const readAndroidMajorVersion = (): number | null => {
   if (typeof navigator === "undefined") {
     return null;
@@ -159,6 +230,124 @@ export const isAndroid13Plus = () => {
   return major !== null && major >= 13;
 };
 
+const waitForActivatedServiceWorker = async (
+  registration: ServiceWorkerRegistration,
+) => {
+  if (registration.active?.state === "activated") {
+    return registration;
+  }
+
+  const worker =
+    registration.installing ?? registration.waiting ?? registration.active;
+  if (!worker) {
+    return registration;
+  }
+
+  if (worker.state === "activated") {
+    return registration;
+  }
+
+  return new Promise<ServiceWorkerRegistration>((resolve) => {
+    if (typeof window === "undefined") {
+      resolve(registration);
+      return;
+    }
+
+    let settled = false;
+    const timerId = window.setTimeout(() => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      worker.removeEventListener("statechange", handleStateChange);
+      resolve(registration);
+    }, READY_TIMEOUT_MS);
+
+    const handleStateChange = () => {
+      if (
+        worker.state === "activated" ||
+        registration.active?.state === "activated"
+      ) {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        window.clearTimeout(timerId);
+        worker.removeEventListener("statechange", handleStateChange);
+        resolve(registration);
+      }
+    };
+
+    worker.addEventListener("statechange", handleStateChange);
+    handleStateChange();
+  });
+};
+
+const getKnownServiceWorkerRegistration = async () => {
+  if (!hasServiceWorker()) {
+    return null;
+  }
+
+  const byScript = await navigator.serviceWorker
+    .getRegistration(SW_SCRIPT_URL)
+    .catch(() => undefined);
+  if (byScript) {
+    return byScript;
+  }
+
+  const anyRegistration = await navigator.serviceWorker
+    .getRegistration()
+    .catch(() => undefined);
+  if (anyRegistration) {
+    return anyRegistration;
+  }
+
+  const registrations = await navigator.serviceWorker
+    .getRegistrations()
+    .catch(() => [] as ServiceWorkerRegistration[]);
+  if (registrations.length === 0) {
+    return null;
+  }
+
+  const preferred = registrations.find((item) => {
+    const scriptUrl =
+      item.active?.scriptURL ??
+      item.waiting?.scriptURL ??
+      item.installing?.scriptURL ??
+      "";
+    return scriptUrl.includes("/sw.js") || scriptUrl.includes("/dev-sw.js");
+  });
+
+  return preferred ?? registrations[0] ?? null;
+};
+
+const tryRegisterServiceWorkerFallback = async () => {
+  if (!hasServiceWorker()) {
+    return null;
+  }
+
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  if (!window.isSecureContext && !isLocalhost()) {
+    return null;
+  }
+
+  try {
+    return await navigator.serviceWorker.register(SW_SCRIPT_URL, {
+      scope: "/",
+    });
+  } catch (error) {
+    console.warn(
+      `${DEBUG_PREFIX} manual service worker register failed`,
+      error,
+    );
+    return null;
+  }
+};
+
 const resolveServiceWorkerRegistration =
   async (): Promise<ServiceWorkerRegistration | null> => {
     if (!hasServiceWorker()) {
@@ -166,15 +355,22 @@ const resolveServiceWorkerRegistration =
     }
 
     try {
-      const registration = await navigator.serviceWorker.getRegistration();
+      const registration = await getKnownServiceWorkerRegistration();
       if (registration) {
-        return registration;
+        return await waitForActivatedServiceWorker(registration);
+      }
+
+      const fallbackRegistration = await tryRegisterServiceWorkerFallback();
+      if (fallbackRegistration) {
+        return await waitForActivatedServiceWorker(fallbackRegistration);
       }
 
       const readyRegistration = await Promise.race<
         ServiceWorkerRegistration | undefined
       >([
-        navigator.serviceWorker.ready,
+        navigator.serviceWorker.ready.then((value) =>
+          waitForActivatedServiceWorker(value),
+        ),
         new Promise<undefined>((resolve) =>
           window.setTimeout(() => resolve(undefined), READY_TIMEOUT_MS),
         ),
@@ -199,15 +395,39 @@ export const getNotificationPermission = (): NotificationPermissionState => {
   return Notification.permission;
 };
 
+export const getNotificationRuntimeSupport =
+  async (): Promise<NotificationRuntimeSupport> => {
+    const permission = getNotificationPermission();
+    const requiresStandaloneForIOS = requiresIOSPwaForPush();
+    const serviceWorkerRegistration = await resolveServiceWorkerRegistration();
+
+    return {
+      permission,
+      pushSupported:
+        isSupported() &&
+        hasServiceWorker() &&
+        hasPushManager() &&
+        !requiresStandaloneForIOS,
+      serviceWorkerReady: Boolean(serviceWorkerRegistration?.active),
+      isIOSDevice: isIOSDevice(),
+      isStandalonePwa: isStandalonePwa(),
+      requiresStandaloneForIOS,
+    };
+  };
+
 export const requestNotificationPermission =
   async (): Promise<NotificationPermissionState> => {
     if (!isSupported()) return "unsupported";
+    if (requiresIOSPwaForPush()) return "unsupported";
     if (Notification.permission !== "default") return Notification.permission;
 
-    // Android 13+ requires explicit runtime notification consent. Preparing the
-    // service worker first avoids missing the first payload right after approval.
-    await resolveServiceWorkerRegistration();
-    return Notification.requestPermission();
+    const permission = await Notification.requestPermission();
+
+    if (permission === "granted") {
+      await resolveServiceWorkerRegistration();
+    }
+
+    return permission;
   };
 
 export const showMessageNotification = async (
@@ -218,7 +438,7 @@ export const showMessageNotification = async (
   if (!isSupported() || Notification.permission !== "granted") return false;
 
   const options = resolveShowOptions(tagOrOptions);
-  const route = getNotificationRoute(options.target);
+  const route = appendPushEntryQuery(getNotificationRoute(options.target));
   const payload = {
     url: route,
     target: options.target ?? null,
@@ -275,10 +495,7 @@ export const showMessageNotification = async (
 };
 
 const isPushSupported = () =>
-  isSupported() &&
-  hasServiceWorker() &&
-  typeof window !== "undefined" &&
-  "PushManager" in window;
+  isSupported() && hasServiceWorker() && hasPushManager();
 
 const readVapidPublicKeyFromEnv = () => {
   const raw =
@@ -360,6 +577,14 @@ const toBackendPushPayload = (subscription: PushSubscription) => {
 export const ensurePushSubscriptionForCurrentUser = async (
   options: { requestPermission?: boolean } = {},
 ): Promise<PushSubscriptionResult> => {
+  if (requiresIOSPwaForPush()) {
+    return {
+      ok: false,
+      permission: getNotificationPermission(),
+      reason: "iOS web push requires launching from Home Screen PWA mode.",
+    };
+  }
+
   if (!isPushSupported()) {
     return {
       ok: false,
@@ -402,6 +627,28 @@ export const ensurePushSubscriptionForCurrentUser = async (
 
   try {
     let subscription = await registration.pushManager.getSubscription();
+
+    const isExpired =
+      subscription &&
+      typeof subscription.expirationTime === "number" &&
+      subscription.expirationTime <= Date.now();
+    if (subscription && isExpired) {
+      try {
+        await subscription.unsubscribe();
+      } catch {
+        // Ignore unsubscribe failures; a fresh subscribe below can still proceed.
+      }
+      subscription = null;
+    }
+
+    if (subscription && !toBackendPushPayload(subscription)) {
+      try {
+        await subscription.unsubscribe();
+      } catch {
+        // Ignore unsubscribe failures for malformed legacy subscription objects.
+      }
+      subscription = null;
+    }
 
     if (!subscription) {
       const vapidPublicKey = await resolveVapidPublicKey();

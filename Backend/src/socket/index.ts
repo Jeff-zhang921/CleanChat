@@ -13,6 +13,7 @@ import {
 
 import { getUserIdFromToken } from "../auth";
 import { sendPushToUser } from "../push";
+import { isGroupMutedForUser, isThreadMutedForUser } from "../muteStore";
 const prisma = new PrismaClient();
 
 const IMAGE_MESSAGE_PREFIX = "IMG::";
@@ -63,10 +64,13 @@ const formatPushPreview = (body: string) => {
     : trimmed;
 };
 
-const buildDirectChatUrl = (threadId: number) => `/chat/${threadId}`;
+const PUSH_ENTRY_QUERY = "fromPush=1";
+
+const buildDirectChatUrl = (threadId: number) =>
+  `/chat/${threadId}?${PUSH_ENTRY_QUERY}`;
 
 const buildGroupChatUrl = (groupId: string) =>
-  `/chat/group/${encodeURIComponent(groupId)}`;
+  `/chat/group/${encodeURIComponent(groupId)}?${PUSH_ENTRY_QUERY}`;
 
 const defaultOrigins = [
   "http://localhost:4173",
@@ -416,6 +420,10 @@ export function initSocket(server: HTTPServer) {
       const pushBody = formatPushPreview(message.body);
 
       recipientIds.forEach((recipientId) => {
+        if (isThreadMutedForUser(recipientId, validThreadId)) {
+          return;
+        }
+
         void sendPushToUser(prisma, recipientId, {
           title: `${senderLabel} sent a message`,
           body: pushBody,
@@ -423,6 +431,8 @@ export function initSocket(server: HTTPServer) {
           data: {
             chatType: "direct",
             threadId: validThreadId,
+            senderName: senderLabel,
+            summary: pushBody,
             url: buildDirectChatUrl(validThreadId),
           },
         });
@@ -606,6 +616,10 @@ export function initSocket(server: HTTPServer) {
       memberIds
         .filter((memberId) => memberId !== sessionUser.id)
         .forEach((memberId) => {
+          if (isGroupMutedForUser(memberId, groupId)) {
+            return;
+          }
+
           void sendPushToUser(prisma, memberId, {
             title: `${group?.name ?? "Group"} · ${senderLabel}`,
             body: pushBody,
@@ -613,6 +627,8 @@ export function initSocket(server: HTTPServer) {
             data: {
               chatType: "group",
               groupId,
+              senderName: senderLabel,
+              summary: pushBody,
               url: buildGroupChatUrl(groupId),
             },
           });
