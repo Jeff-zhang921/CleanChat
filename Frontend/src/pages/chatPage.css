@@ -200,10 +200,10 @@
 }
 
 .chat-more-button {
-  width: 2.88rem;
-  height: 2.88rem;
+  width: 1.6rem;
+  height: 1.6rem;
   padding: 0;
-  border-radius: 0.56rem;
+  border-radius: 0;
   border: 0;
   background: transparent;
   color: #2d3c33;
@@ -218,8 +218,8 @@
 }
 
 .chat-more-button svg {
-  width: 1.58rem;
-  height: 1.58rem;
+  width: 1.52rem;
+  height: 1.52rem;
   display: block;
 }
 

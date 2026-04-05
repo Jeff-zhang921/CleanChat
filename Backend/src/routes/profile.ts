@@ -15,7 +15,7 @@ import {
   validateRequestedCleanId,
 } from "../cleanIdClaim";
 import { authMiddleware } from "../auth";
-import { getVapidPublicKey } from "../push";
+import { getPushConfigurationStatus, getVapidPublicKey } from "../push";
 const router = Router();
 const prisma = new PrismaClient();
 
@@ -83,8 +83,17 @@ router.get("/me", async (req, res) => {
 router.get("/push/public-key", (_req, res) => {
   const publicKey = getVapidPublicKey();
   if (!publicKey) {
+    const status = getPushConfigurationStatus();
     res.status(503).json({
       error: "Web push is not configured on backend.",
+      errorCode: "PUSH_NOT_CONFIGURED",
+      details: {
+        hasPublicKey: status.hasPublicKey,
+        hasPrivateKey: status.hasPrivateKey,
+        publicKeyFormatValid: status.publicKeyFormatValid,
+        privateKeyFormatValid: status.privateKeyFormatValid,
+        errors: status.errors,
+      },
     });
     return;
   }

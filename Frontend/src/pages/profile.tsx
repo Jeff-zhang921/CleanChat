@@ -409,6 +409,7 @@ const ProfilePage = () => {
   const handleEnableNotifications = async () => {
     const subscriptionResult = await ensurePushSubscriptionForCurrentUser({
       requestPermission: true,
+      forceResubscribe: true,
     });
     setNotificationPermission(subscriptionResult.permission);
 

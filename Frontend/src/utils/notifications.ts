@@ -42,12 +42,46 @@ const READY_TIMEOUT_MS = 12000;
 const FALLBACK_ROUTE = "/conversations";
 const SW_SCRIPT_URL = "/sw.js";
 const PUSH_ENTRY_QUERY_KEY = "fromPush";
+const PUSH_VAPID_STORAGE_KEY = "cleanchat:vapid-public-key";
+const PUSH_VAPID_FINGERPRINT_KEY = "cleanchat:push-vapid-fingerprint";
+const VAPID_BASE64_URL_REGEX = /^[A-Za-z0-9_-]+$/;
+const VAPID_PUBLIC_KEY_BYTES = 65;
 let cachedVapidPublicKey = "";
 
 type PushSubscriptionResult = {
   ok: boolean;
   permission: NotificationPermissionState;
   reason?: string;
+};
+
+type VapidResolutionResult =
+  | {
+      ok: true;
+      key: string;
+      keyBytes: Uint8Array;
+      source: "env" | "storage" | "backend";
+    }
+  | {
+      ok: false;
+      reason: string;
+    };
+
+type AxiosLikeError = {
+  response?: {
+    status?: number;
+    data?: unknown;
+  };
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const isAxiosLikeError = (error: unknown): error is AxiosLikeError => {
+  if (!isRecord(error)) {
+    return false;
+  }
+
+  return "response" in error;
 };
 
 const normalizePositiveInt = (value: unknown): number | null => {
@@ -505,27 +539,209 @@ const readVapidPublicKeyFromEnv = () => {
   return raw.trim();
 };
 
-const decodeBase64Url = (value: string) => {
-  const normalized = value.trim().replace(/-/g, "+").replace(/_/g, "/");
-  const padded = normalized.padEnd(
-    normalized.length + ((4 - (normalized.length % 4)) % 4),
-    "=",
-  );
-  const binary = window.atob(padded);
-  const output = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    output[index] = binary.charCodeAt(index);
+const readStorageValue = (key: string) => {
+  if (typeof window === "undefined") {
+    return "";
   }
-  return output;
+
+  try {
+    return window.localStorage.getItem(key)?.trim() || "";
+  } catch {
+    return "";
+  }
 };
 
-const resolveVapidPublicKey = async () => {
+const writeStorageValue = (key: string, value: string) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    if (value.trim()) {
+      window.localStorage.setItem(key, value.trim());
+      return;
+    }
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore localStorage failures and continue with runtime-only values.
+  }
+};
+
+const readVapidFingerprint = () => readStorageValue(PUSH_VAPID_FINGERPRINT_KEY);
+
+const writeVapidFingerprint = (key: string) => {
+  writeStorageValue(PUSH_VAPID_FINGERPRINT_KEY, key);
+};
+
+const clearVapidFingerprint = () => {
+  writeStorageValue(PUSH_VAPID_FINGERPRINT_KEY, "");
+};
+
+const readVapidPublicKeyFromStorage = () =>
+  readStorageValue(PUSH_VAPID_STORAGE_KEY);
+
+const writeVapidPublicKeyToStorage = (key: string) => {
+  writeStorageValue(PUSH_VAPID_STORAGE_KEY, key);
+};
+
+const clearCachedVapidPublicKey = () => {
+  cachedVapidPublicKey = "";
+  writeVapidPublicKeyToStorage("");
+};
+
+const decodeBase64UrlToBytes = (value: string): Uint8Array | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  if (!normalized || !VAPID_BASE64_URL_REGEX.test(normalized)) {
+    return null;
+  }
+
+  const base64 = normalized
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+
+  try {
+    const binary = window.atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return bytes;
+  } catch {
+    return null;
+  }
+};
+
+const parseVapidPublicKey = (
+  rawValue: string,
+  source: "env" | "storage" | "backend",
+): VapidResolutionResult => {
+  const key = rawValue.trim();
+  if (!key) {
+    return {
+      ok: false,
+      reason:
+        source === "backend"
+          ? "Backend did not return a VAPID public key."
+          : "VAPID public key is empty.",
+    };
+  }
+
+  if (!VAPID_BASE64_URL_REGEX.test(key)) {
+    return {
+      ok: false,
+      reason:
+        source === "env"
+          ? "VITE_VAPID_PUBLIC_KEY format is invalid (expected base64url string)."
+          : "VAPID public key format is invalid (expected base64url string).",
+    };
+  }
+
+  const keyBytes = decodeBase64UrlToBytes(key);
+  if (
+    !keyBytes ||
+    keyBytes.length !== VAPID_PUBLIC_KEY_BYTES ||
+    keyBytes[0] !== 0x04
+  ) {
+    return {
+      ok: false,
+      reason:
+        source === "env"
+          ? "VITE_VAPID_PUBLIC_KEY is not a valid uncompressed P-256 public key."
+          : "VAPID public key is not a valid uncompressed P-256 public key.",
+    };
+  }
+
+  return {
+    ok: true,
+    key,
+    keyBytes,
+    source,
+  };
+};
+
+const toApiErrorReason = (error: unknown) => {
+  if (!isAxiosLikeError(error)) {
+    return "Failed to fetch VAPID public key from backend.";
+  }
+
+  const status = error.response?.status;
+  const payload = error.response?.data;
+  if (!isRecord(payload)) {
+    if (status === 401) {
+      return "Not authenticated while fetching VAPID public key.";
+    }
+
+    if (status === 503) {
+      return "Backend push is not configured. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY on backend.";
+    }
+
+    return "Failed to fetch VAPID public key from backend.";
+  }
+
+  const errorCode =
+    typeof payload.errorCode === "string" ? payload.errorCode : "";
+  const message = typeof payload.error === "string" ? payload.error.trim() : "";
+  const details = isRecord(payload.details) ? payload.details : null;
+  const detailedErrors =
+    details && Array.isArray(details.errors)
+      ? details.errors
+          .map((item) => (typeof item === "string" ? item.trim() : ""))
+          .filter(Boolean)
+      : [];
+
+  if (errorCode === "PUSH_NOT_CONFIGURED" || status === 503) {
+    if (detailedErrors.length > 0) {
+      return `Backend push is not configured. ${detailedErrors.join(" ")}`;
+    }
+
+    return (
+      message ||
+      "Backend push is not configured. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY on backend."
+    );
+  }
+
+  if (status === 401) {
+    return "Not authenticated while fetching VAPID public key.";
+  }
+
+  return message || "Failed to fetch VAPID public key from backend.";
+};
+
+const resolveVapidPublicKey = async (): Promise<VapidResolutionResult> => {
   const envKey = readVapidPublicKeyFromEnv();
   if (envKey) {
-    return envKey;
+    const parsed = parseVapidPublicKey(envKey, "env");
+    if (!parsed.ok) {
+      return parsed;
+    }
+
+    cachedVapidPublicKey = parsed.key;
+    writeVapidPublicKeyToStorage(parsed.key);
+    return parsed;
   }
-  if (cachedVapidPublicKey) {
-    return cachedVapidPublicKey;
+
+  const memoryKey = cachedVapidPublicKey.trim();
+  if (memoryKey) {
+    const parsed = parseVapidPublicKey(memoryKey, "storage");
+    if (parsed.ok) {
+      return parsed;
+    }
+    clearCachedVapidPublicKey();
+  }
+
+  const storedKey = readVapidPublicKeyFromStorage();
+  if (storedKey) {
+    const parsed = parseVapidPublicKey(storedKey, "storage");
+    if (parsed.ok) {
+      cachedVapidPublicKey = parsed.key;
+      return parsed;
+    }
+    clearCachedVapidPublicKey();
   }
 
   try {
@@ -534,15 +750,51 @@ const resolveVapidPublicKey = async () => {
       typeof response.data?.publicKey === "string"
         ? response.data.publicKey.trim()
         : "";
-    if (!key) {
-      return "";
+    const parsed = parseVapidPublicKey(key, "backend");
+    if (!parsed.ok) {
+      return {
+        ok: false,
+        reason: parsed.reason,
+      };
     }
-    cachedVapidPublicKey = key;
-    return key;
+
+    cachedVapidPublicKey = parsed.key;
+    writeVapidPublicKeyToStorage(parsed.key);
+    return parsed;
   } catch (error) {
     console.warn(`${DEBUG_PREFIX} failed to load VAPID public key`, error);
-    return "";
+    return {
+      ok: false,
+      reason: toApiErrorReason(error),
+    };
   }
+};
+
+const readApplicationServerKey = (subscription: PushSubscription) => {
+  const applicationServerKey = subscription.options.applicationServerKey;
+  if (!applicationServerKey) {
+    return null;
+  }
+
+  if (applicationServerKey instanceof ArrayBuffer) {
+    return new Uint8Array(applicationServerKey);
+  }
+
+  return null;
+};
+
+const areEqualBytes = (left: Uint8Array, right: Uint8Array) => {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+
+  return true;
 };
 
 const toBackendPushPayload = (subscription: PushSubscription) => {
@@ -575,7 +827,7 @@ const toBackendPushPayload = (subscription: PushSubscription) => {
 };
 
 export const ensurePushSubscriptionForCurrentUser = async (
-  options: { requestPermission?: boolean } = {},
+  options: { requestPermission?: boolean; forceResubscribe?: boolean } = {},
 ): Promise<PushSubscriptionResult> => {
   if (requiresIOSPwaForPush()) {
     return {
@@ -594,6 +846,7 @@ export const ensurePushSubscriptionForCurrentUser = async (
   }
 
   const shouldRequestPermission = options.requestPermission === true;
+  const shouldForceResubscribe = options.forceResubscribe === true;
   let permission = getNotificationPermission();
 
   if (permission === "unsupported") {
@@ -625,45 +878,106 @@ export const ensurePushSubscriptionForCurrentUser = async (
     };
   }
 
+  const vapidResolution = await resolveVapidPublicKey();
+  if (!vapidResolution.ok) {
+    clearVapidFingerprint();
+    return {
+      ok: false,
+      permission,
+      reason: vapidResolution.reason,
+    };
+  }
+
   try {
     let subscription = await registration.pushManager.getSubscription();
+    let staleEndpoint: string | null = null;
+
+    const clearCurrentSubscription = async (
+      current: PushSubscription,
+      options?: { removeBackendEndpoint?: boolean },
+    ) => {
+      const endpoint = current.endpoint?.trim() || "";
+      if (options?.removeBackendEndpoint && endpoint) {
+        staleEndpoint = endpoint;
+      }
+
+      try {
+        await current.unsubscribe();
+      } catch {
+        // Ignore unsubscribe errors and continue recovery flow.
+      }
+    };
+
+    if (subscription && shouldForceResubscribe) {
+      await clearCurrentSubscription(subscription, {
+        removeBackendEndpoint: true,
+      });
+      subscription = null;
+    }
 
     const isExpired =
       subscription &&
       typeof subscription.expirationTime === "number" &&
       subscription.expirationTime <= Date.now();
     if (subscription && isExpired) {
-      try {
-        await subscription.unsubscribe();
-      } catch {
-        // Ignore unsubscribe failures; a fresh subscribe below can still proceed.
-      }
+      await clearCurrentSubscription(subscription, {
+        removeBackendEndpoint: true,
+      });
       subscription = null;
     }
 
     if (subscription && !toBackendPushPayload(subscription)) {
-      try {
-        await subscription.unsubscribe();
-      } catch {
-        // Ignore unsubscribe failures for malformed legacy subscription objects.
-      }
+      await clearCurrentSubscription(subscription, {
+        removeBackendEndpoint: true,
+      });
       subscription = null;
     }
 
-    if (!subscription) {
-      const vapidPublicKey = await resolveVapidPublicKey();
-      if (!vapidPublicKey) {
-        return {
-          ok: false,
-          permission,
-          reason: "VAPID public key is not configured.",
-        };
+    const knownFingerprint = readVapidFingerprint();
+    if (
+      subscription &&
+      knownFingerprint &&
+      knownFingerprint !== vapidResolution.key
+    ) {
+      await clearCurrentSubscription(subscription, {
+        removeBackendEndpoint: true,
+      });
+      subscription = null;
+    }
+
+    if (subscription) {
+      const currentServerKey = readApplicationServerKey(subscription);
+      if (
+        !currentServerKey ||
+        !areEqualBytes(currentServerKey, vapidResolution.keyBytes)
+      ) {
+        await clearCurrentSubscription(subscription, {
+          removeBackendEndpoint: true,
+        });
+        subscription = null;
       }
+    }
+
+    if (!subscription) {
+      const applicationServerKey = new Uint8Array(
+        vapidResolution.keyBytes.length,
+      );
+      applicationServerKey.set(vapidResolution.keyBytes);
 
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: decodeBase64Url(vapidPublicKey),
+        applicationServerKey,
       });
+    }
+
+    if (staleEndpoint && staleEndpoint !== subscription.endpoint.trim()) {
+      await apiClient
+        .delete("/profile/push/subscription", {
+          data: {
+            endpoint: staleEndpoint,
+          },
+        })
+        .catch(() => undefined);
     }
 
     const payload = toBackendPushPayload(subscription);
@@ -676,6 +990,7 @@ export const ensurePushSubscriptionForCurrentUser = async (
     }
 
     await apiClient.put("/profile/push/subscription", payload);
+    writeVapidFingerprint(vapidResolution.key);
 
     return {
       ok: true,
@@ -683,6 +998,32 @@ export const ensurePushSubscriptionForCurrentUser = async (
     };
   } catch (error) {
     console.warn(`${DEBUG_PREFIX} failed to subscribe and sync push`, error);
+
+    if (
+      typeof DOMException !== "undefined" &&
+      error instanceof DOMException &&
+      error.name === "NotAllowedError"
+    ) {
+      return {
+        ok: false,
+        permission,
+        reason: "Push permission was denied by the browser.",
+      };
+    }
+
+    if (
+      typeof DOMException !== "undefined" &&
+      error instanceof DOMException &&
+      error.name === "InvalidStateError"
+    ) {
+      return {
+        ok: false,
+        permission,
+        reason:
+          "Push service worker state is invalid. Please refresh and try again.",
+      };
+    }
+
     return {
       ok: false,
       permission,

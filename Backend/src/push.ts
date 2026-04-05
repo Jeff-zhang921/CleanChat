@@ -23,18 +23,123 @@ type PushSendError = {
   message?: string;
 };
 
+export type PushConfigurationStatus = {
+  configured: boolean;
+  hasPublicKey: boolean;
+  hasPrivateKey: boolean;
+  publicKeyFormatValid: boolean;
+  privateKeyFormatValid: boolean;
+  subject: string;
+  errors: string[];
+};
+
 const RAW_VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY?.trim() || "";
 const RAW_VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY?.trim() || "";
 const RAW_VAPID_SUBJECT = process.env.VAPID_SUBJECT?.trim() || "";
 const DEFAULT_VAPID_SUBJECT = "mailto:no-reply@cleanchat.local";
-const IS_PUSH_CONFIGURED =
-  RAW_VAPID_PUBLIC_KEY.length > 0 && RAW_VAPID_PRIVATE_KEY.length > 0;
+const PUSH_DEBUG_PREFIX = "[CleanChat][push]";
+const BASE64_URL_REGEX = /^[A-Za-z0-9_-]+$/;
+const VAPID_PUBLIC_KEY_BYTES = 65;
+const VAPID_PRIVATE_KEY_BYTES = 32;
 
-if (IS_PUSH_CONFIGURED) {
-  webpush.setVapidDetails(
-    RAW_VAPID_SUBJECT || DEFAULT_VAPID_SUBJECT,
-    RAW_VAPID_PUBLIC_KEY,
-    RAW_VAPID_PRIVATE_KEY,
+const decodeBase64Url = (value: string) => {
+  const normalized = value.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  if (!BASE64_URL_REGEX.test(normalized)) {
+    return null;
+  }
+
+  const base64 = normalized
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+
+  try {
+    const decoded = Buffer.from(base64, "base64");
+    if (decoded.length === 0) {
+      return null;
+    }
+    return new Uint8Array(decoded);
+  } catch {
+    return null;
+  }
+};
+
+const validatePushConfiguration = (): PushConfigurationStatus => {
+  const errors: string[] = [];
+
+  const hasPublicKey = RAW_VAPID_PUBLIC_KEY.length > 0;
+  const hasPrivateKey = RAW_VAPID_PRIVATE_KEY.length > 0;
+
+  if (!hasPublicKey) {
+    errors.push("VAPID_PUBLIC_KEY is missing.");
+  }
+  if (!hasPrivateKey) {
+    errors.push("VAPID_PRIVATE_KEY is missing.");
+  }
+
+  const decodedPublicKey = hasPublicKey
+    ? decodeBase64Url(RAW_VAPID_PUBLIC_KEY)
+    : null;
+  const decodedPrivateKey = hasPrivateKey
+    ? decodeBase64Url(RAW_VAPID_PRIVATE_KEY)
+    : null;
+
+  const publicKeyFormatValid =
+    decodedPublicKey !== null &&
+    decodedPublicKey.length === VAPID_PUBLIC_KEY_BYTES &&
+    decodedPublicKey[0] === 0x04;
+  const privateKeyFormatValid =
+    decodedPrivateKey !== null &&
+    decodedPrivateKey.length === VAPID_PRIVATE_KEY_BYTES;
+
+  if (hasPublicKey && !publicKeyFormatValid) {
+    errors.push(
+      "VAPID_PUBLIC_KEY is not a valid uncompressed P-256 key (base64url, 65 bytes).",
+    );
+  }
+  if (hasPrivateKey && !privateKeyFormatValid) {
+    errors.push(
+      "VAPID_PRIVATE_KEY is not a valid P-256 private key (base64url, 32 bytes).",
+    );
+  }
+
+  const subject = RAW_VAPID_SUBJECT || DEFAULT_VAPID_SUBJECT;
+
+  let configured = errors.length === 0;
+  if (configured) {
+    try {
+      webpush.setVapidDetails(
+        subject,
+        RAW_VAPID_PUBLIC_KEY,
+        RAW_VAPID_PRIVATE_KEY,
+      );
+    } catch (error) {
+      configured = false;
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push(`Failed to initialize VAPID details: ${message}`);
+    }
+  }
+
+  return {
+    configured,
+    hasPublicKey,
+    hasPrivateKey,
+    publicKeyFormatValid,
+    privateKeyFormatValid,
+    subject,
+    errors,
+  };
+};
+
+const PUSH_CONFIGURATION_STATUS = validatePushConfiguration();
+
+if (!PUSH_CONFIGURATION_STATUS.configured) {
+  console.warn(
+    `${PUSH_DEBUG_PREFIX} Web push is disabled. ${PUSH_CONFIGURATION_STATUS.errors.join(" ")}`,
   );
 }
 
@@ -83,17 +188,22 @@ const buildPayload = (envelope: PushEnvelope) => {
   });
 };
 
-export const isPushConfigured = () => IS_PUSH_CONFIGURED;
+export const isPushConfigured = () => PUSH_CONFIGURATION_STATUS.configured;
 
 export const getVapidPublicKey = () =>
-  IS_PUSH_CONFIGURED ? RAW_VAPID_PUBLIC_KEY : null;
+  PUSH_CONFIGURATION_STATUS.configured ? RAW_VAPID_PUBLIC_KEY : null;
+
+export const getPushConfigurationStatus = (): PushConfigurationStatus => ({
+  ...PUSH_CONFIGURATION_STATUS,
+  errors: [...PUSH_CONFIGURATION_STATUS.errors],
+});
 
 export const sendPushToUser = async (
   prisma: PrismaClient,
   userId: number,
   envelope: PushEnvelope,
 ) => {
-  if (!IS_PUSH_CONFIGURED) {
+  if (!PUSH_CONFIGURATION_STATUS.configured) {
     return;
   }
 

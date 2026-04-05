@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { Router } from "express";
 import { getKeepAliveStatus } from "../keepAlive";
+import { getPushConfigurationStatus } from "../push";
 import {
   flushRuntimeStatePersistence,
   getRuntimeStatePersistenceStatus,
@@ -19,11 +20,20 @@ const isOpsAuthorized = (rawToken: unknown) => {
 };
 
 router.get("/healthz", (_req, res) => {
+  const pushStatus = getPushConfigurationStatus();
   res.status(200).json({
     ok: true,
     service: "cleanchat-backend",
     timestamp: new Date().toISOString(),
     uptimeSeconds: Math.round(process.uptime()),
+    push: {
+      configured: pushStatus.configured,
+      hasPublicKey: pushStatus.hasPublicKey,
+      hasPrivateKey: pushStatus.hasPrivateKey,
+      publicKeyFormatValid: pushStatus.publicKeyFormatValid,
+      privateKeyFormatValid: pushStatus.privateKeyFormatValid,
+      errors: pushStatus.errors,
+    },
     keepalive: getKeepAliveStatus(),
     runtimePersistence: getRuntimeStatePersistenceStatus(),
   });
@@ -61,6 +71,21 @@ router.get("/keepalive", (req, res) => {
     source,
     timestamp: new Date().toISOString(),
     uptimeSeconds: Math.round(process.uptime()),
+  });
+});
+
+router.get("/push-config", (_req, res) => {
+  const status = getPushConfigurationStatus();
+
+  res.status(status.configured ? 200 : 503).json({
+    ok: status.configured,
+    configured: status.configured,
+    hasPublicKey: status.hasPublicKey,
+    hasPrivateKey: status.hasPrivateKey,
+    publicKeyFormatValid: status.publicKeyFormatValid,
+    privateKeyFormatValid: status.privateKeyFormatValid,
+    errors: status.errors,
+    timestamp: new Date().toISOString(),
   });
 });
 

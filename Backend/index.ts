@@ -62,7 +62,7 @@ app.use("/api/conversations", conversationsRouter);
 app.use("/ops", opsRouter);
 
 const forwardOpsAlias =
-  (targetPath: "/healthz" | "/readyz" | "/keepalive") =>
+  (targetPath: "/healthz" | "/readyz" | "/keepalive" | "/push-config") =>
   (request: Request, response: Response, next: NextFunction) => {
     const queryStart = request.originalUrl.indexOf("?");
     const querySuffix =
@@ -74,6 +74,7 @@ const forwardOpsAlias =
 app.get("/healthz", forwardOpsAlias("/healthz"));
 app.get("/readyz", forwardOpsAlias("/readyz"));
 app.get("/keepalive", forwardOpsAlias("/keepalive"));
+app.get("/push-config", forwardOpsAlias("/push-config"));
 
 const PORT = Number(process.env.PORT || 4000);
 

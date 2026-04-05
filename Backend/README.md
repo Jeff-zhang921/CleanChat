@@ -82,6 +82,7 @@ Available ops endpoints:
 - `GET /ops/healthz` (alias: `/healthz`)
 - `GET /ops/readyz` (alias: `/readyz`)
 - `GET /ops/keepalive` (alias: `/keepalive`)
+- `GET /ops/push-config` (alias: `/push-config`)
 - `POST /ops/runtime-state/flush` (optional `x-ops-token` header when `OPS_TOKEN` is set)
 
 Optional environment variables:
@@ -106,3 +107,23 @@ If you use GitHub Actions keepalive, configure repository secrets:
 - `BACKEND_OPS_TOKEN` (optional, only when `OPS_TOKEN` is set)
 
 Workflow file: `.github/workflows/backend-keepalive.yml`
+
+### Push Configuration Validation Checklist
+
+1. Local `.env` or Koyeb env must define both `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`.
+2. `VAPID_PRIVATE_KEY` must stay backend-only. Never expose it in frontend env or client code.
+3. Verify backend status after deployment:
+
+```powershell
+curl https://your-backend-domain/ops/push-config
+```
+
+Expected result: `ok: true` and no format errors.
+
+4. Verify frontend can fetch the public key while authenticated:
+
+```powershell
+curl -H "Authorization: Bearer <JWT>" https://your-backend-domain/profile/push/public-key
+```
+
+5. If you rotate VAPID keys, force clients to rebuild subscriptions by using the in-app notification enable flow once.

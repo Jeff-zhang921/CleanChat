@@ -679,6 +679,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     try {
       const subscription = await ensurePushSubscriptionForCurrentUser({
         requestPermission: true,
+        forceResubscribe: true,
       });
 
       setNotificationPermission(subscription.permission);

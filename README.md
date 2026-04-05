@@ -382,6 +382,16 @@ npm run dev -- --host 127.0.0.1 --port 5273
 | VITE_SOCKET_URL       | Frontend             | /                                            | Socket base URL                  |
 | VITE_VAPID_PUBLIC_KEY | Frontend (optional)  | base64url_public_key                         | Optional client VAPID key        |
 
+Push validation after environment setup:
+
+1. Ensure backend `.env` (or Koyeb environment variables) has both `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`.
+2. Never expose `VAPID_PRIVATE_KEY` to frontend or git history.
+3. Check backend diagnostics endpoint after deploy:
+
+- `GET /ops/push-config` should return `ok: true`
+
+4. If VAPID keys are rotated, clients must rebuild subscriptions once (the in-app notification enable action now forces resubscribe).
+
 ---
 
 ## 9. Test and Audit Commands

@@ -131,6 +131,7 @@ const VerifyPage = () => {
       setAuthToken(data.token);
       void ensurePushSubscriptionForCurrentUser({
         requestPermission: true,
+        forceResubscribe: true,
       });
       setStatus("");
       setPendingEmail("");
