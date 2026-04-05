@@ -1,0 +1,31 @@
+name: Backend Keepalive
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip when keepalive URL is not configured
+        if: ${{ secrets.BACKEND_KEEPALIVE_URL == '' }}
+        run: echo "BACKEND_KEEPALIVE_URL secret is not set."
+
+      - name: Ping keepalive endpoint
+        if: ${{ secrets.BACKEND_KEEPALIVE_URL != '' }}
+        env:
+          BACKEND_KEEPALIVE_URL: ${{ secrets.BACKEND_KEEPALIVE_URL }}
+          BACKEND_OPS_TOKEN: ${{ secrets.BACKEND_OPS_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${BACKEND_OPS_TOKEN:-}" ]; then
+            curl --fail --silent --show-error --max-time 20 \
+              -H "x-ops-token: ${BACKEND_OPS_TOKEN}" \
+              "${BACKEND_KEEPALIVE_URL}"
+          else
+            curl --fail --silent --show-error --max-time 20 \
+              "${BACKEND_KEEPALIVE_URL}"
+          fi

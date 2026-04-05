@@ -103,6 +103,54 @@ const groupMessages = new Map<string, GroupMessage[]>();
 const groupJoinRequests = new Map<string, Map<number, string>>();
 let nextGroupMessageId = 1;
 
+export type GroupStoreSnapshot = {
+  groups: GroupDefinition[];
+  membersByGroupId: Record<string, number[]>;
+  messagesByGroupId: Record<string, GroupMessage[]>;
+  joinRequestsByGroupId: Record<string, Record<string, string>>;
+  nextGroupMessageId: number;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const toPositiveInt = (value: unknown) => {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+};
+
+const toIsoString = (value: unknown) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsedDate = new Date(trimmed);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+  return parsedDate.toISOString();
+};
+
+let onGroupStoreStateChange: (() => void) | null = null;
+
+const notifyGroupStoreStateChanged = () => {
+  onGroupStoreStateChange?.();
+};
+
+export const setGroupStoreStateChangeListener = (
+  listener: (() => void) | null,
+) => {
+  onGroupStoreStateChange = listener;
+};
+
 const MAX_GROUP_MESSAGES = 500;
 const GROUP_ID_REGEX = /^[a-z0-9-]{2,40}$/;
 
@@ -150,6 +198,198 @@ export const normalizeGroupId = (raw: unknown): string | null => {
   const normalized = raw.trim().toLowerCase();
   if (!GROUP_ID_REGEX.test(normalized)) return null;
   return normalized;
+};
+
+export const snapshotGroupStore = (): GroupStoreSnapshot => {
+  const membersByGroupId: Record<string, number[]> = {};
+  groupMembers.forEach((members, groupId) => {
+    membersByGroupId[groupId] = [...members].sort((a, b) => a - b);
+  });
+
+  const messagesByGroupId: Record<string, GroupMessage[]> = {};
+  groupMessages.forEach((messages, groupId) => {
+    messagesByGroupId[groupId] = messages.map((message) => ({ ...message }));
+  });
+
+  const joinRequestsByGroupId: Record<string, Record<string, string>> = {};
+  groupJoinRequests.forEach((requests, groupId) => {
+    const nextRequests: Record<string, string> = {};
+    requests.forEach((requestedAt, userId) => {
+      nextRequests[String(userId)] = requestedAt;
+    });
+    joinRequestsByGroupId[groupId] = nextRequests;
+  });
+
+  return {
+    groups: groups.map((group) => ({ ...group })),
+    membersByGroupId,
+    messagesByGroupId,
+    joinRequestsByGroupId,
+    nextGroupMessageId,
+  };
+};
+
+export const hydrateGroupStore = (snapshot: unknown) => {
+  if (!isRecord(snapshot)) {
+    return;
+  }
+
+  const rawGroups = Array.isArray(snapshot.groups) ? snapshot.groups : [];
+  const hydratedGroups: GroupDefinition[] = rawGroups
+    .map((rawGroup) => {
+      if (!isRecord(rawGroup)) {
+        return null;
+      }
+
+      const groupId = normalizeGroupId(rawGroup.id);
+      const groupName =
+        typeof rawGroup.name === "string"
+          ? normalizeGroupName(rawGroup.name)
+          : "";
+      if (!groupId || !groupName) {
+        return null;
+      }
+
+      const description =
+        typeof rawGroup.description === "string" && rawGroup.description.trim()
+          ? rawGroup.description.trim()
+          : "No description yet.";
+      const avatarKey = isValidGroupAvatarKey(rawGroup.avatarKey)
+        ? rawGroup.avatarKey
+        : "orbit";
+      const createdAt =
+        toIsoString(rawGroup.createdAt) ?? new Date().toISOString();
+      const creatorId = toPositiveInt(rawGroup.creatorId);
+
+      return {
+        id: groupId,
+        name: groupName,
+        description,
+        avatarKey,
+        avatarUrl: buildGroupAvatarUrl(avatarKey),
+        requiresApproval: rawGroup.requiresApproval === true,
+        creatorId,
+        createdAt,
+      } satisfies GroupDefinition;
+    })
+    .filter((group): group is GroupDefinition => Boolean(group));
+
+  if (hydratedGroups.length > 0) {
+    groups = hydratedGroups;
+  }
+
+  const activeGroupIds = new Set(groups.map((group) => group.id));
+
+  groupMembers.clear();
+  const rawMembers = isRecord(snapshot.membersByGroupId)
+    ? snapshot.membersByGroupId
+    : {};
+  Object.entries(rawMembers).forEach(([groupId, value]) => {
+    if (!activeGroupIds.has(groupId) || !Array.isArray(value)) {
+      return;
+    }
+
+    const memberIds = value
+      .map((memberId) => toPositiveInt(memberId))
+      .filter((memberId): memberId is number => memberId !== null);
+    groupMembers.set(groupId, new Set(memberIds));
+  });
+
+  groupMessages.clear();
+  const rawMessages = isRecord(snapshot.messagesByGroupId)
+    ? snapshot.messagesByGroupId
+    : {};
+  let maxMessageId = 0;
+  Object.entries(rawMessages).forEach(([groupId, value]) => {
+    if (!activeGroupIds.has(groupId) || !Array.isArray(value)) {
+      return;
+    }
+
+    const hydratedMessages = value
+      .map((rawMessage) => {
+        if (!isRecord(rawMessage)) {
+          return null;
+        }
+
+        const messageId = toPositiveInt(rawMessage.id);
+        const senderId = toPositiveInt(rawMessage.senderId);
+        const senderName =
+          typeof rawMessage.senderName === "string"
+            ? rawMessage.senderName.trim().slice(0, 120)
+            : "";
+        const body = typeof rawMessage.body === "string" ? rawMessage.body : "";
+        const createdAt = toIsoString(rawMessage.createdAt);
+        if (
+          !messageId ||
+          !senderId ||
+          !senderName ||
+          !body.trim() ||
+          !createdAt
+        ) {
+          return null;
+        }
+
+        maxMessageId = Math.max(maxMessageId, messageId);
+
+        const hydratedMessage: GroupMessage = {
+          id: messageId,
+          groupId,
+          senderId,
+          senderName,
+          body,
+          createdAt,
+          quoteSenderName:
+            typeof rawMessage.quoteSenderName === "string"
+              ? rawMessage.quoteSenderName.trim().slice(0, 120)
+              : null,
+          quotePreview:
+            typeof rawMessage.quotePreview === "string"
+              ? rawMessage.quotePreview.trim().slice(0, 220)
+              : null,
+        };
+
+        const parentMessageId = toPositiveInt(rawMessage.parentMessageId);
+        if (parentMessageId) {
+          hydratedMessage.parentMessageId = parentMessageId;
+        }
+
+        return hydratedMessage;
+      })
+      .filter((message): message is GroupMessage => Boolean(message))
+      .sort((a, b) => a.id - b.id)
+      .slice(-MAX_GROUP_MESSAGES);
+
+    if (hydratedMessages.length > 0) {
+      groupMessages.set(groupId, hydratedMessages);
+    }
+  });
+
+  groupJoinRequests.clear();
+  const rawJoinRequests = isRecord(snapshot.joinRequestsByGroupId)
+    ? snapshot.joinRequestsByGroupId
+    : {};
+  Object.entries(rawJoinRequests).forEach(([groupId, value]) => {
+    if (!activeGroupIds.has(groupId) || !isRecord(value)) {
+      return;
+    }
+
+    const requests = new Map<number, string>();
+    Object.entries(value).forEach(([userIdKey, requestedAt]) => {
+      const userId = toPositiveInt(userIdKey);
+      const parsedRequestedAt = toIsoString(requestedAt);
+      if (!userId || !parsedRequestedAt) {
+        return;
+      }
+      requests.set(userId, parsedRequestedAt);
+    });
+
+    if (requests.size > 0) {
+      groupJoinRequests.set(groupId, requests);
+    }
+  });
+
+  const parsedNextMessageId = toPositiveInt(snapshot.nextGroupMessageId);
+  nextGroupMessageId = Math.max(parsedNextMessageId ?? 0, maxMessageId + 1, 1);
 };
 
 export const getGroupById = (groupId: string) =>
@@ -211,6 +451,7 @@ export const createGroup = (
 
   groups.unshift(group);
   getOrCreateMembers(groupId).add(creatorId);
+  notifyGroupStoreStateChanged();
   return buildSummary(group, creatorId);
 };
 
@@ -229,6 +470,7 @@ export const deleteGroup = (groupId: string, requestUserId: number) => {
   groupMembers.delete(groupId);
   groupMessages.delete(groupId);
   groupJoinRequests.delete(groupId);
+  notifyGroupStoreStateChanged();
   return { deleted: true as const };
 };
 
@@ -252,6 +494,7 @@ export const joinGroup = (groupId: string, userId: number) => {
     const alreadyRequested = joinRequests.has(userId);
     if (!alreadyRequested) {
       joinRequests.set(userId, new Date().toISOString());
+      notifyGroupStoreStateChanged();
     }
     return {
       alreadyJoined: false,
@@ -263,6 +506,7 @@ export const joinGroup = (groupId: string, userId: number) => {
 
   members.add(userId);
   joinRequests.delete(userId);
+  notifyGroupStoreStateChanged();
 
   return {
     alreadyJoined: false,
@@ -279,7 +523,11 @@ export const leaveGroup = (groupId: string, userId: number) => {
   const members = getOrCreateMembers(groupId);
   const joinRequests = getOrCreateJoinRequests(groupId);
   const wasMember = members.delete(userId);
-  joinRequests.delete(userId);
+  const hadRequest = joinRequests.delete(userId);
+
+  if (wasMember || hadRequest) {
+    notifyGroupStoreStateChanged();
+  }
 
   return {
     alreadyLeft: !wasMember,
@@ -334,6 +582,7 @@ export const approveGroupJoinRequest = (
 
   requests.delete(targetUserId);
   getOrCreateMembers(groupId).add(targetUserId);
+  notifyGroupStoreStateChanged();
   return {
     approved: true as const,
     summary: buildSummary(group, ownerUserId),
@@ -359,6 +608,7 @@ export const rejectGroupJoinRequest = (
   }
 
   requests.delete(targetUserId);
+  notifyGroupStoreStateChanged();
   return {
     rejected: true as const,
     summary: buildSummary(group, ownerUserId),
@@ -378,15 +628,26 @@ export const updateGroupJoinPolicy = (
     return { updated: false as const, reason: "forbidden" as const };
   }
 
+  const previousRequiresApproval = group.requiresApproval;
+
   group.requiresApproval = requiresApproval;
+  let didMutate = previousRequiresApproval !== requiresApproval;
   if (!requiresApproval) {
     // Switching to open join auto-approves existing pending requests.
     const requests = getOrCreateJoinRequests(groupId);
     const members = getOrCreateMembers(groupId);
+    const pendingCountBefore = requests.size;
     requests.forEach((_, userId) => {
       members.add(userId);
     });
     requests.clear();
+    if (pendingCountBefore > 0) {
+      didMutate = true;
+    }
+  }
+
+  if (didMutate) {
+    notifyGroupStoreStateChanged();
   }
 
   return {
@@ -408,8 +669,16 @@ export const updateGroupAvatar = (
     return { updated: false as const, reason: "forbidden" as const };
   }
 
+  if (group.avatarKey === avatarKey) {
+    return {
+      updated: true as const,
+      summary: buildSummary(group, ownerUserId),
+    };
+  }
+
   group.avatarKey = avatarKey;
   group.avatarUrl = buildGroupAvatarUrl(avatarKey);
+  notifyGroupStoreStateChanged();
   return {
     updated: true as const,
     summary: buildSummary(group, ownerUserId),
@@ -469,6 +738,7 @@ export const appendGroupMessage = (
     messages.splice(0, messages.length - MAX_GROUP_MESSAGES);
   }
   groupMessages.set(groupId, messages);
+  notifyGroupStoreStateChanged();
 
   return message;
 };
@@ -503,5 +773,6 @@ export const deleteGroupMessage = (
 
   messages[targetIndex] = recalledMessage;
   groupMessages.set(groupId, messages);
+  notifyGroupStoreStateChanged();
   return { deleted: true as const, message: recalledMessage };
 };

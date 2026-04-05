@@ -1,7 +1,103 @@
 const directMutedByUser = new Map<number, Set<number>>();
 const groupMutedByUser = new Map<number, Set<string>>();
 
+export type MuteStoreSnapshot = {
+  directByUser: Record<string, number[]>;
+  groupsByUser: Record<string, string[]>;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const toPositiveInt = (value: unknown) => {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+};
+
+let onMuteStoreStateChange: (() => void) | null = null;
+
+const notifyMuteStoreStateChanged = () => {
+  onMuteStoreStateChange?.();
+};
+
+export const setMuteStoreStateChangeListener = (
+  listener: (() => void) | null,
+) => {
+  onMuteStoreStateChange = listener;
+};
+
 const normalizeGroupId = (value: string) => value.trim();
+
+export const snapshotMuteStore = (): MuteStoreSnapshot => {
+  const directByUser: Record<string, number[]> = {};
+  directMutedByUser.forEach((threadIds, userId) => {
+    directByUser[String(userId)] = [...threadIds].sort((a, b) => a - b);
+  });
+
+  const groupsByUser: Record<string, string[]> = {};
+  groupMutedByUser.forEach((groupIds, userId) => {
+    groupsByUser[String(userId)] = [...groupIds].sort((a, b) =>
+      a.localeCompare(b),
+    );
+  });
+
+  return {
+    directByUser,
+    groupsByUser,
+  };
+};
+
+export const hydrateMuteStore = (snapshot: unknown) => {
+  if (!isRecord(snapshot)) {
+    return;
+  }
+
+  directMutedByUser.clear();
+  groupMutedByUser.clear();
+
+  const rawDirectByUser = isRecord(snapshot.directByUser)
+    ? snapshot.directByUser
+    : {};
+  Object.entries(rawDirectByUser).forEach(([userIdKey, value]) => {
+    const userId = toPositiveInt(userIdKey);
+    if (!userId || !Array.isArray(value)) {
+      return;
+    }
+
+    const threadIds = value
+      .map((threadId) => toPositiveInt(threadId))
+      .filter((threadId): threadId is number => threadId !== null);
+    if (threadIds.length === 0) {
+      return;
+    }
+
+    directMutedByUser.set(userId, new Set(threadIds));
+  });
+
+  const rawGroupsByUser = isRecord(snapshot.groupsByUser)
+    ? snapshot.groupsByUser
+    : {};
+  Object.entries(rawGroupsByUser).forEach(([userIdKey, value]) => {
+    const userId = toPositiveInt(userIdKey);
+    if (!userId || !Array.isArray(value)) {
+      return;
+    }
+
+    const groupIds = value
+      .map((groupId) =>
+        typeof groupId === "string" ? normalizeGroupId(groupId) : "",
+      )
+      .filter(Boolean);
+    if (groupIds.length === 0) {
+      return;
+    }
+
+    groupMutedByUser.set(userId, new Set(groupIds));
+  });
+};
 
 const getOrCreateDirectSet = (userId: number) => {
   const existing = directMutedByUser.get(userId);
@@ -77,7 +173,12 @@ export const setThreadMutedForUser = (
 ) => {
   if (muted) {
     const mutedThreads = getOrCreateDirectSet(userId);
+    if (mutedThreads.has(threadId)) {
+      return true;
+    }
+
     mutedThreads.add(threadId);
+    notifyMuteStoreStateChanged();
     return true;
   }
 
@@ -86,8 +187,11 @@ export const setThreadMutedForUser = (
     return false;
   }
 
-  mutedThreads.delete(threadId);
+  const didDelete = mutedThreads.delete(threadId);
   cleanupDirectSetIfEmpty(userId, mutedThreads);
+  if (didDelete) {
+    notifyMuteStoreStateChanged();
+  }
   return false;
 };
 
@@ -103,7 +207,12 @@ export const setGroupMutedForUser = (
 
   if (muted) {
     const mutedGroups = getOrCreateGroupSet(userId);
+    if (mutedGroups.has(normalizedGroupId)) {
+      return true;
+    }
+
     mutedGroups.add(normalizedGroupId);
+    notifyMuteStoreStateChanged();
     return true;
   }
 
@@ -112,8 +221,11 @@ export const setGroupMutedForUser = (
     return false;
   }
 
-  mutedGroups.delete(normalizedGroupId);
+  const didDelete = mutedGroups.delete(normalizedGroupId);
   cleanupGroupSetIfEmpty(userId, mutedGroups);
+  if (didDelete) {
+    notifyMuteStoreStateChanged();
+  }
   return false;
 };
 
@@ -123,8 +235,11 @@ export const clearThreadMuteForUser = (userId: number, threadId: number) => {
     return;
   }
 
-  mutedThreads.delete(threadId);
+  const didDelete = mutedThreads.delete(threadId);
   cleanupDirectSetIfEmpty(userId, mutedThreads);
+  if (didDelete) {
+    notifyMuteStoreStateChanged();
+  }
 };
 
 export const clearGroupMuteForUser = (userId: number, groupId: string) => {
@@ -138,15 +253,25 @@ export const clearGroupMuteForUser = (userId: number, groupId: string) => {
     return;
   }
 
-  mutedGroups.delete(normalizedGroupId);
+  const didDelete = mutedGroups.delete(normalizedGroupId);
   cleanupGroupSetIfEmpty(userId, mutedGroups);
+  if (didDelete) {
+    notifyMuteStoreStateChanged();
+  }
 };
 
 export const clearThreadMuteForAllUsers = (threadId: number) => {
+  let didMutate = false;
   directMutedByUser.forEach((mutedThreads, userId) => {
-    mutedThreads.delete(threadId);
+    if (mutedThreads.delete(threadId)) {
+      didMutate = true;
+    }
     cleanupDirectSetIfEmpty(userId, mutedThreads);
   });
+
+  if (didMutate) {
+    notifyMuteStoreStateChanged();
+  }
 };
 
 export const clearGroupMuteForAllUsers = (groupId: string) => {
@@ -155,8 +280,15 @@ export const clearGroupMuteForAllUsers = (groupId: string) => {
     return;
   }
 
+  let didMutate = false;
   groupMutedByUser.forEach((mutedGroups, userId) => {
-    mutedGroups.delete(normalizedGroupId);
+    if (mutedGroups.delete(normalizedGroupId)) {
+      didMutate = true;
+    }
     cleanupGroupSetIfEmpty(userId, mutedGroups);
   });
+
+  if (didMutate) {
+    notifyMuteStoreStateChanged();
+  }
 };

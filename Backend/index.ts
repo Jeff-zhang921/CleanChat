@@ -5,8 +5,14 @@ import profileRouter from "./src/routes/profile";
 import chatRouter from "./src/routes/chat";
 import conversationsRouter from "./src/routes/conversations";
 import authRouter from "./src/routes/auth";
+import opsRouter from "./src/routes/ops";
 import http from "http";
 import { initSocket } from "./src/socket";
+import { startKeepAliveLoop, stopKeepAliveLoop } from "./src/keepAlive";
+import {
+  initializeRuntimeStatePersistence,
+  shutdownRuntimeStatePersistence,
+} from "./src/runtimePersistence";
 const app = express();
 const frontendEnv = `${process.env.FRONTEND_URL ?? ""},${process.env.FRONTEND_URLS ?? ""}`;
 const hasRemoteHttpsFrontend = frontendEnv
@@ -53,6 +59,21 @@ app.get(
 );
 app.use("/conversations", conversationsRouter);
 app.use("/api/conversations", conversationsRouter);
+app.use("/ops", opsRouter);
+
+const forwardOpsAlias =
+  (targetPath: "/healthz" | "/readyz" | "/keepalive") =>
+  (request: Request, response: Response, next: NextFunction) => {
+    const queryStart = request.originalUrl.indexOf("?");
+    const querySuffix =
+      queryStart >= 0 ? request.originalUrl.slice(queryStart) : "";
+    request.url = `${targetPath}${querySuffix}`;
+    opsRouter(request, response, next);
+  };
+
+app.get("/healthz", forwardOpsAlias("/healthz"));
+app.get("/readyz", forwardOpsAlias("/readyz"));
+app.get("/keepalive", forwardOpsAlias("/keepalive"));
 
 const PORT = Number(process.env.PORT || 4000);
 
@@ -94,10 +115,48 @@ app.use(
 );
 
 if (require.main === module) {
-  const server = http.createServer(app);
-  initSocket(server);
-  server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-  });
+  const startServer = async () => {
+    await initializeRuntimeStatePersistence();
+
+    const server = http.createServer(app);
+    initSocket(server);
+
+    let shuttingDown = false;
+    const shutdown = async (signal: string) => {
+      if (shuttingDown) {
+        return;
+      }
+
+      shuttingDown = true;
+      console.log(`Received ${signal}, shutting down server...`);
+      stopKeepAliveLoop();
+
+      await shutdownRuntimeStatePersistence();
+
+      server.close((error) => {
+        if (error) {
+          console.error("Error while closing HTTP server", error);
+          process.exit(1);
+          return;
+        }
+
+        process.exit(0);
+      });
+    };
+
+    process.on("SIGINT", () => {
+      void shutdown("SIGINT");
+    });
+    process.on("SIGTERM", () => {
+      void shutdown("SIGTERM");
+    });
+
+    server.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+      startKeepAliveLoop(PORT);
+    });
+  };
+
+  void startServer();
 }
 export default app;

@@ -2,8 +2,6 @@
 
 Backend service for CleanChat using Express, TypeScript, Prisma, and PostgreSQL.
 
-
-
 ## Prerequisites
 
 1. Install Node.js (npm is included with Node). Recommended: Node 20+.
@@ -74,3 +72,37 @@ Server URL: `http://localhost:4000`
 
 - `src/auth.ts`, `src/chat.ts`, and `src/profile.ts` currently exist as placeholders.
 - Prisma client output is configured to `src/generated/prisma`.
+
+## Runtime Durability And Keepalive
+
+The backend now persists in-memory runtime state (group store, mute store, unread read-checkpoints) into PostgreSQL and hydrates it at startup.
+
+Available ops endpoints:
+
+- `GET /ops/healthz` (alias: `/healthz`)
+- `GET /ops/readyz` (alias: `/readyz`)
+- `GET /ops/keepalive` (alias: `/keepalive`)
+- `POST /ops/runtime-state/flush` (optional `x-ops-token` header when `OPS_TOKEN` is set)
+
+Optional environment variables:
+
+```env
+# Runtime state snapshot flush debounce window (milliseconds)
+RUNTIME_STATE_FLUSH_DEBOUNCE_MS=2000
+
+# Keepalive loop controls
+KEEPALIVE_ENABLED=true
+KEEPALIVE_INTERVAL_MS=240000
+KEEPALIVE_TIMEOUT_MS=8000
+KEEPALIVE_TARGET_URL="https://your-backend-host/ops/keepalive?source=internal-loop"
+
+# Optional token to protect operational write endpoints
+OPS_TOKEN="change-this"
+```
+
+If you use GitHub Actions keepalive, configure repository secrets:
+
+- `BACKEND_KEEPALIVE_URL`
+- `BACKEND_OPS_TOKEN` (optional, only when `OPS_TOKEN` is set)
+
+Workflow file: `.github/workflows/backend-keepalive.yml`

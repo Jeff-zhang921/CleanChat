@@ -28,6 +28,17 @@ import {
 import { authMiddleware } from "../auth";
 import { deleteConversation } from "../controllers/conversation";
 import {
+  clearGroupReadCheckpointForAllUsers,
+  ensureDirectReadCheckpoint,
+  ensureGroupReadCheckpoint,
+  getDirectReadCheckpoint,
+  getGroupReadCheckpoint,
+  pruneDirectReadCheckpointsForUser,
+  pruneGroupReadCheckpointsForUser,
+  syncDirectReadCheckpoint,
+  syncGroupReadCheckpoint,
+} from "../readCheckpointStore";
+import {
   clearGroupMuteForAllUsers,
   clearGroupMuteForUser,
   isGroupMutedForUser,
@@ -65,31 +76,6 @@ const DIRECT_REQUEST_NOTE_MAX_LENGTH = 180;
 const directUnreadKey = (threadId: number) => `direct-${threadId}`;
 const groupUnreadKey = (groupId: string) => `group-${groupId}`;
 
-const directReadCheckpoints = new Map<number, Map<number, number>>();
-const groupReadCheckpoints = new Map<number, Map<string, number>>();
-
-const getOrCreateDirectReadCheckpoints = (userId: number) => {
-  const existing = directReadCheckpoints.get(userId);
-  if (existing) {
-    return existing;
-  }
-
-  const created = new Map<number, number>();
-  directReadCheckpoints.set(userId, created);
-  return created;
-};
-
-const getOrCreateGroupReadCheckpoints = (userId: number) => {
-  const existing = groupReadCheckpoints.get(userId);
-  if (existing) {
-    return existing;
-  }
-
-  const created = new Map<string, number>();
-  groupReadCheckpoints.set(userId, created);
-  return created;
-};
-
 const readLatestDirectMessageId = async (threadId: number) => {
   const latest = await prisma.chatMessage.findFirst({
     where: { threadId },
@@ -107,46 +93,6 @@ const readLatestGroupMessageId = (groupId: string) => {
   }
 
   return messages[messages.length - 1].id;
-};
-
-const syncDirectReadCheckpoint = async (
-  userId: number,
-  threadId: number,
-  messageId?: number,
-) => {
-  const checkpoints = getOrCreateDirectReadCheckpoints(userId);
-  const current = checkpoints.get(threadId) ?? 0;
-
-  const nextCandidate =
-    typeof messageId === "number" &&
-    Number.isInteger(messageId) &&
-    messageId > 0
-      ? messageId
-      : await readLatestDirectMessageId(threadId);
-  const next = Math.max(current, nextCandidate);
-
-  checkpoints.set(threadId, next);
-  return next;
-};
-
-const syncGroupReadCheckpoint = (
-  userId: number,
-  groupId: string,
-  messageId?: number,
-) => {
-  const checkpoints = getOrCreateGroupReadCheckpoints(userId);
-  const current = checkpoints.get(groupId) ?? 0;
-
-  const nextCandidate =
-    typeof messageId === "number" &&
-    Number.isInteger(messageId) &&
-    messageId > 0
-      ? messageId
-      : readLatestGroupMessageId(groupId);
-  const next = Math.max(current, nextCandidate);
-
-  checkpoints.set(groupId, next);
-  return next;
 };
 
 const buildUnreadCountsForUser = async (userId: number) => {
@@ -167,23 +113,16 @@ const buildUnreadCountsForUser = async (userId: number) => {
     Promise.resolve(listGroupsForUser(userId).filter((group) => group.joined)),
   ]);
 
-  const userDirectCheckpoints = getOrCreateDirectReadCheckpoints(userId);
   const activeDirectIds = new Set(directThreads.map((thread) => thread.id));
-  [...userDirectCheckpoints.keys()].forEach((trackedThreadId) => {
-    if (!activeDirectIds.has(trackedThreadId)) {
-      userDirectCheckpoints.delete(trackedThreadId);
-    }
-  });
+  pruneDirectReadCheckpointsForUser(userId, activeDirectIds);
 
   directThreads.forEach((thread) => {
-    if (!userDirectCheckpoints.has(thread.id)) {
-      userDirectCheckpoints.set(thread.id, thread.Messages[0]?.id ?? 0);
-    }
+    ensureDirectReadCheckpoint(userId, thread.id, thread.Messages[0]?.id ?? 0);
   });
 
   const directUnreadEntries = await Promise.all(
     directThreads.map(async (thread) => {
-      const lastReadMessageId = userDirectCheckpoints.get(thread.id) ?? 0;
+      const lastReadMessageId = getDirectReadCheckpoint(userId, thread.id) ?? 0;
       const unread = await prisma.chatMessage.count({
         where: {
           threadId: thread.id,
@@ -196,20 +135,17 @@ const buildUnreadCountsForUser = async (userId: number) => {
     }),
   );
 
-  const userGroupCheckpoints = getOrCreateGroupReadCheckpoints(userId);
   const activeGroupIds = new Set(joinedGroups.map((group) => group.id));
-  [...userGroupCheckpoints.keys()].forEach((trackedGroupId) => {
-    if (!activeGroupIds.has(trackedGroupId)) {
-      userGroupCheckpoints.delete(trackedGroupId);
-    }
-  });
+  pruneGroupReadCheckpointsForUser(userId, activeGroupIds);
 
   const groupUnreadEntries = joinedGroups.map((group) => {
-    if (!userGroupCheckpoints.has(group.id)) {
-      userGroupCheckpoints.set(group.id, readLatestGroupMessageId(group.id));
-    }
+    ensureGroupReadCheckpoint(
+      userId,
+      group.id,
+      readLatestGroupMessageId(group.id),
+    );
 
-    const lastReadMessageId = userGroupCheckpoints.get(group.id) ?? 0;
+    const lastReadMessageId = getGroupReadCheckpoint(userId, group.id) ?? 0;
     const unread = listGroupMessages(group.id).reduce((sum, item) => {
       if (item.senderId === userId || item.id <= lastReadMessageId) {
         return sum;
@@ -491,10 +427,12 @@ router.post("/unread/read", async (req, res) => {
       }
     }
 
+    const checkpointMessageId =
+      resolvedMessageId ?? readLatestGroupMessageId(groupId);
     const lastReadMessageId = syncGroupReadCheckpoint(
       sessionUserId,
       groupId,
-      resolvedMessageId ?? undefined,
+      checkpointMessageId,
     );
 
     res.json({
@@ -532,10 +470,12 @@ router.post("/unread/read", async (req, res) => {
     }
   }
 
-  const lastReadMessageId = await syncDirectReadCheckpoint(
+  const checkpointMessageId =
+    resolvedMessageId ?? (await readLatestDirectMessageId(threadId));
+  const lastReadMessageId = syncDirectReadCheckpoint(
     sessionUserId,
     threadId,
-    resolvedMessageId ?? undefined,
+    checkpointMessageId,
   );
 
   res.json({
@@ -1814,6 +1754,7 @@ router.delete("/groups/:groupId", async (req, res) => {
   }
 
   clearGroupMuteForAllUsers(groupId);
+  clearGroupReadCheckpointForAllUsers(groupId);
 
   res.status(200).json({ message: "Group deleted." });
 });
@@ -2192,7 +2133,7 @@ router.get("/threads/:threadId/messages", async (req, res) => {
 
   const latestMessageId =
     messages.length > 0 ? messages[messages.length - 1].id : 0;
-  await syncDirectReadCheckpoint(userId, threadId, latestMessageId);
+  syncDirectReadCheckpoint(userId, threadId, latestMessageId);
 
   res.json(
     messages.map((message) => {

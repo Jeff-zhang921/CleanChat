@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { clearThreadMuteForAllUsers } from "../muteStore";
+import { clearDirectReadCheckpointForAllUsers } from "../readCheckpointStore";
 
 const prisma = new PrismaClient();
 
@@ -61,6 +62,7 @@ export const deleteConversation = async (
   });
 
   clearThreadMuteForAllUsers(conversationId);
+  clearDirectReadCheckpointForAllUsers(conversationId);
 
   response.status(200).json({
     conversationId,
