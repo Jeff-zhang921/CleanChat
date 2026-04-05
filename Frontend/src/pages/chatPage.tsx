@@ -334,6 +334,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const socketRef = useRef<Socket | null>(null);
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const messageInputRef = useRef<HTMLInputElement | null>(null);
+  const chatShellRef = useRef<HTMLDivElement | null>(null);
   const threadIdRef = useRef<number | null>(null);
   const groupIdRef = useRef<string | null>(
     initialChatMode === "group" && typeof resolvedState.groupId === "string"
@@ -1537,6 +1538,45 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   ];
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const shell = chatShellRef.current;
+    if (!shell) {
+      return;
+    }
+
+    const updateViewportMetrics = () => {
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      const viewportTop = window.visualViewport?.offsetTop ?? 0;
+
+      shell.style.setProperty("--chat-visual-viewport-height", `${Math.round(viewportHeight)}px`);
+      shell.style.setProperty(
+        "--chat-visual-viewport-top",
+        `${Math.max(0, Math.round(viewportTop))}px`,
+      );
+    };
+
+    updateViewportMetrics();
+
+    const visualViewport = window.visualViewport;
+    window.addEventListener("resize", updateViewportMetrics);
+    window.addEventListener("orientationchange", updateViewportMetrics);
+    visualViewport?.addEventListener("resize", updateViewportMetrics);
+    visualViewport?.addEventListener("scroll", updateViewportMetrics);
+
+    return () => {
+      window.removeEventListener("resize", updateViewportMetrics);
+      window.removeEventListener("orientationchange", updateViewportMetrics);
+      visualViewport?.removeEventListener("resize", updateViewportMetrics);
+      visualViewport?.removeEventListener("scroll", updateViewportMetrics);
+      shell.style.removeProperty("--chat-visual-viewport-height");
+      shell.style.removeProperty("--chat-visual-viewport-top");
+    };
+  }, []);
+
+  useEffect(() => {
     if (typeof window === "undefined" || showHistorySkeleton) {
       return;
     }
@@ -1710,6 +1750,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
 
   return (
     <div
+      ref={chatShellRef}
       className={`chat-shell ${isComposerEngaged ? "composer-engaged" : ""} ${isSendPulseVisible ? "send-pulse" : ""} ${showHistorySkeleton ? "history-loading" : "history-ready"} ${isClosing ? "is-closing" : ""}`}
     >
       <main className="chat-panel">

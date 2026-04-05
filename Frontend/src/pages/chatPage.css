@@ -21,9 +21,8 @@
   --motion-smooth-local: var(--motion-smooth, cubic-bezier(0.22, 1, 0.36, 1));
   --motion-quick-local: var(--motion-quick, 220ms);
   --motion-medium-local: var(--motion-medium, 360ms);
-  min-height: 100svh;
-  min-height: 100dvh;
-  height: 100dvh;
+  min-height: var(--chat-visual-viewport-height, 100svh);
+  height: var(--chat-visual-viewport-height, 100dvh);
   padding:
     0
     clamp(0.75rem, 2.5vw, 1.5rem)
@@ -73,7 +72,7 @@
   gap: 0.78rem;
   padding: max(calc(0.82rem + env(safe-area-inset-top, 0px)), 0.96rem) 0 0.86rem;
   position: sticky;
-  top: 0;
+  top: var(--chat-visual-viewport-top, 0px);
   z-index: 5;
   background: linear-gradient(180deg, rgba(247, 241, 231, 0.94), rgba(247, 241, 231, 0.8) 76%, rgba(247, 241, 231, 0));
   backdrop-filter: blur(18px);
