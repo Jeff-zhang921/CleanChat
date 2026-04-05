@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useMemo, useRef, useState, type HTMLAttributes, type RefObject } from "react";
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState, type HTMLAttributes, type RefObject } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Virtuoso, type ListProps, type ScrollerProps } from "react-virtuoso";
@@ -26,12 +26,16 @@ import {
   CONVERSATION_DELETED_EVENT,
   type ConversationDeletedDetail,
 } from "../utils/conversationEvents";
-import { showMessageNotification } from "../utils/notifications";
+import {
+  ensurePushSubscriptionForCurrentUser,
+  showMessageNotification,
+} from "../utils/notifications";
 import {
   clearUnreadCount,
   getGroupUnreadKey,
   getThreadUnreadKey,
   incrementUnreadCount,
+  normalizeUnreadCounts,
   persistUnreadCounts,
   readUnreadCounts,
   type ConversationUnreadCounts,
@@ -460,6 +464,71 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     });
   };
 
+  const replaceUnreadCounts = useCallback((nextCounts: ConversationUnreadCounts) => {
+    const normalized = normalizeUnreadCounts(nextCounts);
+    unreadCountsRef.current = normalized;
+    persistUnreadCounts(normalized);
+    setUnreadCounts(normalized);
+  }, []);
+
+  const refreshUnreadCountsFromBackend = useCallback(async () => {
+    if (!getAuthToken()) {
+      replaceUnreadCounts({});
+      return false;
+    }
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/unread-count`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = (await response.json().catch(() => ({}))) as {
+        counts?: unknown;
+      };
+      replaceUnreadCounts(normalizeUnreadCounts(data.counts));
+      return true;
+    } catch {
+      return false;
+    }
+  }, [replaceUnreadCounts]);
+
+  const syncConversationReadState = useCallback(
+    async (
+      target:
+        | { chatType: "direct"; threadId: number; lastMessageId?: number }
+        | { chatType: "group"; groupId: string; lastMessageId?: number }
+    ) => {
+      const body: Record<string, unknown> = {
+        chatType: target.chatType,
+      };
+      if (target.chatType === "direct") {
+        body.threadId = target.threadId;
+      } else {
+        body.groupId = target.groupId;
+      }
+      if (typeof target.lastMessageId === "number" && target.lastMessageId > 0) {
+        body.lastMessageId = target.lastMessageId;
+      }
+
+      try {
+        await fetch(`${BACKEND_URL}/chat/unread/read`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(body),
+        });
+      } catch {
+        // Read-sync is best effort.
+      }
+    },
+    [],
+  );
+
   const incrementThreadUnread = (threadId: number) => {
     updateUnreadCounts((current) =>
       incrementUnreadCount(current, getThreadUnreadKey(threadId), 1)
@@ -586,6 +655,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
 
         if (isMounted) {
           await Promise.all([refreshThreads(), refreshGroups()]);
+          await refreshUnreadCountsFromBackend();
         }
       } catch {
         if (isMounted) setStatus(t("conversations.loadingFailed"));
@@ -609,7 +679,44 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     return () => {
       isMounted = false;
     };
-  }, [initialCache, t]);
+  }, [initialCache, refreshUnreadCountsFromBackend, t]);
+
+  useEffect(() => {
+    if (!me) {
+      return;
+    }
+
+    void ensurePushSubscriptionForCurrentUser({
+      requestPermission: false,
+    });
+  }, [me]);
+
+  useEffect(() => {
+    if (!me) {
+      return;
+    }
+
+    void refreshUnreadCountsFromBackend();
+
+    const refreshWhenVisible = () => {
+      if (!document.hidden) {
+        void refreshUnreadCountsFromBackend();
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      refreshWhenVisible();
+    }, 30000);
+
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [me, refreshUnreadCountsFromBackend]);
 
   useEffect(() => {
     if (!me) return;
@@ -986,11 +1093,19 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
 
   const handleOpenThread = (threadId: number, other: string, avatarUrl?: string, avatarKey?: AvatarKey) => {
     clearConversationUnread(getThreadUnreadKey(threadId));
+    void syncConversationReadState({
+      chatType: "direct",
+      threadId,
+    });
     navigate("/chat", { state: { threadId, other, avatarUrl, avatarKey, fromPath: "/conversations" } });
   };
 
   const handleOpenGroup = (groupId: string, groupName: string, avatarUrl: string) => {
     clearConversationUnread(getGroupUnreadKey(groupId));
+    void syncConversationReadState({
+      chatType: "group",
+      groupId,
+    });
     navigate("/chat", {
       state: { chatType: "group", groupId, other: groupName, avatarUrl, fromPath: "/conversations" },
     });

@@ -416,12 +416,6 @@ export function initSocket(server: HTTPServer) {
       const pushBody = formatPushPreview(message.body);
 
       recipientIds.forEach((recipientId) => {
-        const activeSocketsInRoom =
-          io.sockets.adapter.rooms.get(`user:${recipientId}`)?.size ?? 0;
-        if (activeSocketsInRoom > 0) {
-          return;
-        }
-
         void sendPushToUser(prisma, recipientId, {
           title: `${senderLabel} sent a message`,
           body: pushBody,
@@ -612,12 +606,6 @@ export function initSocket(server: HTTPServer) {
       memberIds
         .filter((memberId) => memberId !== sessionUser.id)
         .forEach((memberId) => {
-          const activeSocketsInRoom =
-            io.sockets.adapter.rooms.get(`user:${memberId}`)?.size ?? 0;
-          if (activeSocketsInRoom > 0) {
-            return;
-          }
-
           void sendPushToUser(prisma, memberId, {
             title: `${group?.name ?? "Group"} · ${senderLabel}`,
             body: pushBody,

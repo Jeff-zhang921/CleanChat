@@ -99,6 +99,12 @@ const parsePushPayload = (event) => {
   const payload = isRecord(rawPayload) ? rawPayload : {};
   const notification = isRecord(payload.notification) ? payload.notification : {};
   const data = isRecord(payload.data) ? payload.data : {};
+  const target =
+    isRecord(data.target)
+      ? data.target
+      : isRecord(payload.target)
+        ? payload.target
+        : {};
 
   const title =
     normalizeString(notification.title) ||
@@ -121,15 +127,19 @@ const parsePushPayload = (event) => {
   const chatTypeRaw =
     normalizeString(data.chatType) ||
     normalizeString(payload.chatType) ||
+    normalizeString(target.chatType) ||
     undefined;
 
   const chatType = chatTypeRaw === "group" ? "group" : "direct";
-  const threadId = normalizePositiveInt(data.threadId ?? payload.threadId);
-  const groupId = normalizeString(data.groupId ?? payload.groupId);
+  const threadId = normalizePositiveInt(
+    data.threadId ?? payload.threadId ?? target.threadId,
+  );
+  const groupId = normalizeString(data.groupId ?? payload.groupId ?? target.groupId);
 
   const url =
     normalizeRelativeUrl(data.url) ||
     normalizeRelativeUrl(payload.url) ||
+    normalizeRelativeUrl(target.url) ||
     normalizeRelativeUrl(notification.click_action) ||
     normalizeRelativeUrl(data.click_action) ||
     undefined;

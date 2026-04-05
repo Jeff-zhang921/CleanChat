@@ -17,10 +17,16 @@ import { useTranslation } from "react-i18next";
 import { getAvatarToneClass, type AvatarKey } from "../constants/avatarCatalog";
 import MessageContextMenu from "../components/MessageContextMenu";
 import { BACKEND_URL, SOCKET_URL } from "../config";
+import { useChatScroll } from "../hooks/useChatScroll";
 import { useViewportOverscan } from "../hooks/useViewportOverscan";
 import { useToast } from "../hooks/useToast";
 import { getNotificationPermission, showMessageNotification } from "../utils/notifications";
 import { clearAuthToken, getAuthToken } from "../utils/auth";
+import {
+  clearDraftForTarget,
+  readDraftForTarget,
+  writeDraftForTarget,
+} from "../utils/chatDraftStorage";
 import { clearGroupUnread, clearThreadUnread } from "../utils/unreadCounts";
 import "./chatPage.css";
 
@@ -348,7 +354,6 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const meRef = useRef<{ id: number; email: string; name: string | null } | null>(null);
   const autoThreadRef = useRef(false);
   const historyLoadTokenRef = useRef(0);
-  const previousMessageCountRef = useRef(0);
   const historyHydratedRef = useRef(false);
   const sendPulseTimeoutRef = useRef<number | null>(null);
   const closeTimeoutRef = useRef<number | null>(null);
@@ -379,6 +384,47 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const [selectableMessageId, setSelectableMessageId] = useState<number | null>(null);
   const [quoteDraft, setQuoteDraft] = useState<QuoteDraft | null>(null);
   const { toast, showToast } = useToast();
+
+  const activeDraftTarget = useMemo(() => {
+    if (chatMode === "direct" && threadId) {
+      return {
+        chatType: "direct" as const,
+        threadId,
+      };
+    }
+
+    if (chatMode === "group" && groupId) {
+      return {
+        chatType: "group" as const,
+        groupId,
+      };
+    }
+
+    return null;
+  }, [chatMode, groupId, threadId]);
+
+  const { scrollToBottomSmooth, scrollToBottomIfPinned } = useChatScroll({
+    virtuosoRef,
+    messageCount: message.length,
+    isHistoryLoading,
+  });
+
+  useEffect(() => {
+    if (!activeDraftTarget) {
+      setMessageBody("");
+      return;
+    }
+
+    setMessageBody(readDraftForTarget(activeDraftTarget));
+  }, [activeDraftTarget]);
+
+  useEffect(() => {
+    if (!activeDraftTarget) {
+      return;
+    }
+
+    writeDraftForTarget(activeDraftTarget, messageBody);
+  }, [activeDraftTarget, messageBody]);
 
   const refocusMessageInput = () => {
     if (typeof window === "undefined") return;
@@ -499,7 +545,6 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     historyLoadTokenRef.current = token;
     if (!preserveExisting) {
       historyHydratedRef.current = false;
-      previousMessageCountRef.current = 0;
       setMessages([]);
     }
     setIsHistoryLoading(true);
@@ -557,6 +602,39 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     }
   };
 
+  const syncReadCheckpoint = async (
+    target:
+      | { chatType: "direct"; threadId: number; lastMessageId?: number }
+      | { chatType: "group"; groupId: string; lastMessageId?: number },
+  ) => {
+    const payload: Record<string, unknown> = {
+      chatType: target.chatType,
+    };
+
+    if (target.chatType === "direct") {
+      payload.threadId = target.threadId;
+    } else {
+      payload.groupId = target.groupId;
+    }
+
+    if (typeof target.lastMessageId === "number" && target.lastMessageId > 0) {
+      payload.lastMessageId = target.lastMessageId;
+    }
+
+    try {
+      await fetch(`${BACKEND_URL}/chat/unread/read`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      // Read sync is best effort and should not interrupt chat usage.
+    }
+  };
+
   const loadThreadMessages = async (id: number) => {
     const token = beginHistoryLoad();
     try {
@@ -569,7 +647,18 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
         return;
       }
       const data = await res.json();
-      finishHistoryLoad(token, Array.isArray(data) ? data : []);
+      const incoming = Array.isArray(data) ? data : [];
+      finishHistoryLoad(token, incoming);
+
+      const lastMessageId =
+        incoming.length > 0 && typeof incoming[incoming.length - 1]?.id === "number"
+          ? incoming[incoming.length - 1].id
+          : undefined;
+      void syncReadCheckpoint({
+        chatType: "direct",
+        threadId: id,
+        lastMessageId,
+      });
     } catch {
       failHistoryLoad(token, t("chat.historyLoadFailed"));
     }
@@ -590,6 +679,16 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       const data = await response.json().catch(() => ({}));
       const incoming = Array.isArray(data.messages) ? data.messages : [];
       finishHistoryLoad(token, incoming);
+
+      const lastMessageId =
+        incoming.length > 0 && typeof incoming[incoming.length - 1]?.id === "number"
+          ? incoming[incoming.length - 1].id
+          : undefined;
+      void syncReadCheckpoint({
+        chatType: "group",
+        groupId: id,
+        lastMessageId,
+      });
     } catch {
       failHistoryLoad(token, t("chat.groupHistoryLoadFailed"));
     }
@@ -661,6 +760,20 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     socket.on("message:new", (msg: ChatMessage) => {
       setMessages((prev) => [...prev, msg]);
       const currentUser = meRef.current;
+
+      if (currentUser && msg.senderId === currentUser.id) {
+        scrollToBottomSmooth();
+        return;
+      }
+
+      if (currentUser && msg.threadId) {
+        void syncReadCheckpoint({
+          chatType: "direct",
+          threadId: msg.threadId,
+          lastMessageId: msg.id,
+        });
+      }
+
       if (
         currentUser &&
         msg.senderId !== currentUser.id &&
@@ -699,6 +812,20 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     socket.on("group:message:new", (msg: ChatMessage) => {
       setMessages((prev) => [...prev, msg]);
       const currentUser = meRef.current;
+
+      if (currentUser && msg.senderId === currentUser.id) {
+        scrollToBottomSmooth();
+        return;
+      }
+
+      if (currentUser && msg.groupId) {
+        void syncReadCheckpoint({
+          chatType: "group",
+          groupId: msg.groupId,
+          lastMessageId: msg.id,
+        });
+      }
+
       if (
         currentUser &&
         msg.senderId !== currentUser.id &&
@@ -791,12 +918,20 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   useEffect(() => {
     if (chatMode === "direct" && threadId) {
       clearThreadUnread(threadId);
+      void syncReadCheckpoint({
+        chatType: "direct",
+        threadId,
+      });
     }
   }, [chatMode, threadId]);
 
   useEffect(() => {
     if (chatMode === "group" && groupId) {
       clearGroupUnread(groupId);
+      void syncReadCheckpoint({
+        chatType: "group",
+        groupId,
+      });
     }
   }, [chatMode, groupId]);
 
@@ -899,11 +1034,26 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
         quotePreview: quoteDraft?.preview,
       });
     }
+
+    if (chatMode === "group" && groupId) {
+      clearDraftForTarget({
+        chatType: "group",
+        groupId,
+      });
+    }
+    if (chatMode === "direct" && threadId) {
+      clearDraftForTarget({
+        chatType: "direct",
+        threadId,
+      });
+    }
+
     setMessageBody("");
     setQuoteDraft(null);
     setStatus("");
     closeContextMenu();
     refocusMessageInput();
+    scrollToBottomSmooth();
     return true;
   };
 
@@ -1196,6 +1346,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       }
       setStatus(t("chat.photoSent"));
       refocusMessageInput();
+      scrollToBottomSmooth();
     } catch {
       setStatus(t("chat.uploadFailed"));
     } finally {
@@ -1341,9 +1492,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       const resizeObserver =
         typeof ResizeObserver !== "undefined"
           ? new ResizeObserver(() => {
-              if (isAtBottomRef.current) {
-                virtuosoRef.current?.autoscrollToBottom();
-              }
+              scrollToBottomIfPinned(isAtBottomRef.current);
             })
           : null;
       resizeObserver?.observe(scroller);
@@ -1405,30 +1554,8 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     };
   }, [showHistorySkeleton]);
 
-  useEffect(() => {
-    if (showHistorySkeleton || message.length === 0) {
-      previousMessageCountRef.current = message.length;
-      return;
-    }
-
-    const previousCount = previousMessageCountRef.current;
-    if (previousCount === 0) {
-      window.requestAnimationFrame(() => {
-        virtuosoRef.current?.scrollToIndex({
-          index: message.length - 1,
-          align: "end",
-          behavior: "auto",
-        });
-      });
-    }
-
-    previousMessageCountRef.current = message.length;
-  }, [message.length, showHistorySkeleton]);
-
   const handleMessageMediaLoad = () => {
-    if (isAtBottom) {
-      virtuosoRef.current?.autoscrollToBottom();
-    }
+    scrollToBottomIfPinned(isAtBottom);
   };
 
   const handleBack = () => {

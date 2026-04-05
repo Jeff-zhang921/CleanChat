@@ -44,6 +44,13 @@ app.use(express.json());
 app.use("/auth", authRouter);
 app.use("/profile", profileRouter);
 app.use("/chat", chatRouter);
+app.get(
+  "/api/unread-count",
+  (request: Request, response: Response, next: NextFunction) => {
+    request.url = "/unread-count";
+    chatRouter(request, response, next);
+  },
+);
 app.use("/conversations", conversationsRouter);
 app.use("/api/conversations", conversationsRouter);
 

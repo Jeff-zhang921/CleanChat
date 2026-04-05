@@ -12,7 +12,9 @@ const sanitizeCount = (value: unknown) => {
   return Math.min(MAX_UNREAD, Math.floor(count));
 };
 
-const normalizeCounts = (value: unknown): ConversationUnreadCounts => {
+export const normalizeUnreadCounts = (
+  value: unknown,
+): ConversationUnreadCounts => {
   if (!value || typeof value !== "object") {
     return {};
   }
@@ -43,7 +45,7 @@ export const readUnreadCounts = (): ConversationUnreadCounts => {
       return {};
     }
     const parsed = JSON.parse(raw) as unknown;
-    return normalizeCounts(parsed);
+    return normalizeUnreadCounts(parsed);
   } catch {
     return {};
   }
@@ -54,7 +56,7 @@ export const persistUnreadCounts = (counts: ConversationUnreadCounts) => {
     return;
   }
 
-  const normalized = normalizeCounts(counts);
+  const normalized = normalizeUnreadCounts(counts);
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
   } catch {

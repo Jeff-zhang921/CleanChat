@@ -51,6 +51,190 @@ const GROUP_NAME_MAX_LENGTH = 48;
 const GROUP_DESCRIPTION_MAX_LENGTH = 180;
 const DIRECT_REQUEST_NOTE_MAX_LENGTH = 180;
 
+const directUnreadKey = (threadId: number) => `direct-${threadId}`;
+const groupUnreadKey = (groupId: string) => `group-${groupId}`;
+
+const directReadCheckpoints = new Map<number, Map<number, number>>();
+const groupReadCheckpoints = new Map<number, Map<string, number>>();
+
+const getOrCreateDirectReadCheckpoints = (userId: number) => {
+  const existing = directReadCheckpoints.get(userId);
+  if (existing) {
+    return existing;
+  }
+
+  const created = new Map<number, number>();
+  directReadCheckpoints.set(userId, created);
+  return created;
+};
+
+const getOrCreateGroupReadCheckpoints = (userId: number) => {
+  const existing = groupReadCheckpoints.get(userId);
+  if (existing) {
+    return existing;
+  }
+
+  const created = new Map<string, number>();
+  groupReadCheckpoints.set(userId, created);
+  return created;
+};
+
+const readLatestDirectMessageId = async (threadId: number) => {
+  const latest = await prisma.chatMessage.findFirst({
+    where: { threadId },
+    orderBy: { id: "desc" },
+    select: { id: true },
+  });
+
+  return latest?.id ?? 0;
+};
+
+const readLatestGroupMessageId = (groupId: string) => {
+  const messages = listGroupMessages(groupId);
+  if (messages.length === 0) {
+    return 0;
+  }
+
+  return messages[messages.length - 1].id;
+};
+
+const syncDirectReadCheckpoint = async (
+  userId: number,
+  threadId: number,
+  messageId?: number,
+) => {
+  const checkpoints = getOrCreateDirectReadCheckpoints(userId);
+  const current = checkpoints.get(threadId) ?? 0;
+
+  const nextCandidate =
+    typeof messageId === "number" &&
+    Number.isInteger(messageId) &&
+    messageId > 0
+      ? messageId
+      : await readLatestDirectMessageId(threadId);
+  const next = Math.max(current, nextCandidate);
+
+  checkpoints.set(threadId, next);
+  return next;
+};
+
+const syncGroupReadCheckpoint = (
+  userId: number,
+  groupId: string,
+  messageId?: number,
+) => {
+  const checkpoints = getOrCreateGroupReadCheckpoints(userId);
+  const current = checkpoints.get(groupId) ?? 0;
+
+  const nextCandidate =
+    typeof messageId === "number" &&
+    Number.isInteger(messageId) &&
+    messageId > 0
+      ? messageId
+      : readLatestGroupMessageId(groupId);
+  const next = Math.max(current, nextCandidate);
+
+  checkpoints.set(groupId, next);
+  return next;
+};
+
+const buildUnreadCountsForUser = async (userId: number) => {
+  const [directThreads, joinedGroups] = await Promise.all([
+    prisma.chatThread.findMany({
+      where: {
+        OR: [{ AID: userId }, { BID: userId }],
+      },
+      select: {
+        id: true,
+        Messages: {
+          take: 1,
+          orderBy: { id: "desc" },
+          select: { id: true },
+        },
+      },
+    }),
+    Promise.resolve(listGroupsForUser(userId).filter((group) => group.joined)),
+  ]);
+
+  const userDirectCheckpoints = getOrCreateDirectReadCheckpoints(userId);
+  const activeDirectIds = new Set(directThreads.map((thread) => thread.id));
+  [...userDirectCheckpoints.keys()].forEach((trackedThreadId) => {
+    if (!activeDirectIds.has(trackedThreadId)) {
+      userDirectCheckpoints.delete(trackedThreadId);
+    }
+  });
+
+  directThreads.forEach((thread) => {
+    if (!userDirectCheckpoints.has(thread.id)) {
+      userDirectCheckpoints.set(thread.id, thread.Messages[0]?.id ?? 0);
+    }
+  });
+
+  const directUnreadEntries = await Promise.all(
+    directThreads.map(async (thread) => {
+      const lastReadMessageId = userDirectCheckpoints.get(thread.id) ?? 0;
+      const unread = await prisma.chatMessage.count({
+        where: {
+          threadId: thread.id,
+          senderId: { not: userId },
+          id: { gt: lastReadMessageId },
+        },
+      });
+
+      return [directUnreadKey(thread.id), unread] as const;
+    }),
+  );
+
+  const userGroupCheckpoints = getOrCreateGroupReadCheckpoints(userId);
+  const activeGroupIds = new Set(joinedGroups.map((group) => group.id));
+  [...userGroupCheckpoints.keys()].forEach((trackedGroupId) => {
+    if (!activeGroupIds.has(trackedGroupId)) {
+      userGroupCheckpoints.delete(trackedGroupId);
+    }
+  });
+
+  const groupUnreadEntries = joinedGroups.map((group) => {
+    if (!userGroupCheckpoints.has(group.id)) {
+      userGroupCheckpoints.set(group.id, readLatestGroupMessageId(group.id));
+    }
+
+    const lastReadMessageId = userGroupCheckpoints.get(group.id) ?? 0;
+    const unread = listGroupMessages(group.id).reduce((sum, item) => {
+      if (item.senderId === userId || item.id <= lastReadMessageId) {
+        return sum;
+      }
+      return sum + 1;
+    }, 0);
+
+    return [groupUnreadKey(group.id), unread] as const;
+  });
+
+  const counts: Record<string, number> = {};
+  let directTotal = 0;
+  let groupTotal = 0;
+
+  directUnreadEntries.forEach(([key, count]) => {
+    if (count > 0) {
+      counts[key] = count;
+      directTotal += count;
+    }
+  });
+
+  groupUnreadEntries.forEach(([key, count]) => {
+    if (count > 0) {
+      counts[key] = count;
+      groupTotal += count;
+    }
+  });
+
+  return {
+    counts,
+    directTotal,
+    groupTotal,
+    total: directTotal + groupTotal,
+  };
+};
+
 const parsePositiveInt = (raw: unknown): number | null => {
   const parsed = typeof raw === "number" ? raw : Number(raw);
   if (!Number.isInteger(parsed) || Number.isNaN(parsed) || parsed <= 0) {
@@ -216,6 +400,120 @@ const serializeDirectRequest = (
 });
 
 router.use(authMiddleware);
+
+router.get("/unread-count", async (req, res) => {
+  const sessionUserId = req.user?.userId;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  try {
+    const summary = await buildUnreadCountsForUser(sessionUserId);
+    res.json({
+      ...summary,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch {
+    res.status(500).json({ message: "Failed to compute unread counts." });
+  }
+});
+
+router.post("/unread/read", async (req, res) => {
+  const sessionUserId = req.user?.userId;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const requestedChatType =
+    typeof req.body?.chatType === "string"
+      ? req.body.chatType.toLowerCase()
+      : "";
+  const requestedMessageId = parsePositiveInt(req.body?.lastMessageId);
+
+  if (requestedChatType === "group" || typeof req.body?.groupId === "string") {
+    const groupId = normalizeGroupId(req.body?.groupId);
+    if (!groupId) {
+      res.status(400).json({ message: "Invalid group ID." });
+      return;
+    }
+
+    const group = getGroupById(groupId);
+    if (!group) {
+      res.status(404).json({ message: "Group not found." });
+      return;
+    }
+
+    if (!isGroupMember(groupId, sessionUserId)) {
+      res.status(403).json({ message: "Join the group before chatting." });
+      return;
+    }
+
+    let resolvedMessageId = requestedMessageId;
+    if (resolvedMessageId) {
+      const matches = listGroupMessages(groupId).some(
+        (message) => message.id === resolvedMessageId,
+      );
+      if (!matches) {
+        resolvedMessageId = null;
+      }
+    }
+
+    const lastReadMessageId = syncGroupReadCheckpoint(
+      sessionUserId,
+      groupId,
+      resolvedMessageId ?? undefined,
+    );
+
+    res.json({
+      ok: true,
+      chatType: "group",
+      groupId,
+      lastReadMessageId,
+    });
+    return;
+  }
+
+  const threadId = parsePositiveInt(req.body?.threadId);
+  if (!threadId) {
+    res.status(400).json({ message: "Invalid thread ID." });
+    return;
+  }
+
+  const thread = await getThreadForUser(threadId, sessionUserId);
+  if (!thread) {
+    res.status(404).json({ message: "Thread not found." });
+    return;
+  }
+
+  let resolvedMessageId = requestedMessageId;
+  if (resolvedMessageId) {
+    const exists = await prisma.chatMessage.findFirst({
+      where: {
+        id: resolvedMessageId,
+        threadId,
+      },
+      select: { id: true },
+    });
+    if (!exists) {
+      resolvedMessageId = null;
+    }
+  }
+
+  const lastReadMessageId = await syncDirectReadCheckpoint(
+    sessionUserId,
+    threadId,
+    resolvedMessageId ?? undefined,
+  );
+
+  res.json({
+    ok: true,
+    chatType: "direct",
+    threadId,
+    lastReadMessageId,
+  });
+});
 
 router.post(
   "/upload-image",
@@ -1400,7 +1698,12 @@ router.get("/groups/:groupId/messages", async (req, res) => {
     return;
   }
 
-  res.json({ messages: listGroupMessages(groupId) });
+  const messages = listGroupMessages(groupId);
+  const latestMessageId =
+    messages.length > 0 ? messages[messages.length - 1].id : 0;
+  syncGroupReadCheckpoint(sessionUserId, groupId, latestMessageId);
+
+  res.json({ messages });
 });
 
 router.post("/threads", async (req, res) => {
@@ -1709,6 +2012,10 @@ router.get("/threads/:threadId/messages", async (req, res) => {
       },
     },
   });
+
+  const latestMessageId =
+    messages.length > 0 ? messages[messages.length - 1].id : 0;
+  await syncDirectReadCheckpoint(userId, threadId, latestMessageId);
 
   res.json(
     messages.map((message) => {

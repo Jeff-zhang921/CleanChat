@@ -200,8 +200,8 @@
 }
 
 .chat-more-button {
-  width: 2.42rem;
-  height: 2.42rem;
+  width: 3rem;
+  height: 3rem;
   padding: 0;
   border-radius: 999px;
   border: 0;
@@ -212,8 +212,8 @@
   justify-content: center;
   box-shadow: none;
   cursor: pointer;
+  touch-action: manipulation;
   transition:
-    background-color var(--motion-quick-local) var(--motion-smooth-local),
     color var(--motion-quick-local) var(--motion-smooth-local);
 }
 
@@ -224,12 +224,11 @@
 }
 
 .chat-more-button:hover:not(:disabled) {
-  background: rgba(45, 60, 51, 0.1);
   color: #1f2d25;
 }
 
 .chat-more-button:active:not(:disabled) {
-  background: rgba(45, 60, 51, 0.16);
+  color: #152019;
 }
 
 .chat-more-button:disabled {
@@ -239,7 +238,7 @@
 
 .chat-more-button:focus-visible {
   outline: none;
-  background: rgba(45, 60, 51, 0.14);
+  color: #1f2d25;
 }
 
 .chat-body {

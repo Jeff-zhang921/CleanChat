@@ -605,6 +605,7 @@
 
 .profile-avatar-option.current {
   border-style: solid;
+  border-color: rgba(24, 34, 24, 0.28);
 }
 
 .profile-avatar-option:hover {
@@ -614,8 +615,8 @@
 }
 
 .profile-avatar-option.active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-color: #11161f;
+  box-shadow: 0 0 0 3px rgba(17, 22, 31, 0.16);
   transform: translateY(-1px);
 }
 
