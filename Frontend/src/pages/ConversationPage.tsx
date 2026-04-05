@@ -30,12 +30,15 @@ import {
 } from "../utils/conversationEvents";
 import {
   ensurePushSubscriptionForCurrentUser,
+  hasExistingPushSubscription,
+  hasPushActivationForUser,
   getNotificationPermission,
   getNotificationRuntimeSupport,
   isAndroid13Plus,
   isIOSDevice,
   isStandalonePwa,
   showMessageNotification,
+  syncLinkedPushSubscriptionForCurrentUser,
   type NotificationPermissionState,
 } from "../utils/notifications";
 import {
@@ -394,6 +397,7 @@ type NotificationGuideMode =
   | "permission-default"
   | "permission-denied"
   | "ios-install"
+  | "subscription-link"
   | null;
 
 const ConversationStageChrome = ({
@@ -659,20 +663,27 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       return;
     }
 
-    setNotificationGuideMode(null);
-
-    const subscription = await ensurePushSubscriptionForCurrentUser({
-      requestPermission: false,
-    });
-    if (!subscription.ok) {
-      setNotificationGuideStatus(
-        subscription.reason || t("settings.notificationsNotGranted"),
-      );
+    const activationUserKey = me?.id ?? null;
+    const hasExplicitLink = hasPushActivationForUser(activationUserKey);
+    const hasLocalSubscription = await hasExistingPushSubscription();
+    if (!hasExplicitLink || !hasLocalSubscription) {
+      setNotificationGuideMode("subscription-link");
+      setNotificationGuideStatus("");
       return;
     }
 
+    const subscription = await syncLinkedPushSubscriptionForCurrentUser({
+      activationUserKey,
+    });
+    if (!subscription.ok) {
+      setNotificationGuideMode("subscription-link");
+      setNotificationGuideStatus("");
+      return;
+    }
+
+    setNotificationGuideMode(null);
     setNotificationGuideStatus("");
-  }, [t]);
+  }, [me?.id, t]);
 
   const handleEnableNotificationsFromGuide = useCallback(async () => {
     if (isRequestingNotificationPermission) {
@@ -686,6 +697,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       const subscription = await ensurePushSubscriptionForCurrentUser({
         requestPermission: true,
         forceResubscribe: true,
+        activationUserKey: me?.id ?? null,
       });
 
       setNotificationPermission(subscription.permission);
@@ -713,6 +725,12 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         return;
       }
 
+      if (subscription.permission === "granted") {
+        setNotificationGuideMode("subscription-link");
+        setNotificationGuideStatus(t("conversations.notificationsLinkFailed"));
+        return;
+      }
+
       setNotificationGuideMode("permission-default");
       setNotificationGuideStatus(
         subscription.reason || t("settings.notificationsNotGranted"),
@@ -720,7 +738,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     } finally {
       setIsRequestingNotificationPermission(false);
     }
-  }, [isRequestingNotificationPermission, t]);
+  }, [isRequestingNotificationPermission, me?.id, t]);
 
   const syncConversationReadState = useCallback(
     async (
@@ -1578,8 +1596,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   const shouldShowEmptyState = !isInitialLoading && !hasQuery && !hasConversationResults;
   const shouldRenderSearchResults = !isInitialLoading && hasQuery && hasSearchResults;
   const shouldRenderConversations = !isInitialLoading && !hasQuery && hasConversationResults;
-  const shouldShowNotificationGuide =
-    Boolean(me) && notificationPermission !== "granted" && notificationGuideMode !== null;
+  const shouldShowNotificationGuide = Boolean(me) && notificationGuideMode !== null;
   const notificationGuideCopy =
     notificationGuideMode === "ios-install"
       ? t("conversations.notificationsIosPwaGuide")
@@ -1587,10 +1604,14 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         ? isAndroid13Plus()
           ? t("settings.notificationsBlockedAndroid")
           : t("settings.notificationsBlockedBrowser")
-        : t("conversations.notificationsDefaultGuide");
+        : notificationGuideMode === "subscription-link"
+          ? t("conversations.notificationsLinkGuide")
+          : t("conversations.notificationsDefaultGuide");
   const notificationGuideActionLabel = isRequestingNotificationPermission
     ? t("conversations.notificationsEnabling")
-    : t("conversations.notificationsEnableAction");
+    : notificationGuideMode === "subscription-link"
+      ? t("conversations.notificationsLinkAction")
+      : t("conversations.notificationsEnableAction");
 
   const renderSearchUserCard = (_index: number, user: UserSummary) => {
     const hasThread = threadByUserId.has(user.id);

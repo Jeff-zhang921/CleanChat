@@ -42,8 +42,10 @@ const READY_TIMEOUT_MS = 12000;
 const FALLBACK_ROUTE = "/conversations";
 const SW_SCRIPT_URL = "/sw.js";
 const PUSH_ENTRY_QUERY_KEY = "fromPush";
+const PUSH_ENTRY_STAMP_QUERY_KEY = "pushAt";
 const PUSH_VAPID_STORAGE_KEY = "cleanchat:vapid-public-key";
 const PUSH_VAPID_FINGERPRINT_KEY = "cleanchat:push-vapid-fingerprint";
+const PUSH_EXPLICIT_ACTIVATION_PREFIX = "cleanchat:push-explicit-activation:";
 const DEFAULT_NOTIFICATION_VIBRATION_PATTERN = [200, 100, 200] as const;
 const VAPID_BASE64_URL_REGEX = /^[A-Za-z0-9_-]+$/;
 const VAPID_PUBLIC_KEY_BYTES = 65;
@@ -101,6 +103,21 @@ const normalizeGroupId = (value: unknown): string | null => {
   return trimmed ? trimmed : null;
 };
 
+const normalizePushActivationUserKey = (
+  value: number | string | null | undefined,
+) => {
+  if (typeof value === "number") {
+    return Number.isInteger(value) && value > 0 ? String(value) : null;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+};
+
 const normalizeRelativeUrl = (value: unknown): string | null => {
   if (typeof value !== "string") {
     return null;
@@ -135,6 +152,9 @@ const appendPushEntryQuery = (value: string) => {
 
     if (!parsed.searchParams.has(PUSH_ENTRY_QUERY_KEY)) {
       parsed.searchParams.set(PUSH_ENTRY_QUERY_KEY, "1");
+    }
+    if (!parsed.searchParams.has(PUSH_ENTRY_STAMP_QUERY_KEY)) {
+      parsed.searchParams.set(PUSH_ENTRY_STAMP_QUERY_KEY, String(Date.now()));
     }
 
     return `${parsed.pathname}${parsed.search}${parsed.hash}`;
@@ -227,7 +247,10 @@ export const isIOSDevice = () => {
     return false;
   }
 
-  return /iPad|iPhone|iPod/i.test(navigator.userAgent);
+  return (
+    /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+    (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 0)
+  );
 };
 
 export const isStandalonePwa = () => {
@@ -590,6 +613,46 @@ const clearVapidFingerprint = () => {
   writeStorageValue(PUSH_VAPID_FINGERPRINT_KEY, "");
 };
 
+const getPushActivationStorageKey = (
+  userKey: number | string | null | undefined,
+) => {
+  const normalizedUserKey = normalizePushActivationUserKey(userKey);
+  if (!normalizedUserKey) {
+    return null;
+  }
+
+  return `${PUSH_EXPLICIT_ACTIVATION_PREFIX}${normalizedUserKey}`;
+};
+
+const writePushActivationForUser = (
+  userKey: number | string | null | undefined,
+  enabled: boolean,
+) => {
+  const storageKey = getPushActivationStorageKey(userKey);
+  if (!storageKey) {
+    return;
+  }
+
+  writeStorageValue(storageKey, enabled ? "1" : "");
+};
+
+export const hasPushActivationForUser = (
+  userKey: number | string | null | undefined,
+) => {
+  const storageKey = getPushActivationStorageKey(userKey);
+  if (!storageKey) {
+    return false;
+  }
+
+  return readStorageValue(storageKey) === "1";
+};
+
+export const clearPushActivationForUser = (
+  userKey: number | string | null | undefined,
+) => {
+  writePushActivationForUser(userKey, false);
+};
+
 const readVapidPublicKeyFromStorage = () =>
   readStorageValue(PUSH_VAPID_STORAGE_KEY);
 
@@ -839,8 +902,144 @@ const toBackendPushPayload = (subscription: PushSubscription) => {
   };
 };
 
+export const hasExistingPushSubscription = async () => {
+  if (requiresIOSPwaForPush() || !isPushSupported()) {
+    return false;
+  }
+
+  if (getNotificationPermission() !== "granted") {
+    return false;
+  }
+
+  const registration = await resolveServiceWorkerRegistration();
+  if (!registration) {
+    return false;
+  }
+
+  const subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    return false;
+  }
+
+  return Boolean(toBackendPushPayload(subscription));
+};
+
+export const syncLinkedPushSubscriptionForCurrentUser = async (
+  options: { activationUserKey?: number | string | null } = {},
+): Promise<PushSubscriptionResult> => {
+  if (requiresIOSPwaForPush()) {
+    return {
+      ok: false,
+      permission: getNotificationPermission(),
+      reason: "iOS web push requires launching from Home Screen PWA mode.",
+    };
+  }
+
+  if (!isPushSupported()) {
+    return {
+      ok: false,
+      permission: "unsupported",
+      reason: "Push is not supported in this browser.",
+    };
+  }
+
+  const activationUserKey = options.activationUserKey;
+  const permission = getNotificationPermission();
+
+  if (permission !== "granted") {
+    return {
+      ok: false,
+      permission,
+      reason: "Notification permission is not granted.",
+    };
+  }
+
+  if (!hasPushActivationForUser(activationUserKey)) {
+    return {
+      ok: false,
+      permission,
+      reason: "Push notifications on this device still need an explicit enable action.",
+    };
+  }
+
+  const registration = await resolveServiceWorkerRegistration();
+  if (!registration) {
+    return {
+      ok: false,
+      permission,
+      reason: "Service worker registration is not ready.",
+    };
+  }
+
+  const subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    clearPushActivationForUser(activationUserKey);
+    return {
+      ok: false,
+      permission,
+      reason: "Push subscription is not active on this device.",
+    };
+  }
+
+  const vapidResolution = await resolveVapidPublicKey();
+  if (!vapidResolution.ok) {
+    clearVapidFingerprint();
+    return {
+      ok: false,
+      permission,
+      reason: vapidResolution.reason,
+    };
+  }
+
+  const currentServerKey = readApplicationServerKey(subscription);
+  if (
+    !currentServerKey ||
+    !areEqualBytes(currentServerKey, vapidResolution.keyBytes)
+  ) {
+    clearPushActivationForUser(activationUserKey);
+    clearVapidFingerprint();
+    return {
+      ok: false,
+      permission,
+      reason: "Push keys changed. Enable notifications again on this device.",
+    };
+  }
+
+  const payload = toBackendPushPayload(subscription);
+  if (!payload) {
+    clearPushActivationForUser(activationUserKey);
+    return {
+      ok: false,
+      permission,
+      reason: "Push subscription payload is incomplete.",
+    };
+  }
+
+  try {
+    await apiClient.put("/profile/push/subscription", payload);
+    writeVapidFingerprint(vapidResolution.key);
+    writePushActivationForUser(activationUserKey, true);
+
+    return {
+      ok: true,
+      permission,
+    };
+  } catch (error) {
+    console.warn(`${DEBUG_PREFIX} failed to sync existing push subscription`, error);
+    return {
+      ok: false,
+      permission,
+      reason: "Failed to sync push subscription with backend.",
+    };
+  }
+};
+
 export const ensurePushSubscriptionForCurrentUser = async (
-  options: { requestPermission?: boolean; forceResubscribe?: boolean } = {},
+  options: {
+    requestPermission?: boolean;
+    forceResubscribe?: boolean;
+    activationUserKey?: number | string | null;
+  } = {},
 ): Promise<PushSubscriptionResult> => {
   if (requiresIOSPwaForPush()) {
     return {
@@ -860,6 +1059,7 @@ export const ensurePushSubscriptionForCurrentUser = async (
 
   const shouldRequestPermission = options.requestPermission === true;
   const shouldForceResubscribe = options.forceResubscribe === true;
+  const activationUserKey = options.activationUserKey;
   let permission = getNotificationPermission();
 
   if (permission === "unsupported") {
@@ -1004,6 +1204,7 @@ export const ensurePushSubscriptionForCurrentUser = async (
 
     await apiClient.put("/profile/push/subscription", payload);
     writeVapidFingerprint(vapidResolution.key);
+    writePushActivationForUser(activationUserKey, true);
 
     return {
       ok: true,

@@ -57,7 +57,7 @@
     "notificationsEnabled": "通知を有効化しました。",
     "notificationsBlockedAndroid": "通知がブロックされています。Android 13+ ではシステム権限ダイアログで CleanChat 通知を許可してください。",
     "notificationsBlockedBrowser": "通知がブロックされています。ブラウザ設定で通知を許可してください。",
-    "notificationsUnsupportedIOS": "iPhone Safari タブでは Web Push を利用できません。CleanChat をホーム画面に追加し、アイコンから開いて通知を有効化してください。",
+    "notificationsUnsupportedIOS": "iPhone または iPad の Safari タブでは Web Push を有効化できません。CleanChat をホーム画面に追加し、アイコンから開いてから通知を有効化してください。",
     "notificationsUnsupported": "このブラウザは通知に対応していません。",
     "notificationsNotGranted": "通知権限がまだ付与されていません。",
     "sectionSession": "セッション",
@@ -202,7 +202,10 @@
     "notificationsDefaultGuide": "ここで通知を有効にし、システムの確認で「許可」を押してください。",
     "notificationsEnableAction": "今すぐ有効化",
     "notificationsEnabling": "有効化中...",
-    "notificationsIosPwaGuide": "iPhoneでは先に CleanChat をホーム画面に追加し、アイコンから開いてから通知を有効化してください。",
+    "notificationsIosPwaGuide": "iPhone または iPad では先に CleanChat をホーム画面に追加し、アイコンから開いてから通知を有効化してください。",
+    "notificationsLinkGuide": "通知の許可はありますが、この端末はまだ明示的なタップで連携する必要があります。",
+    "notificationsLinkAction": "この端末を連携",
+    "notificationsLinkFailed": "この端末の通知連携を完了できませんでした。",
     "notificationsEnabled": "通知が有効になり、このアカウントに紐づきました。",
     "loadingStatus": "会話を読み込み中"
   },
@@ -369,6 +372,7 @@
     "installShortcut": "ホーム画面に追加",
     "installShortcutOpening": "インストール案内を開いています...",
     "installShortcutAria": "CleanChat をホーム画面に追加",
+    "installShortcutIosGuide": "「共有」を押してから「ホーム画面に追加」を選んでください。",
     "switchToEnglish": "English",
     "switchToChinese": "中文",
     "languageSwitchAria": "言語を {{language}} に切り替える"

@@ -27,6 +27,8 @@ import {
   ensurePushSubscriptionForCurrentUser,
   getNotificationPermission,
   isAndroid13Plus,
+  isIOSDevice,
+  isStandalonePwa,
 } from "../utils/notifications";
 import { hydrateProfileUser, type ProfileRouteState, type ProfileUser } from "../utils/profileUser";
 import "./profile.css";
@@ -52,18 +54,6 @@ type GroupJoinRequest = {
   name: string | null;
   email: string;
   cleanId: string;
-};
-
-const isIOSDevice = () =>
-  typeof navigator !== "undefined" && /iPad|iPhone|iPod/i.test(navigator.userAgent);
-
-const isStandalonePwa = () => {
-  if (typeof window === "undefined") return false;
-  const mediaStandalone = window.matchMedia("(display-mode: standalone)").matches;
-  const navigatorStandalone = (
-    window.navigator as Navigator & { standalone?: boolean }
-  ).standalone === true;
-  return mediaStandalone || navigatorStandalone;
 };
 
 const ProfileLoadingState = () => (
@@ -216,16 +206,6 @@ const ProfilePage = () => {
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (notificationPermission !== "granted") {
-      return;
-    }
-
-    void ensurePushSubscriptionForCurrentUser({
-      requestPermission: false,
-    });
-  }, [notificationPermission]);
 
   const resetFormToUser = () => {
     if (!user) return;
@@ -410,6 +390,7 @@ const ProfilePage = () => {
     const subscriptionResult = await ensurePushSubscriptionForCurrentUser({
       requestPermission: true,
       forceResubscribe: true,
+      activationUserKey: user?.id ?? null,
     });
     setNotificationPermission(subscriptionResult.permission);
 

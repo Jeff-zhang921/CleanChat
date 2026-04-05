@@ -57,7 +57,7 @@
     "notificationsEnabled": "Notifications enabled.",
     "notificationsBlockedAndroid": "Notifications blocked. Android 13+ requires allowing the system notification prompt for CleanChat.",
     "notificationsBlockedBrowser": "Notifications blocked. Please allow notifications in browser settings.",
-    "notificationsUnsupportedIOS": "iPhone Safari tab cannot enable web push. Add CleanChat to Home Screen, open from app icon, then enable notifications.",
+    "notificationsUnsupportedIOS": "Safari on iPhone or iPad cannot enable web push from a browser tab. Add CleanChat to Home Screen, open it from the app icon, then enable notifications.",
     "notificationsUnsupported": "This browser does not support notifications.",
     "notificationsNotGranted": "Notification permission not granted yet.",
     "sectionSession": "Session",
@@ -202,7 +202,10 @@
     "notificationsDefaultGuide": "Enable notifications here, then tap Allow in the system prompt.",
     "notificationsEnableAction": "Enable now",
     "notificationsEnabling": "Enabling...",
-    "notificationsIosPwaGuide": "On iPhone, add CleanChat to Home Screen and open it from the icon before enabling notifications.",
+    "notificationsIosPwaGuide": "On iPhone or iPad, add CleanChat to Home Screen and open it from the icon before enabling notifications.",
+    "notificationsLinkGuide": "Notifications are allowed, but this device still needs to be linked by an explicit tap.",
+    "notificationsLinkAction": "Link this device",
+    "notificationsLinkFailed": "Unable to finish linking this device for notifications.",
     "notificationsEnabled": "Notifications enabled and linked to this account.",
     "loadingStatus": "Loading conversations"
   },
@@ -369,6 +372,7 @@
     "installShortcut": "Add to Home Screen",
     "installShortcutOpening": "Opening install prompt...",
     "installShortcutAria": "Add CleanChat to Home Screen",
+    "installShortcutIosGuide": "Tap Share, then Add to Home Screen.",
     "switchToEnglish": "English",
     "switchToChinese": "中文",
     "languageSwitchAria": "Switch language to {{language}}"

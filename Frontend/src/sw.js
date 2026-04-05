@@ -25,6 +25,7 @@ const DEFAULT_ICON = "/icons/icon-192.png";
 const DEFAULT_BADGE = "/icons/icon-192.png";
 const DEFAULT_URL = "/conversations";
 const PUSH_ENTRY_QUERY_KEY = "fromPush";
+const PUSH_ENTRY_STAMP_QUERY_KEY = "pushAt";
 const DEFAULT_VIBRATION_PATTERN = [200, 100, 200];
 
 const isRecord = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -64,6 +65,9 @@ const appendPushEntryQuery = (value) => {
     }
     if (!parsed.searchParams.has(PUSH_ENTRY_QUERY_KEY)) {
       parsed.searchParams.set(PUSH_ENTRY_QUERY_KEY, "1");
+    }
+    if (!parsed.searchParams.has(PUSH_ENTRY_STAMP_QUERY_KEY)) {
+      parsed.searchParams.set(PUSH_ENTRY_STAMP_QUERY_KEY, String(Date.now()));
     }
     return `${parsed.pathname}${parsed.search}${parsed.hash}`;
   } catch {
@@ -208,6 +212,7 @@ self.addEventListener("push", (event) => {
       icon: DEFAULT_ICON,
       badge: DEFAULT_BADGE,
       vibrate: DEFAULT_VIBRATION_PATTERN,
+      timestamp: Date.now(),
       tag: payload.tag,
       renotify: Boolean(payload.tag),
       data: {

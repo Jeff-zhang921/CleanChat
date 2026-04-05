@@ -57,7 +57,7 @@
     "notificationsEnabled": "알림이 활성화되었습니다.",
     "notificationsBlockedAndroid": "알림이 차단되었습니다. Android 13+에서는 시스템 권한 창에서 CleanChat 알림을 허용해야 합니다.",
     "notificationsBlockedBrowser": "알림이 차단되었습니다. 브라우저 설정에서 알림을 허용해 주세요.",
-    "notificationsUnsupportedIOS": "iPhone Safari 탭에서는 Web Push를 사용할 수 없습니다. CleanChat을 홈 화면에 추가한 뒤 아이콘으로 열어 알림을 켜세요.",
+    "notificationsUnsupportedIOS": "iPhone 또는 iPad의 Safari 탭에서는 Web Push를 켤 수 없습니다. CleanChat을 홈 화면에 추가한 뒤 아이콘으로 열어 알림을 켜세요.",
     "notificationsUnsupported": "이 브라우저는 알림을 지원하지 않습니다.",
     "notificationsNotGranted": "알림 권한이 아직 부여되지 않았습니다.",
     "sectionSession": "세션",
@@ -202,7 +202,10 @@
     "notificationsDefaultGuide": "여기서 알림을 켠 뒤 시스템 팝업에서 허용을 눌러주세요.",
     "notificationsEnableAction": "지금 켜기",
     "notificationsEnabling": "켜는 중...",
-    "notificationsIosPwaGuide": "iPhone에서는 먼저 CleanChat을 홈 화면에 추가하고 아이콘으로 열어야 알림을 켤 수 있습니다.",
+    "notificationsIosPwaGuide": "iPhone 또는 iPad에서는 먼저 CleanChat을 홈 화면에 추가하고 아이콘으로 열어야 알림을 켤 수 있습니다.",
+    "notificationsLinkGuide": "알림 권한은 허용되었지만, 이 기기는 아직 직접 탭해서 연결해야 합니다.",
+    "notificationsLinkAction": "이 기기 연결",
+    "notificationsLinkFailed": "이 기기의 알림 연결을 완료하지 못했습니다.",
     "notificationsEnabled": "알림이 켜졌고 현재 계정에 연결되었습니다.",
     "loadingStatus": "대화 불러오는 중"
   },
@@ -369,6 +372,7 @@
     "installShortcut": "홈 화면에 추가",
     "installShortcutOpening": "설치 안내를 여는 중...",
     "installShortcutAria": "CleanChat을 홈 화면에 추가",
+    "installShortcutIosGuide": "공유를 누른 뒤 홈 화면에 추가를 선택하세요.",
     "switchToEnglish": "English",
     "switchToChinese": "中文",
     "languageSwitchAria": "언어를 {{language}}(으)로 전환"

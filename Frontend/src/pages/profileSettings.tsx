@@ -10,26 +10,16 @@ import {
 } from "../i18n";
 import { clearAuthToken } from "../utils/auth";
 import {
+  ensurePushSubscriptionForCurrentUser,
   getNotificationPermission,
   isAndroid13Plus,
-  requestNotificationPermission,
+  isIOSDevice,
+  isStandalonePwa,
 } from "../utils/notifications";
 import { hydrateProfileUser, type ProfileRouteState, type ProfileUser } from "../utils/profileUser";
 import "./profileSettings.css";
 
 const EXIT_MS = 260;
-
-const isIOSDevice = () =>
-  typeof navigator !== "undefined" && /iPad|iPhone|iPod/i.test(navigator.userAgent);
-
-const isStandalonePwa = () => {
-  if (typeof window === "undefined") return false;
-  const mediaStandalone = window.matchMedia("(display-mode: standalone)").matches;
-  const navigatorStandalone = (
-    window.navigator as Navigator & { standalone?: boolean }
-  ).standalone === true;
-  return mediaStandalone || navigatorStandalone;
-};
 
 const ProfileSettingsLoadingState = ({ onBack }: { onBack: () => void }) => {
   const { t } = useTranslation();
@@ -220,14 +210,18 @@ const ProfileSettingsPage = () => {
   };
 
   const handleEnableNotifications = async () => {
-    const permission = await requestNotificationPermission();
-    setNotificationPermission(permission);
+    const subscriptionResult = await ensurePushSubscriptionForCurrentUser({
+      requestPermission: true,
+      forceResubscribe: true,
+      activationUserKey: user?.id ?? null,
+    });
+    setNotificationPermission(subscriptionResult.permission);
 
-    if (permission === "granted") {
+    if (subscriptionResult.ok) {
       setNotificationStatus(t("settings.notificationsEnabled"));
       return;
     }
-    if (permission === "denied") {
+    if (subscriptionResult.permission === "denied") {
       setNotificationStatus(
         isAndroid13Plus()
           ? t("settings.notificationsBlockedAndroid")
@@ -235,7 +229,7 @@ const ProfileSettingsPage = () => {
       );
       return;
     }
-    if (permission === "unsupported") {
+    if (subscriptionResult.permission === "unsupported") {
       if (isIOSDevice() && !isStandalonePwa()) {
         setNotificationStatus(
           t("settings.notificationsUnsupportedIOS")
@@ -245,7 +239,9 @@ const ProfileSettingsPage = () => {
       setNotificationStatus(t("settings.notificationsUnsupported"));
       return;
     }
-    setNotificationStatus(t("settings.notificationsNotGranted"));
+    setNotificationStatus(
+      subscriptionResult.reason || t("settings.notificationsNotGranted"),
+    );
   };
 
   const handleLanguageChange = async (nextLanguage: SupportedLanguage) => {

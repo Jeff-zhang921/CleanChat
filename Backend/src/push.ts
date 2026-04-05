@@ -188,6 +188,23 @@ const buildPayload = (envelope: PushEnvelope) => {
   });
 };
 
+const buildPushDeliveryOptions = (tag?: string) => {
+  const normalizedTopic =
+    typeof tag === "string"
+      ? tag
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]/g, "")
+          .slice(0, 32)
+      : "";
+
+  return {
+    TTL: 60,
+    urgency: "high" as const,
+    ...(normalizedTopic ? { topic: normalizedTopic } : {}),
+  };
+};
+
 export const isPushConfigured = () => PUSH_CONFIGURATION_STATUS.configured;
 
 export const getVapidPublicKey = () =>
@@ -240,6 +257,7 @@ export const sendPushToUser = async (
             },
           },
           payload,
+          buildPushDeliveryOptions(envelope.tag),
         );
       } catch (error) {
         if (isStaleEndpointError(error)) {

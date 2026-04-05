@@ -57,7 +57,7 @@
     "notificationsEnabled": "通知已開啟。",
     "notificationsBlockedAndroid": "通知遭封鎖。Android 13+ 需要在系統視窗允許 CleanChat 通知。",
     "notificationsBlockedBrowser": "通知遭封鎖。請在瀏覽器設定中允許通知。",
-    "notificationsUnsupportedIOS": "iPhone Safari 分頁不支援 Web Push。請先將 CleanChat 加到主畫面，並從圖示開啟後再啟用通知。",
+    "notificationsUnsupportedIOS": "iPhone 或 iPad 的 Safari 分頁無法在瀏覽器分頁中啟用 Web Push。請先將 CleanChat 加入主畫面，並從圖示開啟後再啟用通知。",
     "notificationsUnsupported": "目前瀏覽器不支援通知。",
     "notificationsNotGranted": "通知權限尚未授予。",
     "sectionSession": "工作階段",
@@ -202,7 +202,10 @@
     "notificationsDefaultGuide": "請在這裡開啟通知，接著在系統提示中點選「允許」。",
     "notificationsEnableAction": "立即開啟",
     "notificationsEnabling": "開啟中...",
-    "notificationsIosPwaGuide": "iPhone 需先將 CleanChat 加入主畫面，並從桌面圖示開啟後才能啟用通知。",
+    "notificationsIosPwaGuide": "iPhone 或 iPad 需先將 CleanChat 加入主畫面，並從桌面圖示開啟後才能啟用通知。",
+    "notificationsLinkGuide": "通知權限已允許，但這台裝置仍需透過一次主動點擊完成綁定。",
+    "notificationsLinkAction": "綁定這台裝置",
+    "notificationsLinkFailed": "無法完成這台裝置的通知綁定。",
     "notificationsEnabled": "通知已啟用並綁定到目前帳號。",
     "loadingStatus": "載入會話中"
   },
@@ -369,6 +372,7 @@
     "installShortcut": "加入主畫面",
     "installShortcutOpening": "正在開啟安裝提示...",
     "installShortcutAria": "將 CleanChat 加到主畫面",
+    "installShortcutIosGuide": "先點「分享」，再點「加入主畫面」。",
     "switchToEnglish": "English",
     "switchToChinese": "中文",
     "languageSwitchAria": "切換語言為 {{language}}"

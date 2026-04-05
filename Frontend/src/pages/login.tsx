@@ -16,6 +16,7 @@ import {
   type SupportedLanguage,
 } from "../i18n";
 import { clearAuthToken, getAuthToken } from "../utils/auth";
+import { isIOSDevice, isStandalonePwa } from "../utils/notifications";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PENDING_EMAIL_KEY = "cleanchat:pending-email";
@@ -313,6 +314,25 @@ export const getPretextAuthStyles = (compact: boolean, pointer: PointerState) =>
     boxShadow: "none",
     transition: "opacity 0.2s ease, color 0.2s ease",
   } satisfies CSSProperties,
+  installGuide: {
+    position: "fixed",
+    top: compact ? "1.05rem" : "1.35rem",
+    right: compact ? "1rem" : "1.45rem",
+    maxWidth: compact ? "12.5rem" : "15rem",
+    margin: 0,
+    fontFamily: "\"Manrope\", sans-serif",
+    fontSize: "0.93rem",
+    fontWeight: 600,
+    letterSpacing: "0.01em",
+    lineHeight: 1.7,
+    color: "rgba(24, 32, 24, 0.82)",
+    textAlign: "right",
+    background: "transparent",
+    border: "0",
+    boxShadow: "none",
+    zIndex: 24,
+    pointerEvents: "none",
+  } satisfies CSSProperties,
   status: {
     position: "relative",
     zIndex: 1,
@@ -386,12 +406,18 @@ const LoginPage = () => {
   const [deferredInstallPrompt, setDeferredInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [isPromptingInstall, setIsPromptingInstall] = useState(false);
+  const [showIosInstallGuide, setShowIosInstallGuide] = useState(false);
   const compact = usePretextCompact();
   const { pointer, bindings } = usePretextPointer();
 
   const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
   const currentLanguage = resolveSupportedLanguage(i18n.language);
   const styles = getPretextAuthStyles(compact, pointer);
+  const showAppleInstallShortcut = isIOSDevice() && !isStandalonePwa();
+  const showNativeInstallShortcut =
+    !isStandalonePwa() && Boolean(deferredInstallPrompt);
+  const shouldRenderInstallShortcut =
+    showNativeInstallShortcut || showAppleInstallShortcut;
 
   useEffect(() => {
     const mediaStandalone = window.matchMedia("(display-mode: standalone)").matches;
@@ -432,6 +458,20 @@ const LoginPage = () => {
       window.removeEventListener("appinstalled", handleAppInstalled);
     };
   }, []);
+
+  useEffect(() => {
+    if (!showIosInstallGuide) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setShowIosInstallGuide(false);
+    }, 5600);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [showIosInstallGuide]);
 
   useEffect(() => {
     let isMounted = true;
@@ -562,6 +602,11 @@ const LoginPage = () => {
   };
 
   const handleOpenInstallPrompt = async () => {
+    if (showAppleInstallShortcut) {
+      setShowIosInstallGuide((current) => !current);
+      return;
+    }
+
     if (!deferredInstallPrompt || isPromptingInstall) {
       return;
     }
@@ -636,7 +681,7 @@ const LoginPage = () => {
             </button>
           </form>
 
-          {deferredInstallPrompt && (
+          {shouldRenderInstallShortcut && (
             <button
               type="button"
               style={{
@@ -652,10 +697,16 @@ const LoginPage = () => {
               disabled={isSubmitting || isRestoringSession || isPromptingInstall}
               aria-label={t("auth.installShortcutAria")}
             >
-              {isPromptingInstall
+              {isPromptingInstall && !showAppleInstallShortcut
                 ? t("auth.installShortcutOpening")
                 : t("auth.installShortcut")}
             </button>
+          )}
+
+          {showIosInstallGuide && showAppleInstallShortcut && (
+            <p style={styles.installGuide} role="status" aria-live="polite">
+              {t("auth.installShortcutIosGuide")}
+            </p>
           )}
 
           {status && (
