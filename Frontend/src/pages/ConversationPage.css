@@ -415,7 +415,7 @@
 
 .conversations-list {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.58rem;
 }
 
 .conversations-list-fluid {
@@ -446,7 +446,7 @@
 
 .conversations-scroll-content {
   display: grid;
-  gap: 0.85rem;
+  gap: 0.68rem;
 }
 
 .conversations-list-shell,
@@ -483,22 +483,22 @@
 }
 
 .conversations-virtual-item {
-  padding-bottom: 0.75rem;
+  padding-bottom: 0.56rem;
 }
 
 .conversation-card {
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: 1rem;
+  border-radius: 0.9rem;
   background: var(--panel);
   color: inherit;
-  padding: 1rem;
+  padding: 0.82rem 0.86rem;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.95rem;
+  gap: 0.74rem;
   align-items: center;
   text-align: left;
-  box-shadow: 0 14px 28px rgba(15, 21, 36, 0.08);
+  box-shadow: 0 10px 22px rgba(15, 21, 36, 0.07);
   transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
   box-sizing: border-box;
   contain: layout paint style;
@@ -514,7 +514,7 @@ button.conversation-card {
 
 .conversation-card:hover {
   border-color: #bcc6dc;
-  box-shadow: 0 18px 34px rgba(15, 21, 36, 0.12);
+  box-shadow: 0 14px 26px rgba(15, 21, 36, 0.1);
   transform: translateY(-1px);
 }
 
@@ -525,9 +525,9 @@ button.conversation-card {
 }
 
 .avatar {
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: 1rem;
+  width: 2.95rem;
+  height: 2.95rem;
+  border-radius: 0.88rem;
   overflow: hidden;
   border: 1px solid var(--line);
   background: #ffffff;
@@ -544,14 +544,14 @@ button.conversation-card {
 .conversation-body {
   min-width: 0;
   display: grid;
-  gap: 0.32rem;
+  gap: 0.24rem;
 }
 
 .conversation-top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.62rem;
   min-width: 0;
 }
 
@@ -561,7 +561,7 @@ button.conversation-card {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.45rem 0.6rem;
+  gap: 0.34rem 0.48rem;
 }
 
 .conversation-meta-stack {
@@ -569,20 +569,20 @@ button.conversation-card {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.3rem;
-  min-width: 3.4rem;
+  gap: 0.22rem;
+  min-width: 3.05rem;
 }
 
 .conversation-meta-time-row {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.34rem;
+  gap: 0.26rem;
   min-width: 0;
 }
 
 .conversation-badge-slot {
-  min-height: 1rem;
+  min-height: 0.9rem;
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
@@ -594,8 +594,8 @@ button.conversation-card {
 }
 
 .conversation-muted-icon {
-  width: 0.9rem;
-  height: 0.9rem;
+  width: 0.82rem;
+  height: 0.82rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -609,8 +609,8 @@ button.conversation-card {
 }
 
 .conversation-muted-unread-dot {
-  width: 0.54rem;
-  height: 0.54rem;
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: 50%;
   background: #8f9790;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.52);
@@ -620,7 +620,7 @@ button.conversation-card {
   margin: 0;
   min-width: 0;
   flex: 1 1 10rem;
-  font-size: 1rem;
+  font-size: 0.96rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -637,8 +637,8 @@ button.conversation-card {
 }
 
 .conversation-gender-icon-svg {
-  width: 0.95rem;
-  height: 0.95rem;
+  width: 0.84rem;
+  height: 0.84rem;
   display: block;
 }
 
@@ -647,9 +647,9 @@ button.conversation-card {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  padding: 0.18rem 0.56rem;
+  padding: 0.14rem 0.46rem;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 700;
   background: rgba(24, 34, 24, 0.08);
   color: #233126;
@@ -657,14 +657,14 @@ button.conversation-card {
 
 .time {
   flex-shrink: 0;
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   color: var(--muted);
 }
 
 .conversation-unread-placeholder {
   display: inline-flex;
-  width: 1.8rem;
-  min-height: 1rem;
+  width: 1.62rem;
+  min-height: 0.92rem;
   opacity: 0;
   pointer-events: none;
 }
@@ -686,30 +686,30 @@ button.conversation-card {
 }
 
 .conversation-unread-dot {
-  width: 0.56rem;
-  height: 0.56rem;
-  min-height: 0.56rem;
-  min-width: 0.56rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  min-height: 0.5rem;
+  min-width: 0.5rem;
   padding: 0;
   border-radius: 50%;
   animation: unread-dot-breathe 2.35s ease-in-out infinite;
 }
 
 .conversation-unread-capsule {
-  min-height: 1.2rem;
-  padding: 0.1rem 0.42rem 0.06rem;
+  min-height: 1.08rem;
+  padding: 0.08rem 0.36rem 0.04rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 0.67rem;
+  font-size: 0.63rem;
   font-weight: 300;
-  letter-spacing: 0.045em;
+  letter-spacing: 0.038em;
   line-height: 1;
 }
 
 .preview {
   margin: 0;
   color: #334033;
-  font-size: 17px;
-  line-height: 1.5;
+  font-size: 15px;
+  line-height: 1.43;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -719,14 +719,14 @@ button.conversation-card {
 .conversation-subline {
   margin: 0;
   color: var(--muted);
-  font-size: 0.84rem;
-  line-height: 1.4;
+  font-size: 0.78rem;
+  line-height: 1.34;
 }
 
 .conversation-identity-row {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.44rem;
   flex-wrap: wrap;
   min-width: 0;
 }
@@ -736,7 +736,7 @@ button.conversation-card {
   align-items: center;
   width: auto;
   max-width: 100%;
-  padding: 0.16rem 0.48rem;
+  padding: 0.13rem 0.42rem;
   border-radius: 999px;
   border: 1px solid rgba(24, 34, 24, 0.08);
   background: rgba(255, 255, 255, 0.84);
@@ -771,15 +771,15 @@ button.conversation-card {
 .conversation-trust-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 1.6rem;
-  padding: 0.18rem 0.52rem;
+  min-height: 1.42rem;
+  padding: 0.14rem 0.46rem;
   border-radius: 999px;
   border: 1px solid rgba(24, 34, 24, 0.08);
   background: rgba(255, 255, 255, 0.7);
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.07em;
   color: var(--muted);
   flex-shrink: 0;
 }
@@ -1069,12 +1069,17 @@ button.conversation-card {
   }
 
   .conversations-virtual-item {
-    padding-bottom: 0.68rem;
+    padding-bottom: 0.5rem;
   }
 
   .conversation-card {
-    border-radius: 1.12rem;
-    padding: 1rem 1.08rem;
+    border-radius: 0.98rem;
+    padding: 0.9rem 0.98rem;
+  }
+
+  .avatar {
+    width: 3.08rem;
+    height: 3.08rem;
   }
 }
 
@@ -1121,81 +1126,81 @@ button.conversation-card {
   }
 
   .conversation-card {
-    padding: 0.8rem;
-    gap: 0.72rem;
-    border-radius: 0.9rem;
+    padding: 0.68rem 0.7rem;
+    gap: 0.56rem;
+    border-radius: 0.78rem;
   }
 
   .avatar {
-    width: 2.8rem;
-    height: 2.8rem;
+    width: 2.44rem;
+    height: 2.44rem;
   }
 
   .conversation-top {
-    gap: 0.35rem 0.5rem;
+    gap: 0.26rem 0.4rem;
   }
 
   .conversation-meta-stack {
-    min-width: 3.1rem;
-    gap: 0.26rem;
+    min-width: 2.68rem;
+    gap: 0.18rem;
   }
 
   .conversation-meta-time-row {
-    gap: 0.28rem;
+    gap: 0.2rem;
   }
 
   .conversation-muted-icon {
-    width: 0.82rem;
-    height: 0.82rem;
+    width: 0.72rem;
+    height: 0.72rem;
   }
 
   .conversation-badge-slot {
-    min-height: 0.92rem;
+    min-height: 0.74rem;
   }
 
   .conversation-muted-unread-dot {
-    width: 0.48rem;
-    height: 0.48rem;
+    width: 0.4rem;
+    height: 0.4rem;
   }
 
   .conversation-body h3 {
-    font-size: 0.96rem;
+    font-size: 0.9rem;
   }
 
   .preview,
   .conversation-subline,
   .status-text {
-    font-size: 0.82rem;
+    font-size: 0.78rem;
   }
 
   .conversation-identity-row {
-    gap: 0.42rem;
+    gap: 0.3rem;
   }
 
   .conversation-cleanid,
   .conversation-trust-chip {
-    font-size: 0.7rem;
+    font-size: 0.64rem;
   }
 
   .time {
-    font-size: 0.76rem;
+    font-size: 0.68rem;
   }
 
   .conversation-unread-placeholder {
-    min-height: 0.84rem;
+    min-height: 0.74rem;
   }
 
   .conversation-unread-dot {
-    width: 0.5rem;
-    height: 0.5rem;
-    min-height: 0.5rem;
-    min-width: 0.5rem;
+    width: 0.44rem;
+    height: 0.44rem;
+    min-height: 0.44rem;
+    min-width: 0.44rem;
   }
 
   .conversation-unread-capsule {
-    min-height: 1.08rem;
-    padding: 0.08rem 0.36rem 0.04rem;
-    font-size: 0.62rem;
+    min-height: 0.9rem;
+    padding: 0.05rem 0.28rem 0.03rem;
+    font-size: 0.58rem;
   }
 
   .conversations-toolbar {
