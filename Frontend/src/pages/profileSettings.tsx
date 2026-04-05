@@ -499,9 +499,8 @@ const ProfileSettingsPage = () => {
               type="button"
               className="profile-settings-action"
               onClick={() => void handleEnableNotifications()}
-              disabled={notificationPermission === "granted"}
             >
-              {notificationPermission === "granted" ? t("settings.notificationsOn") : t("settings.enableNotifications")}
+              {t("settings.enableNotifications")}
             </button>
             {shouldShowInstallShortcut && (
               <button
