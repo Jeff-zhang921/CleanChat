@@ -5,6 +5,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type MouseEvent as ReactMouseEvent,
   type SyntheticEvent as ReactSyntheticEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -16,7 +17,9 @@ import { io, type Socket } from "socket.io-client";
 import { useTranslation } from "react-i18next";
 import { getAvatarToneClass, type AvatarKey } from "../constants/avatarCatalog";
 import MessageContextMenu from "../components/MessageContextMenu";
+import MessageItem from "../components/MessageItem";
 import { BACKEND_URL, SOCKET_URL } from "../config";
+import { useChat, type ChatMessage, type ChatSendPayload } from "../hooks/useChat";
 import { useChatScroll } from "../hooks/useChatScroll";
 import { useViewportOverscan } from "../hooks/useViewportOverscan";
 import { useToast } from "../hooks/useToast";
@@ -29,23 +32,6 @@ import {
 } from "../utils/chatDraftStorage";
 import { clearGroupUnread, clearThreadUnread } from "../utils/unreadCounts";
 import "./chatPage.css";
-
-type ChatMessage = {
-  id: number;
-  threadId?: number;
-  groupId?: string;
-  senderId: number;
-  senderName?: string;
-  body: string;
-  createdAt: string;
-  parentMessageId?: number | null;
-  quoteSenderName?: string | null;
-  quotePreview?: string | null;
-  quotedContent?: {
-    senderName?: string | null;
-    preview?: string | null;
-  } | null;
-};
 
 type MessageRecallPayload = {
   id: number;
@@ -369,7 +355,6 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       : null
   );
   const [chatMode, setChatMode] = useState<ChatMode>(initialChatMode);
-  const [message, setMessages] = useState<ChatMessage[]>([]);
   const [me, setMe] = useState<{ id: number; email: string; name: string | null } | null>(null);
   const [messageBody, setMessageBody] = useState("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -384,6 +369,66 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const [selectableMessageId, setSelectableMessageId] = useState<number | null>(null);
   const [quoteDraft, setQuoteDraft] = useState<QuoteDraft | null>(null);
   const { toast, showToast } = useToast();
+
+  const dispatchMessageToSocket = useCallback((payload: ChatSendPayload) => {
+    const socket = socketRef.current;
+    if (!socket || !socket.connected) {
+      return false;
+    }
+
+    const activeMode = chatModeRef.current;
+    if (activeMode === "group") {
+      const activeGroupId = groupIdRef.current;
+      if (!activeGroupId) {
+        return false;
+      }
+
+      socket.emit("group:message:send", {
+        groupId: activeGroupId,
+        body: payload.body,
+        parentMessageId: payload.parentMessageId,
+        quoteSenderName: payload.quoteSenderName,
+        quotePreview: payload.quotePreview,
+      });
+      return true;
+    }
+
+    const activeThreadId = threadIdRef.current;
+    if (!activeThreadId) {
+      return false;
+    }
+
+    socket.emit("message:send", {
+      threadId: activeThreadId,
+      body: payload.body,
+      parentMessageId: payload.parentMessageId,
+      quoteSenderName: payload.quoteSenderName,
+      quotePreview: payload.quotePreview,
+    });
+    return true;
+  }, []);
+
+  const optimisticScrollHandlerRef = useRef<() => void>(() => undefined);
+  const requestOptimisticScroll = useCallback(() => {
+    optimisticScrollHandlerRef.current();
+  }, []);
+
+  const {
+    messages: message,
+    hydrateMessages,
+    clearMessages,
+    mutateMessages,
+    appendIncomingMessage,
+    sendOptimisticMessage,
+    retrySendMessage,
+  } = useChat({
+    meId: me?.id ?? null,
+    chatMode,
+    threadId,
+    groupId,
+    onSend: dispatchMessageToSocket,
+    onScrollToBottom: requestOptimisticScroll,
+  });
 
   const activeDraftTarget = useMemo(() => {
     if (chatMode === "direct" && threadId) {
@@ -403,11 +448,15 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     return null;
   }, [chatMode, groupId, threadId]);
 
-  const { scrollToBottomSmooth, scrollToBottomIfPinned } = useChatScroll({
+  const { scrollToBottomSmooth, scrollToBottomIfPinned, scrollIntoBottomNow } = useChatScroll({
     virtuosoRef,
     messageCount: message.length,
     isHistoryLoading,
   });
+
+  useEffect(() => {
+    optimisticScrollHandlerRef.current = scrollIntoBottomNow;
+  }, [scrollIntoBottomNow]);
 
   useEffect(() => {
     if (!activeDraftTarget) {
@@ -545,7 +594,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     historyLoadTokenRef.current = token;
     if (!preserveExisting) {
       historyHydratedRef.current = false;
-      setMessages([]);
+      clearMessages();
     }
     setIsHistoryLoading(true);
     return token;
@@ -555,7 +604,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     if (historyLoadTokenRef.current !== token) {
       return;
     }
-    setMessages(incoming);
+    hydrateMessages(incoming);
     setDeletingMessageIds([]);
     historyHydratedRef.current = true;
     setIsHistoryLoading(false);
@@ -695,7 +744,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   };
 
   const markMessageAsRecalled = (messageId: number) => {
-    setMessages((prev) =>
+    mutateMessages((prev) =>
       prev.map((item) =>
         item.id === messageId
           ? {
@@ -758,11 +807,10 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     });
 
     socket.on("message:new", (msg: ChatMessage) => {
-      setMessages((prev) => [...prev, msg]);
+      appendIncomingMessage(msg);
       const currentUser = meRef.current;
 
       if (currentUser && msg.senderId === currentUser.id) {
-        scrollToBottomSmooth();
         return;
       }
 
@@ -810,11 +858,10 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     socket.on("message:deleted", handleDirectRecalled);
 
     socket.on("group:message:new", (msg: ChatMessage) => {
-      setMessages((prev) => [...prev, msg]);
+      appendIncomingMessage(msg);
       const currentUser = meRef.current;
 
       if (currentUser && msg.senderId === currentUser.id) {
-        scrollToBottomSmooth();
         return;
       }
 
@@ -1000,10 +1047,6 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   }, [resolvedState]);
 
   const handleSendMessage = () => {
-    if (!socketRef.current || !socketRef.current.connected) {
-      setStatus(t("chat.socketNotConnected"));
-      return false;
-    }
     const trimmed = messageBody.trim();
     if (!trimmed) {
       setStatus(t("chat.messageEmpty"));
@@ -1014,25 +1057,22 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
         setStatus(t("chat.joinGroupFirst"));
         return false;
       }
-      socketRef.current.emit("group:message:send", {
-        groupId,
-        body: trimmed,
-        parentMessageId: quoteDraft?.parentMessageId,
-        quoteSenderName: quoteDraft?.senderName,
-        quotePreview: quoteDraft?.preview,
-      });
     } else {
       if (!threadId) {
         setStatus(t("chat.createOrJoinThread"));
         return false;
       }
-      socketRef.current.emit("message:send", {
-        threadId,
-        body: trimmed,
-        parentMessageId: quoteDraft?.parentMessageId,
-        quoteSenderName: quoteDraft?.senderName,
-        quotePreview: quoteDraft?.preview,
-      });
+    }
+
+    const sendResult = sendOptimisticMessage({
+      body: trimmed,
+      parentMessageId: quoteDraft?.parentMessageId,
+      quoteSenderName: quoteDraft?.senderName,
+      quotePreview: quoteDraft?.preview,
+    });
+    if (!sendResult) {
+      setStatus(t("chat.chatError"));
+      return false;
     }
 
     if (chatMode === "group" && groupId) {
@@ -1050,11 +1090,19 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
 
     setMessageBody("");
     setQuoteDraft(null);
-    setStatus("");
+    setStatus(sendResult.dispatched ? "" : t("chat.socketNotConnected"));
     closeContextMenu();
     refocusMessageInput();
-    scrollToBottomSmooth();
     return true;
+  };
+
+  const handleRetrySend = (messageId: number) => {
+    const retried = retrySendMessage(messageId);
+    if (!retried) {
+      setStatus(t("chat.socketNotConnected"));
+      return;
+    }
+    setStatus("");
   };
 
   const handleDeleteMessage = (
@@ -1256,6 +1304,8 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     if (
       !activeContextMessage ||
       activeContextMessage.senderId !== me?.id ||
+      activeContextMessage.deliveryStatus === "sending" ||
+      activeContextMessage.deliveryStatus === "error" ||
       isRecalledMessageBody(activeContextMessage.body)
     ) {
       closeContextMenu();
@@ -1287,10 +1337,6 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     }
     if (chatMode === "direct" && !threadId) {
       setStatus(t("chat.createOrJoinThread"));
-      return;
-    }
-    if (!socketRef.current || !socketRef.current.connected) {
-      setStatus(t("chat.socketNotConnected"));
       return;
     }
 
@@ -1333,20 +1379,16 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
         return;
       }
 
-      if (chatMode === "group") {
-        socketRef.current.emit("group:message:send", {
-          groupId,
-          body: `${IMAGE_MESSAGE_PREFIX}${imageUrl}`,
-        });
-      } else {
-        socketRef.current.emit("message:send", {
-          threadId,
-          body: `${IMAGE_MESSAGE_PREFIX}${imageUrl}`,
-        });
+      const sendResult = sendOptimisticMessage({
+        body: `${IMAGE_MESSAGE_PREFIX}${imageUrl}`,
+      });
+      if (!sendResult) {
+        setStatus(t("chat.chatError"));
+        return;
       }
-      setStatus(t("chat.photoSent"));
+
+      setStatus(sendResult.dispatched ? t("chat.photoSent") : t("chat.socketNotConnected"));
       refocusMessageInput();
-      scrollToBottomSmooth();
     } catch {
       setStatus(t("chat.uploadFailed"));
     } finally {
@@ -1433,6 +1475,9 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   }, [message, quoteDraft]);
 
   const chatLabel = other || (chatMode === "group" ? t("chat.groupChat") : t("chat.conversation"));
+  const isZhLanguage = i18n.language.toLowerCase().startsWith("zh");
+  const sendingStatusLabel = isZhLanguage ? "发送中" : "Sending";
+  const retrySendLabel = isZhLanguage ? "重发" : "Retry send";
   const avatarFallback = chatLabel.trim().charAt(0).toUpperCase() || "?";
   const isConnected = Boolean(socketRef.current?.connected);
   const hasDraft = messageBody.trim().length > 0;
@@ -1719,65 +1764,66 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
 
                 if (isRecalled) {
                   return (
-                    <div className="chat-virtuoso-item">
-                      <div className="chat-recall-row" aria-live="polite">
-                        <p className="chat-recall-marker">{getRecallMarkerText(msg)}</p>
-                      </div>
-                    </div>
+                    <MessageItem
+                      message={msg}
+                      isMe={isMe}
+                      isGroupChat={chatMode === "group"}
+                      isSelectableText={selectableMessageId === msg.id}
+                      isDeletingMessage={isDeletingMessage}
+                      isRecalled
+                      imageUrl={imageUrl}
+                      quoteSender={quoteSender}
+                      quotePreview={quotePreview}
+                      hasQuoteContent={hasQuoteContent}
+                      recallMarkerText={getRecallMarkerText(msg)}
+                      sendingLabel={sendingStatusLabel}
+                      retryLabel={retrySendLabel}
+                      sharedImageAlt={t("chat.sharedImage")}
+                      quoteActionLabel={t("chat.quoteAction")}
+                      quoteFallbackSender={t("chat.quoteFallbackSender")}
+                      quoteFallbackPreview={t("chat.quoteFallbackPreview")}
+                      deletingLabel={t("chat.deleting")}
+                      onRetrySend={handleRetrySend}
+                      onOpenImagePreview={handleOpenImagePreview}
+                      onMessageMediaLoad={handleMessageMediaLoad}
+                      onPointerDown={handleMessagePointerDown}
+                      onPointerMove={handleMessagePointerMove}
+                      onPointerEnd={handleMessagePointerEnd}
+                      onContextMenu={handleMessageContextMenu}
+                      onSelectCapture={handleMessageSelectCapture}
+                    />
                   );
                 }
 
                 return (
-                  <div className="chat-virtuoso-item">
-                    <div className={`chat-row ${isMe ? "me" : "them"}`}>
-                      <div
-                        className={`chat-bubble ${isMe ? "bubble-me" : "bubble-them"} ${selectableMessageId === msg.id ? "is-selectable-text" : ""}`}
-                        data-message-id={msg.id}
-                        onPointerDown={(event) => handleMessagePointerDown(event, msg)}
-                        onPointerMove={handleMessagePointerMove}
-                        onPointerUp={handleMessagePointerEnd}
-                        onPointerCancel={handleMessagePointerEnd}
-                        onPointerLeave={handleMessagePointerEnd}
-                        onContextMenu={(event) => handleMessageContextMenu(event, msg)}
-                        onSelectCapture={(event) => handleMessageSelectCapture(event, msg)}
-                      >
-                        {chatMode === "group" && !isMe && msg.senderName && (
-                          <p className="group-sender">{msg.senderName}</p>
-                        )}
-                        {imageUrl ? (
-                          <button
-                            type="button"
-                            className="chat-image-button"
-                            onClick={() => handleOpenImagePreview(imageUrl)}
-                          >
-                            <img
-                              className="chat-image"
-                              src={imageUrl}
-                              alt={t("chat.sharedImage")}
-                              onLoad={handleMessageMediaLoad}
-                            />
-                          </button>
-                        ) : (
-                          <p className="chat-message-content">{msg.body}</p>
-                        )}
-                        {hasQuoteContent && (
-                          <div className="chat-quote-inline" aria-label={t("chat.quoteAction")}>
-                            <p className="chat-quote-inline-sender">
-                              {quoteSender || t("chat.quoteFallbackSender")}
-                            </p>
-                            <p className="chat-quote-inline-body">
-                              {quotePreview || t("chat.quoteFallbackPreview")}
-                            </p>
-                          </div>
-                        )}
-                        {isDeletingMessage && (
-                          <div className="chat-meta-row" aria-hidden="true">
-                            <span className="chat-delete-pending">{t("chat.deleting")}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                  <MessageItem
+                    message={msg}
+                    isMe={isMe}
+                    isGroupChat={chatMode === "group"}
+                    isSelectableText={selectableMessageId === msg.id}
+                    isDeletingMessage={isDeletingMessage}
+                    isRecalled={false}
+                    imageUrl={imageUrl}
+                    quoteSender={quoteSender}
+                    quotePreview={quotePreview}
+                    hasQuoteContent={hasQuoteContent}
+                    recallMarkerText={getRecallMarkerText(msg)}
+                    sendingLabel={sendingStatusLabel}
+                    retryLabel={retrySendLabel}
+                    sharedImageAlt={t("chat.sharedImage")}
+                    quoteActionLabel={t("chat.quoteAction")}
+                    quoteFallbackSender={t("chat.quoteFallbackSender")}
+                    quoteFallbackPreview={t("chat.quoteFallbackPreview")}
+                    deletingLabel={t("chat.deleting")}
+                    onRetrySend={handleRetrySend}
+                    onOpenImagePreview={handleOpenImagePreview}
+                    onMessageMediaLoad={handleMessageMediaLoad}
+                    onPointerDown={handleMessagePointerDown}
+                    onPointerMove={handleMessagePointerMove}
+                    onPointerEnd={handleMessagePointerEnd}
+                    onContextMenu={handleMessageContextMenu}
+                    onSelectCapture={handleMessageSelectCapture}
+                  />
                 );
               }}
             />
@@ -1876,6 +1922,8 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
           canRecall={Boolean(
             activeContextMessage &&
               activeContextMessage.senderId === me?.id &&
+              activeContextMessage.deliveryStatus !== "sending" &&
+              activeContextMessage.deliveryStatus !== "error" &&
               !isRecalledMessageBody(activeContextMessage.body),
           )}
           labels={{

@@ -1,0 +1,66 @@
+.chat-status-indicator {
+  width: 0.9rem;
+  min-width: 0.9rem;
+  height: 0.9rem;
+  align-self: flex-end;
+  margin: 0 0.08rem 0.24rem 0;
+  color: rgba(29, 36, 43, 0.62);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.chat-status-indicator-sending {
+  pointer-events: none;
+}
+
+.chat-status-spinner-line {
+  width: 1.5px;
+  height: 0.76rem;
+  border-radius: 999px;
+  background: currentColor;
+  display: block;
+  animation: chat-status-line-spin 860ms linear infinite;
+  transform-origin: center;
+}
+
+.chat-status-indicator-error {
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  transition: transform 140ms ease, opacity 140ms ease;
+}
+
+.chat-status-indicator-error:hover {
+  transform: scale(1.08);
+}
+
+.chat-status-indicator-error:active {
+  transform: scale(0.96);
+}
+
+.chat-status-indicator-error:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(17, 22, 31, 0.16);
+}
+
+.chat-status-error-dot {
+  width: 0.44rem;
+  height: 0.44rem;
+  border-radius: 999px;
+  background: currentColor;
+  display: block;
+}
+
+@keyframes chat-status-line-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}

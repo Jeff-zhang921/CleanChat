@@ -64,6 +64,23 @@ export const useChatScroll = ({
     [scrollToBottomImmediate],
   );
 
+  const scrollIntoBottomNow = useCallback(() => {
+    const performScroll = () => {
+      virtuosoRef.current?.autoscrollToBottom();
+    };
+
+    if (typeof window === "undefined") {
+      performScroll();
+      return;
+    }
+
+    // Two frames keep optimistic inserts glued to the latest item under fast updates.
+    window.requestAnimationFrame(() => {
+      performScroll();
+      window.requestAnimationFrame(performScroll);
+    });
+  }, [virtuosoRef]);
+
   useEffect(() => {
     if (isHistoryLoading) {
       previousMessageCountRef.current = 0;
@@ -86,5 +103,6 @@ export const useChatScroll = ({
     scrollToBottomImmediate,
     scrollToBottomSmooth,
     scrollToBottomIfPinned,
+    scrollIntoBottomNow,
   };
 };
