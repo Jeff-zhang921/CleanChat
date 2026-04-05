@@ -1,9 +1,15 @@
-import { useCallback, useEffect, useRef, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type RefObject,
+} from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 
 type UseChatScrollOptions = {
   virtuosoRef: RefObject<VirtuosoHandle | null>;
-  messageCount: number;
+  itemCount: number;
   isHistoryLoading: boolean;
 };
 
@@ -11,26 +17,45 @@ type ScrollBehaviorMode = "auto" | "smooth";
 
 export const useChatScroll = ({
   virtuosoRef,
-  messageCount,
+  itemCount,
   isHistoryLoading,
 }: UseChatScrollOptions) => {
-  const previousMessageCountRef = useRef(0);
-  const messageCountRef = useRef(messageCount);
+  const previousItemCountRef = useRef(0);
+  const itemCountRef = useRef(itemCount);
+  const hasAnchoredOnLoadRef = useRef(false);
+  const deferredAnchorTimerIdsRef = useRef<number[]>([]);
 
   useEffect(() => {
-    messageCountRef.current = messageCount;
-  }, [messageCount]);
+    itemCountRef.current = itemCount;
+  }, [itemCount]);
+
+  const clearDeferredAnchorTimers = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    deferredAnchorTimerIdsRef.current.forEach((timerId) => {
+      window.clearTimeout(timerId);
+    });
+    deferredAnchorTimerIdsRef.current = [];
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearDeferredAnchorTimers();
+    };
+  }, [clearDeferredAnchorTimers]);
 
   const scrollToBottom = useCallback(
     (behavior: ScrollBehaviorMode) => {
       const performScroll = () => {
-        const currentMessageCount = messageCountRef.current;
-        if (!virtuosoRef.current || currentMessageCount <= 0) {
+        const currentItemCount = itemCountRef.current;
+        if (!virtuosoRef.current || currentItemCount <= 0) {
           return;
         }
 
         virtuosoRef.current.scrollToIndex({
-          index: currentMessageCount - 1,
+          index: currentItemCount - 1,
           align: "end",
           behavior,
         });
@@ -66,7 +91,16 @@ export const useChatScroll = ({
 
   const scrollIntoBottomNow = useCallback(() => {
     const performScroll = () => {
-      virtuosoRef.current?.autoscrollToBottom();
+      const currentItemCount = itemCountRef.current;
+      if (!virtuosoRef.current || currentItemCount <= 0) {
+        return;
+      }
+
+      virtuosoRef.current.scrollToIndex({
+        index: currentItemCount - 1,
+        align: "end",
+        behavior: "auto",
+      });
     };
 
     if (typeof window === "undefined") {
@@ -74,30 +108,54 @@ export const useChatScroll = ({
       return;
     }
 
-    // Two frames keep optimistic inserts glued to the latest item under fast updates.
+    clearDeferredAnchorTimers();
+
+    // Multi-phase anchoring keeps the viewport pinned to bottom when heights settle asynchronously.
+    performScroll();
     window.requestAnimationFrame(() => {
       performScroll();
       window.requestAnimationFrame(performScroll);
     });
-  }, [virtuosoRef]);
+    deferredAnchorTimerIdsRef.current.push(
+      window.setTimeout(performScroll, 0),
+      window.setTimeout(performScroll, 64),
+    );
+  }, [clearDeferredAnchorTimers, virtuosoRef]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isHistoryLoading) {
-      previousMessageCountRef.current = 0;
+      hasAnchoredOnLoadRef.current = false;
+      previousItemCountRef.current = 0;
+      clearDeferredAnchorTimers();
       return;
     }
 
-    if (messageCount <= 0) {
-      previousMessageCountRef.current = 0;
+    if (itemCount <= 0) {
+      hasAnchoredOnLoadRef.current = false;
+      previousItemCountRef.current = 0;
+      clearDeferredAnchorTimers();
       return;
     }
 
-    if (previousMessageCountRef.current === 0) {
-      scrollToBottomImmediate();
+    if (!hasAnchoredOnLoadRef.current) {
+      hasAnchoredOnLoadRef.current = true;
+      previousItemCountRef.current = itemCount;
+      scrollIntoBottomNow();
+      return;
     }
 
-    previousMessageCountRef.current = messageCount;
-  }, [isHistoryLoading, messageCount, scrollToBottomImmediate]);
+    if (itemCount > previousItemCountRef.current) {
+      scrollToBottomSmooth();
+    }
+
+    previousItemCountRef.current = itemCount;
+  }, [
+    clearDeferredAnchorTimers,
+    isHistoryLoading,
+    itemCount,
+    scrollIntoBottomNow,
+    scrollToBottomSmooth,
+  ]);
 
   return {
     scrollToBottomImmediate,

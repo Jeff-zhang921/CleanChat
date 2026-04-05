@@ -430,6 +430,16 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     onScrollToBottom: requestOptimisticScroll,
   });
 
+  const timelineItems = useMemo(
+    () =>
+      buildTemporalRenderItems(message, i18n.language, {
+        yesterday: t("chat.yesterday"),
+        periodAm: t("chat.periodAm"),
+        periodPm: t("chat.periodPm"),
+      }),
+    [i18n.language, message, t]
+  );
+
   const activeDraftTarget = useMemo(() => {
     if (chatMode === "direct" && threadId) {
       return {
@@ -448,15 +458,15 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     return null;
   }, [chatMode, groupId, threadId]);
 
-  const { scrollToBottomSmooth, scrollToBottomIfPinned, scrollIntoBottomNow } = useChatScroll({
+  const { scrollToBottomSmooth, scrollToBottomIfPinned } = useChatScroll({
     virtuosoRef,
-    messageCount: message.length,
+    itemCount: timelineItems.length,
     isHistoryLoading,
   });
 
   useEffect(() => {
-    optimisticScrollHandlerRef.current = scrollIntoBottomNow;
-  }, [scrollIntoBottomNow]);
+    optimisticScrollHandlerRef.current = scrollToBottomSmooth;
+  }, [scrollToBottomSmooth]);
 
   useEffect(() => {
     if (!activeDraftTarget) {
@@ -1496,15 +1506,6 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     main: messageOverscan,
     reverse: messageOverscan,
   } as const;
-  const timelineItems = useMemo(
-    () =>
-      buildTemporalRenderItems(message, i18n.language, {
-        yesterday: t("chat.yesterday"),
-        periodAm: t("chat.periodAm"),
-        periodPm: t("chat.periodPm"),
-      }),
-    [i18n.language, message, t]
-  );
   const historySkeletonRows = [
     { key: "skeleton-a", side: "them" as const, width: "68%" },
     { key: "skeleton-b", side: "me" as const, width: "54%" },
@@ -1745,6 +1746,14 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
               ref={virtuosoRef}
               className="chat-virtuoso"
               data={timelineItems}
+              initialTopMostItemIndex={
+                timelineItems.length > 0
+                  ? {
+                      index: timelineItems.length - 1,
+                      align: "end",
+                    }
+                  : undefined
+              }
               alignToBottom
               atBottomStateChange={setIsAtBottom}
               followOutput={(atBottom) => (atBottom ? "smooth" : false)}
