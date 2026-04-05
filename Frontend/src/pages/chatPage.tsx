@@ -329,7 +329,6 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const avatarUrl = resolvedState.avatarUrl ?? "";
   const avatarToneClass = resolvedState.avatarKey ? getAvatarToneClass(resolvedState.avatarKey) : "";
   const fromPath = resolvedState.fromPath === "/groups" ? "/groups" : "/conversations";
-  const shouldForceBottomOnPushEntry = resolvedState.fromPush === true;
 
   const socketRef = useRef<Socket | null>(null);
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
@@ -351,7 +350,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const longPressTimeoutRef = useRef<number | null>(null);
   const longPressOriginRef = useRef<{ x: number; y: number } | null>(null);
   const isAtBottomRef = useRef(true);
-  const pushEntryAnchoredRef = useRef(false);
+  const entryBottomAnchoredRef = useRef(false);
 
   const [status, setStatus] = useState("");
   const [threadId, setThreadId] = useState<number | null>(null);
@@ -943,11 +942,11 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   }, [isAtBottom]);
 
   useEffect(() => {
-    pushEntryAnchoredRef.current = false;
-  }, [chatMode, groupId, threadId, shouldForceBottomOnPushEntry]);
+    entryBottomAnchoredRef.current = false;
+  }, [chatMode, groupId, threadId]);
 
   useEffect(() => {
-    if (!shouldForceBottomOnPushEntry || pushEntryAnchoredRef.current) {
+    if (entryBottomAnchoredRef.current) {
       return;
     }
 
@@ -956,11 +955,10 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     }
 
     scrollIntoBottomNow();
-    pushEntryAnchoredRef.current = true;
+    entryBottomAnchoredRef.current = true;
   }, [
     isHistoryLoading,
     scrollIntoBottomNow,
-    shouldForceBottomOnPushEntry,
     timelineItems.length,
   ]);
 
