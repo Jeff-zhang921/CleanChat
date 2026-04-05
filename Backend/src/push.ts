@@ -23,6 +23,22 @@ type PushSendError = {
   message?: string;
 };
 
+export type PushDeliveryFailure = {
+  endpoint: string;
+  statusCode?: number;
+  message: string;
+};
+
+export type PushDeliveryReport = {
+  configured: boolean;
+  attempted: number;
+  sent: number;
+  stale: number;
+  failed: number;
+  skippedReason?: string;
+  failures: PushDeliveryFailure[];
+};
+
 export type PushConfigurationStatus = {
   configured: boolean;
   hasPublicKey: boolean;
@@ -221,11 +237,27 @@ export const sendPushToUser = async (
   envelope: PushEnvelope,
 ) => {
   if (!PUSH_CONFIGURATION_STATUS.configured) {
-    return;
+    return {
+      configured: false,
+      attempted: 0,
+      sent: 0,
+      stale: 0,
+      failed: 0,
+      skippedReason: "Push is not configured on backend.",
+      failures: [],
+    } as PushDeliveryReport;
   }
 
   if (!Number.isInteger(userId) || userId <= 0) {
-    return;
+    return {
+      configured: true,
+      attempted: 0,
+      sent: 0,
+      stale: 0,
+      failed: 0,
+      skippedReason: "Invalid user id.",
+      failures: [],
+    } as PushDeliveryReport;
   }
 
   const subscriptions = await prisma.pushSubscription.findMany({
@@ -239,11 +271,23 @@ export const sendPushToUser = async (
   });
 
   if (subscriptions.length === 0) {
-    return;
+    return {
+      configured: true,
+      attempted: 0,
+      sent: 0,
+      stale: 0,
+      failed: 0,
+      skippedReason: "No push subscriptions for user.",
+      failures: [],
+    } as PushDeliveryReport;
   }
 
   const payload = buildPayload(envelope);
   const staleIds: number[] = [];
+  let sentCount = 0;
+  let staleCount = 0;
+  let failedCount = 0;
+  const failures: PushDeliveryFailure[] = [];
 
   await Promise.all(
     subscriptions.map(async (subscription) => {
@@ -259,11 +303,24 @@ export const sendPushToUser = async (
           payload,
           buildPushDeliveryOptions(envelope.tag),
         );
+        sentCount += 1;
       } catch (error) {
         if (isStaleEndpointError(error)) {
           staleIds.push(subscription.id);
+          staleCount += 1;
           return;
         }
+
+        failedCount += 1;
+        const candidate = error as PushSendError;
+        failures.push({
+          endpoint: subscription.endpoint,
+          statusCode: candidate?.statusCode,
+          message:
+            typeof candidate?.message === "string" && candidate.message.trim()
+              ? candidate.message
+              : "Failed to send notification.",
+        });
 
         console.warn("Failed to send web push notification", {
           userId,
@@ -279,4 +336,13 @@ export const sendPushToUser = async (
       where: { id: { in: staleIds } },
     });
   }
+
+  return {
+    configured: true,
+    attempted: subscriptions.length,
+    sent: sentCount,
+    stale: staleCount,
+    failed: failedCount,
+    failures,
+  } as PushDeliveryReport;
 };

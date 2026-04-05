@@ -21,6 +21,16 @@ import "./profileSettings.css";
 
 const EXIT_MS = 260;
 
+type BeforeInstallPromptOutcome = "accepted" | "dismissed";
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{
+    outcome: BeforeInstallPromptOutcome;
+    platform: string;
+  }>;
+};
+
 const ProfileSettingsLoadingState = ({ onBack }: { onBack: () => void }) => {
   const { t } = useTranslation();
 
@@ -88,12 +98,62 @@ const ProfileSettingsPage = () => {
   const [isLeaving, setIsLeaving] = useState(false);
   const [isLanguagePickerOpen, setIsLanguagePickerOpen] = useState(false);
   const [isSwitchingLanguage, setIsSwitchingLanguage] = useState(false);
+  const [deferredInstallPrompt, setDeferredInstallPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
+  const [isPromptingInstall, setIsPromptingInstall] = useState(false);
 
   const currentLanguage = resolveSupportedLanguage(i18n.language);
+  const showIosInstallShortcut = isIOSDevice() && !isStandalonePwa();
+  const showNativeInstallShortcut =
+    !isStandalonePwa() && Boolean(deferredInstallPrompt);
+  const shouldShowInstallShortcut =
+    showIosInstallShortcut || showNativeInstallShortcut;
+
   const getLanguageName = (language: SupportedLanguage) => {
     const option = LANGUAGE_SWITCH_OPTIONS.find((item) => item.code === language);
     return option ? t(option.nameKey) : t("language.zh");
   };
+
+  useEffect(() => {
+    if (!isSettingsRouteActive) {
+      return;
+    }
+
+    if (isStandalonePwa()) {
+      setDeferredInstallPrompt(null);
+      return;
+    }
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      const promptEvent = event as BeforeInstallPromptEvent;
+      if (typeof promptEvent.prompt !== "function") {
+        return;
+      }
+
+      event.preventDefault();
+      setDeferredInstallPrompt(promptEvent);
+    };
+
+    const handleAppInstalled = () => {
+      setDeferredInstallPrompt(null);
+      setIsPromptingInstall(false);
+      setNotificationStatus("");
+    };
+
+    window.addEventListener(
+      "beforeinstallprompt",
+      handleBeforeInstallPrompt as EventListener,
+    );
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    return () => {
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt as EventListener,
+      );
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, [isSettingsRouteActive]);
 
   useEffect(() => {
     if (!isSettingsRouteActive) {
@@ -242,6 +302,36 @@ const ProfileSettingsPage = () => {
     setNotificationStatus(
       subscriptionResult.reason || t("settings.notificationsNotGranted"),
     );
+  };
+
+  const handleInstallShortcut = async () => {
+    if (isPromptingInstall) {
+      return;
+    }
+
+    if (showIosInstallShortcut) {
+      setNotificationStatus(t("auth.installShortcutIosGuide"));
+      return;
+    }
+
+    const promptEvent = deferredInstallPrompt;
+    if (!promptEvent) {
+      setNotificationStatus(t("settings.notificationsUnsupported"));
+      return;
+    }
+
+    try {
+      setIsPromptingInstall(true);
+      setNotificationStatus(t("auth.installShortcutOpening"));
+      await promptEvent.prompt();
+      await promptEvent.userChoice;
+      setNotificationStatus("");
+    } catch {
+      setNotificationStatus(t("settings.notificationsUnsupported"));
+    } finally {
+      setDeferredInstallPrompt(null);
+      setIsPromptingInstall(false);
+    }
   };
 
   const handleLanguageChange = async (nextLanguage: SupportedLanguage) => {
@@ -407,6 +497,18 @@ const ProfileSettingsPage = () => {
             >
               {notificationPermission === "granted" ? t("settings.notificationsOn") : t("settings.enableNotifications")}
             </button>
+            {shouldShowInstallShortcut && (
+              <button
+                type="button"
+                className="profile-settings-action"
+                onClick={() => void handleInstallShortcut()}
+                aria-label={t("auth.installShortcutAria")}
+                title={t("auth.installShortcutAria")}
+                disabled={isPromptingInstall}
+              >
+                {isPromptingInstall ? t("auth.installShortcutOpening") : t("auth.installShortcut")}
+              </button>
+            )}
           </div>
           {notificationStatus && (
             <p className="profile-settings-status" role="status">

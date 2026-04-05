@@ -205,7 +205,7 @@ router.post("/push/test", async (req, res) => {
     where: { userId },
   });
 
-  await sendPushToUser(prisma, userId, {
+  const delivery = await sendPushToUser(prisma, userId, {
     title,
     body,
     tag,
@@ -219,11 +219,14 @@ router.post("/push/test", async (req, res) => {
     },
   });
 
+  const ok = delivery.configured && delivery.sent > 0 && delivery.failed === 0;
+
   res.status(200).json({
-    ok: true,
+    ok,
     userId,
     subscriptionCount,
     sentAt: new Date().toISOString(),
+    delivery,
     payload: {
       title,
       body,
