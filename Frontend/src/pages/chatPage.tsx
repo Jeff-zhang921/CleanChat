@@ -351,6 +351,8 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const longPressOriginRef = useRef<{ x: number; y: number } | null>(null);
   const isAtBottomRef = useRef(true);
   const entryBottomAnchoredRef = useRef(false);
+  const entryAnchorRetryTimeoutRef = useRef<number | null>(null);
+  const entryAnchorAttemptRef = useRef(0);
 
   const [status, setStatus] = useState("");
   const [threadId, setThreadId] = useState<number | null>(null);
@@ -468,6 +470,17 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     itemCount: timelineItems.length,
     isHistoryLoading,
   });
+
+  const clearEntryAnchorRetryTimeout = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (entryAnchorRetryTimeoutRef.current !== null) {
+      window.clearTimeout(entryAnchorRetryTimeoutRef.current);
+      entryAnchorRetryTimeoutRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     optimisticScrollHandlerRef.current = scrollToBottomSmooth;
@@ -943,10 +956,13 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
 
   useEffect(() => {
     entryBottomAnchoredRef.current = false;
-  }, [chatMode, groupId, threadId]);
+    historyHydratedRef.current = false;
+    entryAnchorAttemptRef.current = 0;
+    clearEntryAnchorRetryTimeout();
+  }, [chatMode, clearEntryAnchorRetryTimeout, groupId, threadId]);
 
   useEffect(() => {
-    if (entryBottomAnchoredRef.current) {
+    if (!historyHydratedRef.current || entryBottomAnchoredRef.current) {
       return;
     }
 
@@ -954,9 +970,64 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       return;
     }
 
-    scrollIntoBottomNow();
-    entryBottomAnchoredRef.current = true;
+    if (typeof window === "undefined") {
+      scrollIntoBottomNow();
+      entryBottomAnchoredRef.current = true;
+      return;
+    }
+
+    const MIN_SETTLE_CYCLES = 4;
+    const MAX_ATTEMPTS = 18;
+    const BOTTOM_DISTANCE_THRESHOLD = 24;
+
+    const measureDistanceToBottom = () => {
+      const scroller = document.querySelector<HTMLElement>(".chat-virtuoso-scroller");
+      if (!scroller) {
+        return Number.POSITIVE_INFINITY;
+      }
+
+      return Math.max(
+        0,
+        scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop,
+      );
+    };
+
+    const attemptAnchor = () => {
+      scrollIntoBottomNow();
+
+      window.requestAnimationFrame(() => {
+        const cycle = entryAnchorAttemptRef.current + 1;
+        entryAnchorAttemptRef.current = cycle;
+        const distanceToBottom = measureDistanceToBottom();
+        const isSettledAtBottom =
+          distanceToBottom <= BOTTOM_DISTANCE_THRESHOLD &&
+          cycle >= MIN_SETTLE_CYCLES;
+
+        if (isSettledAtBottom) {
+          entryBottomAnchoredRef.current = true;
+          entryAnchorAttemptRef.current = 0;
+          clearEntryAnchorRetryTimeout();
+          return;
+        }
+
+        if (cycle >= MAX_ATTEMPTS) {
+          entryBottomAnchoredRef.current = true;
+          clearEntryAnchorRetryTimeout();
+          return;
+        }
+
+        clearEntryAnchorRetryTimeout();
+        entryAnchorRetryTimeoutRef.current = window.setTimeout(attemptAnchor, 72);
+      });
+    };
+
+    attemptAnchor();
+
+    return () => {
+      clearEntryAnchorRetryTimeout();
+    };
   }, [
+    clearEntryAnchorRetryTimeout,
     isHistoryLoading,
     scrollIntoBottomNow,
     timelineItems.length,

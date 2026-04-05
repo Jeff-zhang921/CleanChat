@@ -92,6 +92,50 @@ const buildThreads = () =>
     };
   });
 
+const buildThreadMessages = (threadId: number) => {
+  const now = Date.now();
+  return Array.from({ length: 64 }, (_, index) => {
+    const messageId = threadId * 10_000 + index + 1;
+    const senderId = index % 2 === 0 ? viewer.id : threadId + 1;
+
+    return {
+      id: messageId,
+      threadId,
+      senderId,
+      body: `History message ${index + 1}`,
+      createdAt: new Date(now - (64 - index) * 35_000).toISOString(),
+    };
+  });
+};
+
+const readChatViewportMetrics = async (
+  page: import("@playwright/test").Page,
+) => {
+  return page.evaluate(() => {
+    const scroller = document.querySelector<HTMLElement>(
+      ".chat-virtuoso-scroller",
+    );
+    const bar = document.querySelector<HTMLElement>(".chat-bar");
+
+    if (!scroller || !bar) {
+      return null;
+    }
+
+    const distanceToBottom = Math.max(
+      0,
+      scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop,
+    );
+    const headerTop = bar.getBoundingClientRect().top;
+
+    return {
+      distanceToBottom,
+      headerTop,
+      scrollHeight: scroller.scrollHeight,
+      clientHeight: scroller.clientHeight,
+    };
+  });
+};
+
 const mockChatApis = async (page: import("@playwright/test").Page) => {
   const threads = buildThreads();
 
@@ -116,18 +160,48 @@ const mockChatApis = async (page: import("@playwright/test").Page) => {
   });
 
   await page.route("**/chat/threads/*/messages", async (route) => {
+    const threadIdMatch = route
+      .request()
+      .url()
+      .match(/\/chat\/threads\/(\d+)\/messages/);
+    const threadId = threadIdMatch ? Number.parseInt(threadIdMatch[1], 10) : 1;
+
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([
-        {
-          id: 1,
-          threadId: 1,
-          senderId: 2,
-          body: "Hello from history",
-          createdAt: new Date().toISOString(),
-        },
-      ]),
+      body: JSON.stringify(buildThreadMessages(threadId)),
+    });
+  });
+
+  await page.route("**/api/unread-count", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ counts: {} }),
+    });
+  });
+
+  await page.route("**/chat/mutes", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ keys: [] }),
+    });
+  });
+
+  await page.route("**/chat/unread/read", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true }),
+    });
+  });
+
+  await page.route("**/chat/requests/direct/received", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ requests: [] }),
     });
   });
 
@@ -157,6 +231,27 @@ const assertHeaderPinnedAfterKeyboardViewportChange = async (
 ) => {
   await page.goto("/conversations");
   await page.locator("[data-conversation-id]").first().click();
+  await expect(page).toHaveURL(/\/chat/);
+
+  await page.waitForSelector(".chat-virtuoso-scroller");
+
+  await expect
+    .poll(
+      async () => {
+        const metrics = await readChatViewportMetrics(page);
+        if (!metrics) {
+          return false;
+        }
+
+        const overflowHeight = metrics.scrollHeight - metrics.clientHeight;
+        return overflowHeight > 300 && metrics.distanceToBottom <= 24;
+      },
+      {
+        timeout: 3_000,
+        intervals: [120, 180, 240],
+      },
+    )
+    .toBe(true);
 
   const chatBar = page.locator(".chat-bar");
   const chatAvatar = page.locator(".chat-bar .avatar");
@@ -166,6 +261,13 @@ const assertHeaderPinnedAfterKeyboardViewportChange = async (
   await expect(chatBar).toBeVisible();
   await expect(chatAvatar).toBeVisible();
   await expect(chatTitle).toBeVisible();
+
+  const entryMetrics = await readChatViewportMetrics(page);
+  expect(entryMetrics).not.toBeNull();
+  const entryOverflow =
+    (entryMetrics?.scrollHeight ?? 0) - (entryMetrics?.clientHeight ?? 0);
+  expect(entryOverflow).toBeGreaterThan(300);
+  expect(entryMetrics?.distanceToBottom ?? 999).toBeLessThanOrEqual(24);
 
   const before = await chatBar.boundingBox();
   expect(before).not.toBeNull();
@@ -184,6 +286,10 @@ const assertHeaderPinnedAfterKeyboardViewportChange = async (
   });
 
   await page.waitForTimeout(250);
+
+  const afterMetrics = await readChatViewportMetrics(page);
+  expect(afterMetrics).not.toBeNull();
+  expect(afterMetrics?.distanceToBottom ?? 999).toBeLessThanOrEqual(24);
 
   const after = await chatBar.boundingBox();
   expect(after).not.toBeNull();
@@ -221,7 +327,10 @@ const assertHeaderPinnedAfterKeyboardViewportChange = async (
 };
 
 test.describe("android header lock under keyboard squeeze", () => {
-  test.use(pixel7Device);
+  test.use({
+    ...pixel7Device,
+    serviceWorkers: "block",
+  });
 
   test.beforeEach(async ({ page }) => {
     await mockChatApis(page);
@@ -235,7 +344,10 @@ test.describe("android header lock under keyboard squeeze", () => {
 });
 
 test.describe("ipad header lock under keyboard squeeze", () => {
-  test.use(ipadPro11Device);
+  test.use({
+    ...ipadPro11Device,
+    serviceWorkers: "block",
+  });
 
   test.beforeEach(async ({ page }) => {
     await mockChatApis(page);

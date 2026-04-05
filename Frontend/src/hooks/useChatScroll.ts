@@ -123,6 +123,9 @@ export const useChatScroll = ({
   }, [clearDeferredAnchorTimers, virtuosoRef]);
 
   useLayoutEffect(() => {
+    // Keep the ref in sync for layout-time anchoring decisions.
+    itemCountRef.current = itemCount;
+
     if (isHistoryLoading) {
       hasAnchoredOnLoadRef.current = false;
       previousItemCountRef.current = 0;
