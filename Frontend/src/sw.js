@@ -202,12 +202,18 @@ const parsePushPayload = (event) => {
   };
 };
 
-self.addEventListener("push", (event) => {
-  const payload = parsePushPayload(event);
-  const targetUrl = buildUrlFromPayload(payload);
+const buildNotificationClickData = (payload, targetUrl) => ({
+  url: targetUrl,
+  threadId: payload.threadId,
+  groupId: payload.groupId,
+  chatType: payload.chatType,
+});
 
-  event.waitUntil(
-    self.registration.showNotification(payload.title, {
+const showPushNotification = async (payload, targetUrl) => {
+  const data = buildNotificationClickData(payload, targetUrl);
+
+  try {
+    await self.registration.showNotification(payload.title, {
       body: payload.body,
       icon: DEFAULT_ICON,
       badge: DEFAULT_BADGE,
@@ -215,14 +221,27 @@ self.addEventListener("push", (event) => {
       timestamp: Date.now(),
       tag: payload.tag,
       renotify: Boolean(payload.tag),
-      data: {
-        url: targetUrl,
-        threadId: payload.threadId,
-        groupId: payload.groupId,
-        chatType: payload.chatType,
-      },
-    })
-  );
+      data,
+    });
+    return;
+  } catch (error) {
+    // Some Android builds reject optional notification fields; retry with minimal options.
+    console.warn("[CleanChat][sw] rich notification render failed, retrying minimal", error);
+  }
+
+  await self.registration.showNotification(payload.title, {
+    body: payload.body,
+    tag: payload.tag,
+    renotify: Boolean(payload.tag),
+    data,
+  });
+};
+
+self.addEventListener("push", (event) => {
+  const payload = parsePushPayload(event);
+  const targetUrl = buildUrlFromPayload(payload);
+
+  event.waitUntil(showPushNotification(payload, targetUrl));
 });
 
 const resolveNotificationClickUrl = (notificationData) => {

@@ -104,10 +104,16 @@ const ProfileSettingsPage = () => {
 
   const currentLanguage = resolveSupportedLanguage(i18n.language);
   const showIosInstallShortcut = isIOSDevice() && !isStandalonePwa();
+  const showAndroidInstallShortcut =
+    typeof navigator !== "undefined" &&
+    /Android/i.test(navigator.userAgent) &&
+    !isStandalonePwa();
   const showNativeInstallShortcut =
     !isStandalonePwa() && Boolean(deferredInstallPrompt);
   const shouldShowInstallShortcut =
-    showIosInstallShortcut || showNativeInstallShortcut;
+    showIosInstallShortcut ||
+    showAndroidInstallShortcut ||
+    showNativeInstallShortcut;
 
   const getLanguageName = (language: SupportedLanguage) => {
     const option = LANGUAGE_SWITCH_OPTIONS.find((item) => item.code === language);
