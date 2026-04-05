@@ -27,6 +27,16 @@ type PointerState = {
   y: number;
 };
 
+type BeforeInstallPromptOutcome = "accepted" | "dismissed";
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{
+    outcome: BeforeInstallPromptOutcome;
+    platform: string;
+  }>;
+};
+
 const authPalette = {
   ink: "#182018",
   inkSoft: "#2f3a30",
@@ -283,6 +293,26 @@ export const getPretextAuthStyles = (compact: boolean, pointer: PointerState) =>
     boxShadow: "none",
     transition: "opacity 0.2s ease",
   } satisfies CSSProperties,
+  installShortcut: {
+    justifySelf: "start",
+    border: "0",
+    borderRadius: 0,
+    padding: "0.1rem 0",
+    marginTop: "0.15rem",
+    font: "inherit",
+    fontSize: "0.93rem",
+    fontWeight: 500,
+    letterSpacing: "0.01em",
+    textDecorationLine: "underline",
+    textUnderlineOffset: "0.2rem",
+    textDecorationThickness: "1px",
+    background: "transparent",
+    color: "rgba(47, 58, 48, 0.72)",
+    cursor: "pointer",
+    backdropFilter: "none",
+    boxShadow: "none",
+    transition: "opacity 0.2s ease, color 0.2s ease",
+  } satisfies CSSProperties,
   status: {
     position: "relative",
     zIndex: 1,
@@ -353,12 +383,55 @@ const LoginPage = () => {
   const [status, setStatus] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRestoringSession, setIsRestoringSession] = useState(false);
+  const [deferredInstallPrompt, setDeferredInstallPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
+  const [isPromptingInstall, setIsPromptingInstall] = useState(false);
   const compact = usePretextCompact();
   const { pointer, bindings } = usePretextPointer();
 
   const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
   const currentLanguage = resolveSupportedLanguage(i18n.language);
   const styles = getPretextAuthStyles(compact, pointer);
+
+  useEffect(() => {
+    const mediaStandalone = window.matchMedia("(display-mode: standalone)").matches;
+    const navigatorStandalone =
+      (window.navigator as Navigator & { standalone?: boolean }).standalone ===
+      true;
+
+    if (mediaStandalone || navigatorStandalone) {
+      setDeferredInstallPrompt(null);
+      return;
+    }
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      const promptEvent = event as BeforeInstallPromptEvent;
+      if (typeof promptEvent.prompt !== "function") {
+        return;
+      }
+
+      event.preventDefault();
+      setDeferredInstallPrompt(promptEvent);
+    };
+
+    const handleAppInstalled = () => {
+      setDeferredInstallPrompt(null);
+    };
+
+    window.addEventListener(
+      "beforeinstallprompt",
+      handleBeforeInstallPrompt as EventListener,
+    );
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    return () => {
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt as EventListener,
+      );
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -488,6 +561,21 @@ const LoginPage = () => {
     void setPreferredLanguage(language);
   };
 
+  const handleOpenInstallPrompt = async () => {
+    if (!deferredInstallPrompt || isPromptingInstall) {
+      return;
+    }
+
+    setIsPromptingInstall(true);
+    try {
+      await deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice.catch(() => undefined);
+    } finally {
+      setDeferredInstallPrompt(null);
+      setIsPromptingInstall(false);
+    }
+  };
+
   return (
     <div style={styles.shell} {...(compact ? {} : bindings)}>
       <main style={styles.frame}>
@@ -547,6 +635,28 @@ const LoginPage = () => {
                   : t("auth.continueToCode")}
             </button>
           </form>
+
+          {deferredInstallPrompt && (
+            <button
+              type="button"
+              style={{
+                ...styles.installShortcut,
+                opacity:
+                  isSubmitting || isRestoringSession || isPromptingInstall
+                    ? 0.58
+                    : 1,
+              }}
+              onClick={() => {
+                void handleOpenInstallPrompt();
+              }}
+              disabled={isSubmitting || isRestoringSession || isPromptingInstall}
+              aria-label={t("auth.installShortcutAria")}
+            >
+              {isPromptingInstall
+                ? t("auth.installShortcutOpening")
+                : t("auth.installShortcut")}
+            </button>
+          )}
 
           {status && (
             <p style={styles.status} role="status">

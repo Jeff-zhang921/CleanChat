@@ -366,6 +366,9 @@
     "codePlaceholder": "123456",
     "enterCleanChat": "进入 CleanChat",
     "backToLogin": "返回登录",
+    "installShortcut": "添加到主屏幕",
+    "installShortcutOpening": "正在打开安装提示...",
+    "installShortcutAria": "将 CleanChat 添加到主屏幕",
     "switchToEnglish": "English",
     "switchToChinese": "中文",
     "languageSwitchAria": "切换语言为 {{language}}"

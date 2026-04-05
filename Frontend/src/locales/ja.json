@@ -366,6 +366,9 @@
     "codePlaceholder": "123456",
     "enterCleanChat": "CleanChat に入る",
     "backToLogin": "ログインに戻る",
+    "installShortcut": "ホーム画面に追加",
+    "installShortcutOpening": "インストール案内を開いています...",
+    "installShortcutAria": "CleanChat をホーム画面に追加",
     "switchToEnglish": "English",
     "switchToChinese": "中文",
     "languageSwitchAria": "言語を {{language}} に切り替える"

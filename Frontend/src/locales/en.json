@@ -366,6 +366,9 @@
     "codePlaceholder": "123456",
     "enterCleanChat": "Enter CleanChat",
     "backToLogin": "Back to login",
+    "installShortcut": "Add to Home Screen",
+    "installShortcutOpening": "Opening install prompt...",
+    "installShortcutAria": "Add CleanChat to Home Screen",
     "switchToEnglish": "English",
     "switchToChinese": "中文",
     "languageSwitchAria": "Switch language to {{language}}"

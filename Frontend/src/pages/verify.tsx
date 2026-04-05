@@ -9,7 +9,6 @@ import {
 } from "../i18n";
 import { apiClient } from "../utils/apiClient";
 import { setAuthToken } from "../utils/auth";
-import { ensurePushSubscriptionForCurrentUser } from "../utils/notifications";
 import {
   AuthLanguageSwitch,
   getPretextAuthStyles,
@@ -129,10 +128,6 @@ const VerifyPage = () => {
       }
 
       setAuthToken(data.token);
-      void ensurePushSubscriptionForCurrentUser({
-        requestPermission: true,
-        forceResubscribe: true,
-      });
       setStatus("");
       setPendingEmail("");
       setStoredEmail("");
