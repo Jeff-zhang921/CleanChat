@@ -1939,7 +1939,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
                   className="conversations-virtuoso"
                   data={searchUsers}
                   computeItemKey={(_index, user) => `user-${user.id}`}
-                  defaultItemHeight={116}
+                  defaultItemHeight={96}
                   increaseViewportBy={viewportIncrease}
                   overscan={listOverscanWindow}
                   minOverscanItemCount={{ top: 12, bottom: 12 }}
