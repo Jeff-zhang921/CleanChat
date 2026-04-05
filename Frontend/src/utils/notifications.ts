@@ -44,6 +44,7 @@ const SW_SCRIPT_URL = "/sw.js";
 const PUSH_ENTRY_QUERY_KEY = "fromPush";
 const PUSH_VAPID_STORAGE_KEY = "cleanchat:vapid-public-key";
 const PUSH_VAPID_FINGERPRINT_KEY = "cleanchat:push-vapid-fingerprint";
+const DEFAULT_NOTIFICATION_VIBRATION_PATTERN = [200, 100, 200] as const;
 const VAPID_BASE64_URL_REGEX = /^[A-Za-z0-9_-]+$/;
 const VAPID_PUBLIC_KEY_BYTES = 65;
 let cachedVapidPublicKey = "";
@@ -482,13 +483,19 @@ export const showMessageNotification = async (
     const registration = await resolveServiceWorkerRegistration();
     if (registration) {
       try {
-        await registration.showNotification(title, {
+        const serviceWorkerOptions: NotificationOptions & {
+          renotify?: boolean;
+          vibrate?: number[];
+        } = {
           body,
           tag: options.tag,
+          renotify: Boolean(options.tag),
+          vibrate: [...DEFAULT_NOTIFICATION_VIBRATION_PATTERN],
           icon: "/icons/icon-192.png",
           badge: "/icons/icon-192.png",
           data: payload,
-        });
+        };
+        await registration.showNotification(title, serviceWorkerOptions);
         return true;
       } catch (swError) {
         console.warn(
@@ -499,12 +506,18 @@ export const showMessageNotification = async (
     }
 
     try {
-      const notification = new Notification(title, {
+      const notificationOptions: NotificationOptions & {
+        renotify?: boolean;
+        vibrate?: number[];
+      } = {
         body,
         tag: options.tag,
+        renotify: Boolean(options.tag),
+        vibrate: [...DEFAULT_NOTIFICATION_VIBRATION_PATTERN],
         icon: "/icons/icon-192.png",
         data: payload,
-      });
+      };
+      const notification = new Notification(title, notificationOptions);
       notification.onclick = () => {
         window.focus();
         if (

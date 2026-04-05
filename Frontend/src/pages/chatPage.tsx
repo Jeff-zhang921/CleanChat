@@ -23,14 +23,8 @@ import { useChat, type ChatMessage, type ChatSendPayload } from "../hooks/useCha
 import { useChatScroll } from "../hooks/useChatScroll";
 import { useViewportOverscan } from "../hooks/useViewportOverscan";
 import { useToast } from "../hooks/useToast";
-import { getNotificationPermission, showMessageNotification } from "../utils/notifications";
+import { clearActiveChatView, setActiveChatView } from "../utils/activeChatView";
 import { clearAuthToken, getAuthToken } from "../utils/auth";
-import {
-  getGroupMuteKey,
-  getThreadMuteKey,
-  isConversationMuted,
-  readConversationMutes,
-} from "../utils/conversationMutes";
 import {
   clearDraftForTarget,
   readDraftForTarget,
@@ -124,9 +118,6 @@ const getImageUrlFromMessage = (body: string) => {
 
   return null;
 };
-
-const formatNotificationBody = (body: string, sentPhotoLabel: string) =>
-  getImageUrlFromMessage(body) ? sentPhotoLabel : body;
 
 const isRecalledMessageBody = (body: string) => body === RECALLED_MESSAGE_BODY;
 
@@ -838,34 +829,15 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
         return;
       }
 
-      if (currentUser && msg.threadId) {
+      if (
+        currentUser &&
+        msg.threadId &&
+        (typeof document === "undefined" || !document.hidden)
+      ) {
         void syncReadCheckpoint({
           chatType: "direct",
           threadId: msg.threadId,
           lastMessageId: msg.id,
-        });
-      }
-
-      const threadMuteKey =
-        typeof msg.threadId === "number" ? getThreadMuteKey(msg.threadId) : "";
-
-      if (
-        currentUser &&
-        msg.senderId !== currentUser.id &&
-        typeof document !== "undefined" &&
-        document.hidden &&
-        getNotificationPermission() === "granted" &&
-        !isConversationMuted(readConversationMutes(), threadMuteKey)
-      ) {
-        const title = other || t("chat.newMessage");
-        showMessageNotification(title, formatNotificationBody(msg.body, t("chat.sentPhotoNotification")), {
-          tag: `thread-${msg.threadId}`,
-          target: msg.threadId
-            ? {
-                chatType: "direct",
-                threadId: msg.threadId,
-              }
-            : { url: "/conversations" },
         });
       }
     });
@@ -893,34 +865,15 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
         return;
       }
 
-      if (currentUser && msg.groupId) {
+      if (
+        currentUser &&
+        msg.groupId &&
+        (typeof document === "undefined" || !document.hidden)
+      ) {
         void syncReadCheckpoint({
           chatType: "group",
           groupId: msg.groupId,
           lastMessageId: msg.id,
-        });
-      }
-
-      const groupMuteKey =
-        typeof msg.groupId === "string" ? getGroupMuteKey(msg.groupId) : "";
-
-      if (
-        currentUser &&
-        msg.senderId !== currentUser.id &&
-        typeof document !== "undefined" &&
-        document.hidden &&
-        getNotificationPermission() === "granted" &&
-        !isConversationMuted(readConversationMutes(), groupMuteKey)
-      ) {
-        const title = other || t("chat.groupMessage");
-        showMessageNotification(title, formatNotificationBody(msg.body, t("chat.sentPhotoNotification")), {
-          tag: `group-${msg.groupId ?? "room"}`,
-          target: msg.groupId
-            ? {
-                chatType: "group",
-                groupId: msg.groupId,
-              }
-            : { url: "/conversations" },
         });
       }
     });
@@ -956,6 +909,33 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   useEffect(() => {
     meRef.current = me;
   }, [me]);
+
+  useEffect(() => {
+    if (chatMode === "group" && groupId) {
+      setActiveChatView({
+        chatType: "group",
+        groupId,
+      });
+      return () => {
+        clearActiveChatView();
+      };
+    }
+
+    if (chatMode === "direct" && threadId) {
+      setActiveChatView({
+        chatType: "direct",
+        threadId,
+      });
+      return () => {
+        clearActiveChatView();
+      };
+    }
+
+    clearActiveChatView();
+    return () => {
+      clearActiveChatView();
+    };
+  }, [chatMode, groupId, threadId]);
 
   useEffect(() => {
     isAtBottomRef.current = isAtBottom;

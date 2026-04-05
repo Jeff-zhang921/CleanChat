@@ -4,6 +4,7 @@ const DEFAULT_ICON = "/icons/icon-192.png";
 const DEFAULT_BADGE = "/icons/icon-192.png";
 const DEFAULT_URL = "/conversations";
 const PUSH_ENTRY_QUERY_KEY = "fromPush";
+const DEFAULT_VIBRATION_PATTERN = [200, 100, 200];
 
 const isRecord = (value) =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -193,6 +194,7 @@ self.addEventListener("push", (event) => {
       body: payload.body,
       icon: DEFAULT_ICON,
       badge: DEFAULT_BADGE,
+      vibrate: DEFAULT_VIBRATION_PATTERN,
       tag: payload.tag,
       renotify: Boolean(payload.tag),
       data: {

@@ -39,6 +39,11 @@ import {
   type NotificationPermissionState,
 } from "../utils/notifications";
 import {
+  ACTIVE_CHAT_VIEW_UPDATED_EVENT,
+  readActiveChatView,
+  type ActiveChatView,
+} from "../utils/activeChatView";
+import {
   clearUnreadCount,
   getGroupUnreadKey,
   getThreadUnreadKey,
@@ -512,6 +517,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   const groupsRef = useRef<GroupSummary[]>([]);
   const unreadCountsRef = useRef<ConversationUnreadCounts>(readUnreadCounts());
   const mutedConversationsRef = useRef<ConversationMuteMap>(readConversationMutes());
+  const activeChatViewRef = useRef<ActiveChatView | null>(readActiveChatView());
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const statusToastTimeoutRef = useRef<number | null>(null);
 
@@ -802,6 +808,31 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   }, [mutedConversations]);
 
   useEffect(() => {
+    const refreshActiveChatView = () => {
+      activeChatViewRef.current = readActiveChatView();
+    };
+
+    const handleActiveChatViewUpdated = (event: Event) => {
+      const customEvent = event as CustomEvent<ActiveChatView | null>;
+      activeChatViewRef.current = customEvent.detail ?? null;
+    };
+
+    window.addEventListener(
+      ACTIVE_CHAT_VIEW_UPDATED_EVENT,
+      handleActiveChatViewUpdated as EventListener,
+    );
+    window.addEventListener("storage", refreshActiveChatView);
+
+    return () => {
+      window.removeEventListener(
+        ACTIVE_CHAT_VIEW_UPDATED_EVENT,
+        handleActiveChatViewUpdated as EventListener,
+      );
+      window.removeEventListener("storage", refreshActiveChatView);
+    };
+  }, []);
+
+  useEffect(() => {
     const handleMuteEvent = (event: Event) => {
       const customEvent = event as CustomEvent<unknown>;
       if (customEvent.detail && typeof customEvent.detail === "object") {
@@ -1054,7 +1085,16 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       const currentUser = meRef.current;
       if (!currentUser || message.senderId === currentUser.id) return;
 
-      incrementThreadUnread(message.threadId);
+      const activeChatView = activeChatViewRef.current;
+      const suppressForegroundActiveNotification =
+        typeof document !== "undefined" &&
+        !document.hidden &&
+        activeChatView?.chatType === "direct" &&
+        activeChatView.threadId === message.threadId;
+
+      if (!suppressForegroundActiveNotification) {
+        incrementThreadUnread(message.threadId);
+      }
 
       const targetThread = threadsRef.current.find((item) => item.id === message.threadId);
       let senderName = t("common.cleanChat");
@@ -1070,6 +1110,10 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         getThreadMuteKey(message.threadId),
       );
       if (mutedByMe) {
+        return;
+      }
+
+      if (suppressForegroundActiveNotification) {
         return;
       }
 
@@ -1103,7 +1147,16 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       const currentUser = meRef.current;
       if (!currentUser || message.senderId === currentUser.id) return;
 
-      incrementGroupUnread(message.groupId);
+      const activeChatView = activeChatViewRef.current;
+      const suppressForegroundActiveNotification =
+        typeof document !== "undefined" &&
+        !document.hidden &&
+        activeChatView?.chatType === "group" &&
+        activeChatView.groupId === message.groupId;
+
+      if (!suppressForegroundActiveNotification) {
+        incrementGroupUnread(message.groupId);
+      }
 
       const targetGroup = groupsRef.current.find((item) => item.id === message.groupId);
       const groupName = targetGroup?.name ?? t("groups.groupFallback");
@@ -1113,6 +1166,10 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         getGroupMuteKey(message.groupId),
       );
       if (mutedByMe) {
+        return;
+      }
+
+      if (suppressForegroundActiveNotification) {
         return;
       }
 
