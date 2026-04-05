@@ -12,6 +12,7 @@ import {
   listGroupJoinRequests,
   joinGroup,
   leaveGroup,
+  listGroupMemberIds,
   listGroupMessages,
   listGroupsForUser,
   normalizeGroupId,
@@ -1432,6 +1433,65 @@ router.post("/groups/:groupId/leave", async (req, res) => {
   }
 
   res.status(200).json({ group: left.summary, alreadyLeft: left.alreadyLeft });
+});
+
+router.get("/groups/:groupId/settings", async (req, res) => {
+  const sessionUserId = req.user?.userId;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const groupId = normalizeGroupId(req.params.groupId);
+  if (!groupId) {
+    res.status(400).json({ message: "Invalid group ID." });
+    return;
+  }
+
+  const group = getGroupById(groupId);
+  if (!group) {
+    res.status(404).json({ message: "Group not found." });
+    return;
+  }
+
+  if (!isGroupMember(groupId, sessionUserId)) {
+    res.status(403).json({ message: "Join the group before chatting." });
+    return;
+  }
+
+  const summary = listGroupsForUser(sessionUserId).find(
+    (item) => item.id === groupId,
+  );
+  if (!summary) {
+    res.status(404).json({ message: "Group not found." });
+    return;
+  }
+
+  const memberIds = listGroupMemberIds(groupId);
+  const members =
+    memberIds.length > 0
+      ? await prisma.user.findMany({
+          where: {
+            id: { in: memberIds },
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            cleanId: true,
+            avatar: true,
+            gender: true,
+          },
+          orderBy: {
+            cleanId: "asc",
+          },
+        })
+      : [];
+
+  res.status(200).json({
+    group: summary,
+    members,
+  });
 });
 
 router.patch("/groups/:groupId/settings", async (req, res) => {

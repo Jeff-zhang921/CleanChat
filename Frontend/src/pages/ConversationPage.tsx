@@ -24,7 +24,9 @@ import {
 import { clearAuthToken, getAuthToken } from "../utils/auth";
 import {
   CONVERSATION_DELETED_EVENT,
+  GROUP_CONVERSATION_LEFT_EVENT,
   type ConversationDeletedDetail,
+  type GroupConversationLeftDetail,
 } from "../utils/conversationEvents";
 import {
   ensurePushSubscriptionForCurrentUser,
@@ -957,6 +959,37 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     window.addEventListener(CONVERSATION_DELETED_EVENT, handler as EventListener);
     return () => {
       window.removeEventListener(CONVERSATION_DELETED_EVENT, handler as EventListener);
+    };
+  }, [clearConversationUnread, t]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<GroupConversationLeftDetail>;
+      const detail = customEvent.detail;
+      const groupId = typeof detail?.groupId === "string" ? detail.groupId.trim() : "";
+      if (!groupId) {
+        return;
+      }
+
+      setGroups((prev) => prev.filter((group) => group.id !== groupId));
+      clearConversationUnread(getGroupUnreadKey(groupId));
+
+      const toastMessage = detail.toast?.trim() || t("groupSettings.leftToast");
+      setStatus(toastMessage);
+
+      if (statusToastTimeoutRef.current !== null) {
+        window.clearTimeout(statusToastTimeoutRef.current);
+      }
+
+      statusToastTimeoutRef.current = window.setTimeout(() => {
+        setStatus((current) => (current === toastMessage ? "" : current));
+        statusToastTimeoutRef.current = null;
+      }, 1400);
+    };
+
+    window.addEventListener(GROUP_CONVERSATION_LEFT_EVENT, handler as EventListener);
+    return () => {
+      window.removeEventListener(GROUP_CONVERSATION_LEFT_EVENT, handler as EventListener);
     };
   }, [clearConversationUnread, t]);
 

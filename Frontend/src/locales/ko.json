@@ -281,6 +281,21 @@
     "deleteConfirmBody": "이 작업은 양측의 대화 기록을 영구 삭제하며 되돌릴 수 없습니다.",
     "deleteConfirmAction": "영구 삭제"
   },
+  "groupSettings": {
+    "loading": "그룹 채팅 정보를 불러오는 중...",
+    "unavailable": "지금은 그룹 채팅 정보를 사용할 수 없습니다.",
+    "loadFailed": "그룹 채팅 정보를 불러오지 못했습니다.",
+    "title": "채팅 정보",
+    "members": "그룹 멤버",
+    "viewMore": "더보기",
+    "invitePlaceholder": "초대",
+    "deleteAndLeave": "삭제 후 나가기",
+    "leaveConfirmTitle": "그룹 채팅에서 나가시겠어요?",
+    "leaveConfirmBody": "나가면 이 그룹 메시지를 더 이상 받지 않으며 채팅 기록이 모두 삭제됩니다.",
+    "leaving": "나가는 중...",
+    "leaveFailed": "그룹 채팅에서 나가지 못했습니다.",
+    "leftToast": "그룹 채팅에서 나왔습니다"
+  },
   "auth": {
     "phaseReady": "준비 완료",
     "phasePreparing": "준비 중",

@@ -281,6 +281,21 @@
     "deleteConfirmBody": "This action permanently deletes both sides' conversation history and cannot be undone.",
     "deleteConfirmAction": "Delete permanently"
   },
+  "groupSettings": {
+    "loading": "Loading group chat info...",
+    "unavailable": "Group chat info is unavailable right now.",
+    "loadFailed": "Failed to load group chat info.",
+    "title": "Chat Info",
+    "members": "Group members",
+    "viewMore": "See more",
+    "invitePlaceholder": "Invite",
+    "deleteAndLeave": "Delete and Leave",
+    "leaveConfirmTitle": "Are you sure you want to leave the group chat?",
+    "leaveConfirmBody": "After leaving, you will stop receiving group messages and all chat history will be deleted.",
+    "leaving": "Leaving...",
+    "leaveFailed": "Failed to leave group chat.",
+    "leftToast": "Left the group chat"
+  },
   "auth": {
     "phaseReady": "Ready",
     "phasePreparing": "Preparing",

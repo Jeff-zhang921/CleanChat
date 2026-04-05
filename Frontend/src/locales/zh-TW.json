@@ -281,6 +281,21 @@
     "deleteConfirmBody": "此操作會永久刪除雙方的溝通紀錄且無法復原。",
     "deleteConfirmAction": "確認刪除"
   },
+  "groupSettings": {
+    "loading": "載入群聊資訊中...",
+    "unavailable": "群聊資訊目前不可用。",
+    "loadFailed": "載入群聊資訊失敗。",
+    "title": "聊天資訊",
+    "members": "群成員",
+    "viewMore": "查看更多",
+    "invitePlaceholder": "邀請",
+    "deleteAndLeave": "刪除並退出",
+    "leaveConfirmTitle": "確定要退出群聊嗎？",
+    "leaveConfirmBody": "退出後將不再接收此群訊息，並刪除所有聊天紀錄。",
+    "leaving": "退出中...",
+    "leaveFailed": "退出群聊失敗。",
+    "leftToast": "已退出該群聊"
+  },
   "auth": {
     "phaseReady": "就緒",
     "phasePreparing": "準備中",

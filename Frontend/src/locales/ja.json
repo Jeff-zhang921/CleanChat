@@ -281,6 +281,21 @@
     "deleteConfirmBody": "この操作は双方の会話履歴を完全に削除し、元に戻せません。",
     "deleteConfirmAction": "完全に削除"
   },
+  "groupSettings": {
+    "loading": "グループチャット情報を読み込み中...",
+    "unavailable": "現在、グループチャット情報は利用できません。",
+    "loadFailed": "グループチャット情報の読み込みに失敗しました。",
+    "title": "チャット情報",
+    "members": "グループメンバー",
+    "viewMore": "もっと見る",
+    "invitePlaceholder": "招待",
+    "deleteAndLeave": "削除して退出",
+    "leaveConfirmTitle": "グループチャットを退出しますか？",
+    "leaveConfirmBody": "退出するとこのグループのメッセージは届かなくなり、すべてのチャット履歴が削除されます。",
+    "leaving": "退出中...",
+    "leaveFailed": "グループチャットの退出に失敗しました。",
+    "leftToast": "グループチャットから退出しました"
+  },
   "auth": {
     "phaseReady": "準備完了",
     "phasePreparing": "準備中",

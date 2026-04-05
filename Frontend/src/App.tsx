@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 // import PersonalPage from './pages/personalPage';
 import ChatPage from './pages/chatPage';
 import ChatSettingsPage from './pages/chatSettings';
+import GroupSettingsPage from './pages/groupSettings';
 import ConversationsPage from './pages/ConversationPage';
 import GroupConversationPage from './pages/GroupConversationPage';
 import LoginPage from './pages/login'
@@ -26,6 +27,7 @@ type RootViewKey = 'conversations' | 'groups' | 'profile' | 'settings';
 type DetailViewKey =
   | 'chat'
   | 'chat-settings'
+  | 'group-settings'
   | 'profile-edit'
   | 'profile-purity'
   | 'profile-vault'
@@ -240,6 +242,7 @@ const resolveRootViewFromPath = (
 
 const resolveDetailViewFromPath = (pathname: string): DetailViewKey => {
   if (pathname === '/chat/settings') return 'chat-settings';
+  if (pathname === '/chat/group/settings') return 'group-settings';
   if (pathname === '/chat' || pathname.startsWith('/chat/')) return 'chat';
   if (/^\/profile\/user\/\d+$/.test(pathname)) return 'profile-user';
   if (pathname === '/profile/request-chat') return 'send-chat-request';
@@ -314,7 +317,7 @@ const HybridAppShell = () => {
       return;
     }
 
-    if (detailView === 'chat' || detailView === 'chat-settings') {
+    if (detailView === 'chat' || detailView === 'chat-settings' || detailView === 'group-settings') {
       const baseView = resolveChatBaseView(pathname, location.state, lastRootViewRef.current);
       lastRootViewRef.current = baseView;
       setActiveRootView((current) => (current === baseView ? current : baseView));
@@ -389,6 +392,14 @@ const HybridAppShell = () => {
       return (
         <div className="hybrid-detail-surface" role="presentation">
           <ChatSettingsPage />
+        </div>
+      );
+    }
+
+    if (detailView === 'group-settings') {
+      return (
+        <div className="hybrid-detail-surface" role="presentation">
+          <GroupSettingsPage />
         </div>
       );
     }

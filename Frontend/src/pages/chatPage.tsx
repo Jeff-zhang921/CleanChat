@@ -1485,7 +1485,9 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const showHistorySkeleton = isHistoryLoading && message.length === 0;
   const chatKicker = chatMode === "group" ? t("chat.groupThread") : t("chat.privateLine");
   const backLabel = fromPath === "/groups" ? t("nav.groups") : t("nav.chats");
-  const canOpenSettings = chatMode === "direct" && typeof threadId === "number";
+  const canOpenSettings =
+    (chatMode === "direct" && typeof threadId === "number") ||
+    (chatMode === "group" && typeof groupId === "string" && groupId.length > 0);
   const messageViewportIncrease = {
     top: messageOverscan,
     bottom: messageOverscan,
@@ -1651,6 +1653,22 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
 
   const handleOpenSettings = () => {
     if (!canOpenSettings) {
+      return;
+    }
+
+    if (chatMode === "group" && groupId) {
+      navigate("/chat/group/settings", {
+        state: {
+          groupId,
+          other: chatLabel,
+          avatarUrl,
+          fromPath,
+        },
+      });
+      return;
+    }
+
+    if (typeof threadId !== "number") {
       return;
     }
 
