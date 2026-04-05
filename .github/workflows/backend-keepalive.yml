@@ -1,20 +1,36 @@
 name: Backend Keepalive
 
 on:
+  push:
+    branches:
+      - main
+      - master
   schedule:
-    - cron: "*/5 * * * *"
+    # UTC: run at minute 7, 22, 37, 52 of every hour to avoid top-of-hour queue spikes.
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   ping-backend:
     runs-on: ubuntu-latest
     steps:
-      - name: Skip when keepalive URL is not configured
-        if: ${{ secrets.BACKEND_KEEPALIVE_URL == '' }}
-        run: echo "BACKEND_KEEPALIVE_URL secret is not set."
+      - name: Starting Keepalive
+        run: echo "Starting Keepalive..."
+
+      - name: Validate keepalive configuration
+        env:
+          BACKEND_KEEPALIVE_URL: ${{ secrets.BACKEND_KEEPALIVE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BACKEND_KEEPALIVE_URL:-}" ]; then
+            echo "::error::Error: BACKEND_KEEPALIVE_URL is not set in GitHub Secrets!"
+            exit 1
+          fi
 
       - name: Ping keepalive endpoint
-        if: ${{ secrets.BACKEND_KEEPALIVE_URL != '' }}
         env:
           BACKEND_KEEPALIVE_URL: ${{ secrets.BACKEND_KEEPALIVE_URL }}
           BACKEND_OPS_TOKEN: ${{ secrets.BACKEND_OPS_TOKEN }}
