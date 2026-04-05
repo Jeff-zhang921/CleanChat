@@ -958,7 +958,8 @@ export const syncLinkedPushSubscriptionForCurrentUser = async (
     return {
       ok: false,
       permission,
-      reason: "Push notifications on this device still need an explicit enable action.",
+      reason:
+        "Push notifications on this device still need an explicit enable action.",
     };
   }
 
@@ -1025,7 +1026,10 @@ export const syncLinkedPushSubscriptionForCurrentUser = async (
       permission,
     };
   } catch (error) {
-    console.warn(`${DEBUG_PREFIX} failed to sync existing push subscription`, error);
+    console.warn(
+      `${DEBUG_PREFIX} failed to sync existing push subscription`,
+      error,
+    );
     return {
       ok: false,
       permission,
@@ -1213,6 +1217,13 @@ export const ensurePushSubscriptionForCurrentUser = async (
   } catch (error) {
     console.warn(`${DEBUG_PREFIX} failed to subscribe and sync push`, error);
 
+    if (typeof DOMException !== "undefined" && error instanceof DOMException) {
+      console.error(`${DEBUG_PREFIX} push subscription DOMException`, {
+        name: error.name,
+        message: error.message,
+      });
+    }
+
     if (
       typeof DOMException !== "undefined" &&
       error instanceof DOMException &&
@@ -1235,6 +1246,32 @@ export const ensurePushSubscriptionForCurrentUser = async (
         permission,
         reason:
           "Push service worker state is invalid. Please refresh and try again.",
+      };
+    }
+
+    if (
+      typeof DOMException !== "undefined" &&
+      error instanceof DOMException &&
+      (error.name === "InvalidCharacterError" ||
+        error.name === "NotSupportedError")
+    ) {
+      return {
+        ok: false,
+        permission,
+        reason:
+          "Push subscription failed due to VAPID key mismatch or unsupported key format.",
+      };
+    }
+
+    if (
+      typeof DOMException !== "undefined" &&
+      error instanceof DOMException &&
+      error.name === "AbortError"
+    ) {
+      return {
+        ok: false,
+        permission,
+        reason: "Push subscription request was aborted. Please tap and retry.",
       };
     }
 

@@ -705,8 +705,29 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       if (subscription.ok) {
         setNotificationGuideMode(null);
         setNotificationGuideStatus(t("conversations.notificationsEnabled"));
+        void showMessageNotification(
+          t("common.cleanChat"),
+          t("conversations.notificationsEnabled"),
+          {
+            tag: "push-link-test",
+            target: {
+              url: "/conversations",
+            },
+          },
+        ).then((shown) => {
+          if (!shown) {
+            console.warn(
+              "[CleanChat][notifications] test notification did not display after explicit bind.",
+            );
+          }
+        });
         return;
       }
+
+      console.error("[CleanChat][notifications] explicit bind failed", {
+        permission: subscription.permission,
+        reason: subscription.reason || null,
+      });
 
       if (subscription.permission === "denied") {
         setNotificationGuideMode("permission-denied");
@@ -1815,7 +1836,8 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
                 </span>
               )}
               <span>{notificationGuideCopy}</span>
-              {notificationGuideMode === "permission-default" && (
+              {(notificationGuideMode === "permission-default" ||
+                notificationGuideMode === "subscription-link") && (
                 <button
                   type="button"
                   className="conversations-notification-guide-action"
