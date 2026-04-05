@@ -11,10 +11,12 @@ import {
 import { clearAuthToken } from "../utils/auth";
 import {
   ensurePushSubscriptionForCurrentUser,
+  getNotificationRuntimeSupport,
   getNotificationPermission,
   isAndroid13Plus,
   isIOSDevice,
   isStandalonePwa,
+  showMessageNotification,
 } from "../utils/notifications";
 import { hydrateProfileUser, type ProfileRouteState, type ProfileUser } from "../utils/profileUser";
 import "./profileSettings.css";
@@ -101,6 +103,8 @@ const ProfileSettingsPage = () => {
   const [deferredInstallPrompt, setDeferredInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [isPromptingInstall, setIsPromptingInstall] = useState(false);
+  const [isRunningNotificationSelfTest, setIsRunningNotificationSelfTest] =
+    useState(false);
 
   const currentLanguage = resolveSupportedLanguage(i18n.language);
   const showIosInstallShortcut = isIOSDevice() && !isStandalonePwa();
@@ -284,7 +288,19 @@ const ProfileSettingsPage = () => {
     setNotificationPermission(subscriptionResult.permission);
 
     if (subscriptionResult.ok) {
-      setNotificationStatus(t("settings.notificationsEnabled"));
+      const shown = await showMessageNotification(
+        t("common.cleanChat"),
+        t("settings.notificationsEnabled"),
+        {
+          tag: `settings-enable-${Date.now()}`,
+          target: { url: "/conversations" },
+        },
+      );
+      setNotificationStatus(
+        shown
+          ? t("settings.notificationsEnabled")
+          : t("settings.notificationsSelfTestFailed"),
+      );
       return;
     }
     if (subscriptionResult.permission === "denied") {
@@ -308,6 +324,44 @@ const ProfileSettingsPage = () => {
     setNotificationStatus(
       subscriptionResult.reason || t("settings.notificationsNotGranted"),
     );
+  };
+
+  const handleNotificationSelfTest = async () => {
+    if (isRunningNotificationSelfTest) {
+      return;
+    }
+
+    setIsRunningNotificationSelfTest(true);
+    try {
+      const shown = await showMessageNotification(
+        t("common.cleanChat"),
+        t("settings.notificationsEnabled"),
+        {
+          tag: `settings-self-test-${Date.now()}`,
+          target: { url: "/conversations" },
+        },
+      );
+
+      if (shown) {
+        setNotificationStatus(t("settings.notificationsSelfTestPassed"));
+        return;
+      }
+
+      const runtime = await getNotificationRuntimeSupport();
+      if (runtime.permission !== "granted") {
+        setNotificationStatus(t("settings.notificationsNotGranted"));
+        return;
+      }
+
+      if (!runtime.serviceWorkerReady) {
+        setNotificationStatus(t("settings.notificationsSelfTestNoSw"));
+        return;
+      }
+
+      setNotificationStatus(t("settings.notificationsSelfTestFailed"));
+    } finally {
+      setIsRunningNotificationSelfTest(false);
+    }
   };
 
   const handleInstallShortcut = async () => {
@@ -501,6 +555,16 @@ const ProfileSettingsPage = () => {
               onClick={() => void handleEnableNotifications()}
             >
               {t("settings.enableNotifications")}
+            </button>
+            <button
+              type="button"
+              className="profile-settings-action"
+              onClick={() => void handleNotificationSelfTest()}
+              disabled={isRunningNotificationSelfTest}
+            >
+              {isRunningNotificationSelfTest
+                ? t("settings.notificationsSelfTestRunning")
+                : t("settings.notificationsSelfTest")}
             </button>
             {shouldShowInstallShortcut && (
               <button

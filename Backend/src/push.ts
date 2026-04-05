@@ -215,7 +215,8 @@ const buildPushDeliveryOptions = (tag?: string) => {
       : "";
 
   return {
-    TTL: 60,
+    // Keep pushes alive longer so Android Doze / battery optimization delays do not expire messages.
+    TTL: 86400,
     urgency: "high" as const,
     ...(normalizedTopic ? { topic: normalizedTopic } : {}),
   };
