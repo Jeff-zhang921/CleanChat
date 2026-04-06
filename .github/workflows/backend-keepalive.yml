@@ -34,14 +34,48 @@ jobs:
         env:
           BACKEND_KEEPALIVE_URL: ${{ secrets.BACKEND_KEEPALIVE_URL }}
           BACKEND_OPS_TOKEN: ${{ secrets.BACKEND_OPS_TOKEN }}
+          KEEPALIVE_MAX_ATTEMPTS: "8"
+          KEEPALIVE_RETRY_DELAY_SECONDS: "6"
         run: |
           set -euo pipefail
 
-          if [ -n "${BACKEND_OPS_TOKEN:-}" ]; then
-            curl --fail --silent --show-error --max-time 20 \
-              -H "x-ops-token: ${BACKEND_OPS_TOKEN}" \
-              "${BACKEND_KEEPALIVE_URL}"
-          else
-            curl --fail --silent --show-error --max-time 20 \
-              "${BACKEND_KEEPALIVE_URL}"
-          fi
+          max_attempts="${KEEPALIVE_MAX_ATTEMPTS:-8}"
+          retry_delay="${KEEPALIVE_RETRY_DELAY_SECONDS:-6}"
+
+          echo "Pinging keepalive endpoint: ${BACKEND_KEEPALIVE_URL}"
+          echo "Retry policy: ${max_attempts} attempts, ${retry_delay}s delay"
+
+          attempt=1
+          while [ "${attempt}" -le "${max_attempts}" ]; do
+            if [ -n "${BACKEND_OPS_TOKEN:-}" ]; then
+              status_code="$(curl --silent --show-error --location --max-time 20 \
+                -H "x-ops-token: ${BACKEND_OPS_TOKEN}" \
+                --output /tmp/keepalive-response.txt \
+                --write-out "%{http_code}" \
+                "${BACKEND_KEEPALIVE_URL}" || true)"
+            else
+              status_code="$(curl --silent --show-error --location --max-time 20 \
+                --output /tmp/keepalive-response.txt \
+                --write-out "%{http_code}" \
+                "${BACKEND_KEEPALIVE_URL}" || true)"
+            fi
+
+            if [ -n "${status_code}" ] && [ "${status_code}" -ge 200 ] && [ "${status_code}" -lt 300 ]; then
+              echo "Keepalive ping succeeded with HTTP ${status_code} on attempt ${attempt}/${max_attempts}."
+              exit 0
+            fi
+
+            echo "::warning::Keepalive ping returned HTTP ${status_code:-curl-error} on attempt ${attempt}/${max_attempts}."
+            if [ -s /tmp/keepalive-response.txt ]; then
+              echo "Response preview:"
+              sed -n '1,20p' /tmp/keepalive-response.txt
+            fi
+
+            if [ "${attempt}" -eq "${max_attempts}" ]; then
+              echo "::error::Keepalive ping failed after ${max_attempts} attempts."
+              exit 1
+            fi
+
+            sleep "${retry_delay}"
+            attempt=$((attempt + 1))
+          done
