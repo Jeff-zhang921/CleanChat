@@ -1,12 +1,27 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import GenderLineIcon from "../components/GenderLineIcon";
 import GenderPicker from "../components/GenderPicker";
+import {
+  AVATAR_TIER_ORDER,
+  buildDerivedAvatarAccess,
+  getAvatarOptionsByTier,
+  getAvatarToneClass,
+  getAvatarUrl,
+  isAvatarUnlocked,
+  type AvatarKey,
+  type AvatarTier,
+} from "../constants/avatarCatalog";
 import { BACKEND_URL } from "../config";
-import { validateShortClaimInput } from "../utils/cleanIdClaim";
+import {
+  FALLBACK_SHORT_ID_CLAIM,
+  validateShortClaimInput,
+} from "../utils/cleanIdClaim";
+import { FALLBACK_CLEAN_ID_TRUST } from "../utils/cleanIdTrust";
 import { GENDER_ARIA_KEY_MAP, type GenderValue } from "../utils/gender";
 import { hydrateProfileUser, type ProfileRouteState, type ProfileUser } from "../utils/profileUser";
+import "./profile.css";
 import "./profileEdit.css";
 
 const EXIT_MS = 260;
@@ -22,17 +37,20 @@ const ProfileEditPage = () => {
   const [user, setUser] = useState<ProfileUser | null>(seededUser);
   const [nickname, setNickname] = useState(seededUser?.name ?? "");
   const [cleanId, setCleanId] = useState(seededUser?.cleanId ?? "");
+  const [avatar, setAvatar] = useState<AvatarKey>(seededUser?.avatar ?? "AVATAR_LEO");
   const [gender, setGender] = useState<GenderValue>(seededUser?.gender ?? "hidden");
   const [status, setStatus] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [isGenderDrawerOpen, setIsGenderDrawerOpen] = useState<boolean>(() => false);
   const genderLabel = t(GENDER_ARIA_KEY_MAP[gender]);
+  const cleanIdFieldRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!user) return;
     setNickname(user.name ?? "");
     setCleanId(user.cleanId ?? "");
+    setAvatar(user.avatar ?? "AVATAR_LEO");
     setGender(user.gender);
   }, [user]);
 
@@ -73,18 +91,20 @@ const ProfileEditPage = () => {
     };
   }, [navigate, seededUser, t]);
 
+  const backTarget = routeState?.returnTo ?? "/profile";
+
   const leave = (nextUser?: ProfileUser | null) => {
     if (isLeaving) return;
     setIsLeaving(true);
     window.setTimeout(() => {
       const nextState: ProfileRouteState = {
         spatialTransition: "pop",
-        returnTo: routeState?.returnTo ?? "/profile",
+        returnTo: backTarget === "/profile/purity" ? "/profile" : backTarget,
       };
       if (nextUser) {
         nextState.user = nextUser;
       }
-      navigate(routeState?.returnTo ?? "/profile", { state: nextState });
+      navigate(backTarget, { state: nextState });
     }, EXIT_MS);
   };
 
@@ -114,12 +134,86 @@ const ProfileEditPage = () => {
     };
   }, [isGenderDrawerOpen]);
 
+  useEffect(() => {
+    if (!routeState?.focusClaim || !user) return;
+
+    const timer = window.setTimeout(() => {
+      cleanIdFieldRef.current?.focus();
+      cleanIdFieldRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 140);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [routeState?.focusClaim, user]);
+
+  const normalizedCleanId = useMemo(() => cleanId.trim().toLowerCase(), [cleanId]);
+  const activeTrust = user?.trust ?? FALLBACK_CLEAN_ID_TRUST;
+  const activeShortIdClaim = user?.shortIdClaim ?? FALLBACK_SHORT_ID_CLAIM;
+  const shortClaimRangeLabel =
+    activeShortIdClaim.minClaimLength && activeShortIdClaim.maxClaimLength
+      ? t("identityVault.claimRange", {
+          min: activeShortIdClaim.minClaimLength,
+          max: activeShortIdClaim.maxClaimLength,
+        })
+      : t("identityVault.standardClaimRange", {
+          min: activeShortIdClaim.minStandardLength,
+        });
+  const liveCleanIdValidation =
+    user && activeShortIdClaim
+      ? validateShortClaimInput({
+          cleanId: normalizedCleanId,
+          currentCleanId: user.cleanId,
+          claim: activeShortIdClaim,
+        })
+      : null;
+  const cleanIdLength = (normalizedCleanId || user?.cleanId || "").length;
+  const cleanIdIntent =
+    cleanIdLength > 0 && cleanIdLength <= 2
+      ? t("profile.cleanIdIntentUltraShort")
+      : cleanIdLength > 0 && cleanIdLength <= 4
+        ? t("profile.cleanIdIntentShort")
+        : t("profile.cleanIdIntentStandard");
+  const claimDetailText = liveCleanIdValidation
+    ? t("identityVault.cleanIdValidation")
+    : activeShortIdClaim.state === "locked"
+      ? t("identityVault.claimDetailLocked")
+      : activeShortIdClaim.state === "claimable"
+        ? t("identityVault.claimDetailClaimable")
+        : t("identityVault.claimDetailClaimed");
+
+  const avatarAccess =
+    user?.avatarAccess ??
+    buildDerivedAvatarAccess({
+      trust: activeTrust,
+      currentAvatar: user?.avatar,
+    });
+  const getTierCopy = (tier: AvatarTier) => ({
+    eyebrow: t(`identityVault.avatarTiers.${tier}.eyebrow`),
+    title: t(`identityVault.avatarTiers.${tier}.title`),
+    description: t(`identityVault.avatarTiers.${tier}.description`),
+    lockedHint: t(`identityVault.avatarTiers.${tier}.lockedHint`),
+  });
+  const avatarSections = AVATAR_TIER_ORDER.map((tier) => ({
+    tier,
+    access: avatarAccess.tiers[tier],
+    options: getAvatarOptionsByTier(tier).map((item) => ({
+      ...item,
+      unlocked: isAvatarUnlocked(item.key, avatarAccess),
+      isSelected: avatar === item.key,
+      isCurrent: user?.avatar === item.key,
+    })),
+  }));
+  const currentTierTitle = getTierCopy(avatarAccess.currentTier).title;
+
   const handleSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!user) return;
 
     const trimmedName = nickname.trim();
-    const normalizedCleanId = cleanId.trim().toLowerCase();
     if (!trimmedName) {
       setStatus(t("profileEdit.displayNameRequired"));
       return;
@@ -143,7 +237,8 @@ const ProfileEditPage = () => {
     if (
       trimmedName === user.name &&
       normalizedCleanId === user.cleanId &&
-      gender === user.gender
+      gender === user.gender &&
+      avatar === user.avatar
     ) {
       leave(user);
       return;
@@ -186,17 +281,25 @@ const ProfileEditPage = () => {
         }
       }
 
-      if (trimmedName !== user.name || gender !== user.gender) {
+      const profileUpdates: { name?: string; gender?: GenderValue; avatar?: AvatarKey } = {};
+      if (trimmedName !== user.name) {
+        profileUpdates.name = trimmedName;
+      }
+      if (gender !== user.gender) {
+        profileUpdates.gender = gender;
+      }
+      if (avatar !== user.avatar) {
+        profileUpdates.avatar = avatar;
+      }
+
+      if (Object.keys(profileUpdates).length > 0) {
         const response = await fetch(`${BACKEND_URL}/profile/me`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
           },
           credentials: "include",
-          body: JSON.stringify({
-            name: trimmedName,
-            gender,
-          }),
+          body: JSON.stringify(profileUpdates),
         });
 
         const raw = await response.text();
@@ -311,6 +414,7 @@ const ProfileEditPage = () => {
           <label className="profile-edit-field" htmlFor="cleanId">
             <span className="profile-edit-label">{t("profileEdit.cleanId")}</span>
             <input
+              ref={cleanIdFieldRef}
               className="profile-edit-input"
               id="cleanId"
               type="text"
@@ -321,6 +425,32 @@ const ProfileEditPage = () => {
               required
             />
           </label>
+
+          <section
+            className={`profile-claim-editor profile-claim-editor-${activeShortIdClaim.tier} ${routeState?.focusClaim ? "profile-claim-editor-focus" : ""}`}
+            aria-label={t("identityVault.shortClaimEyebrow")}
+          >
+            <div className="profile-claim-editor-head">
+              <strong>{t("identityVault.shortClaimTitle")}</strong>
+              <span>{shortClaimRangeLabel}</span>
+            </div>
+            <div className="profile-claim-editor-body">
+              <span className={`profile-short-claim-token profile-short-claim-token-${activeShortIdClaim.tier}`}>
+                @{normalizedCleanId || user.cleanId || t("profile.handleFallback")}
+              </span>
+              <div className="profile-claim-editor-copy">
+                <strong>{t("profile.handleLabel", { intent: cleanIdIntent })}</strong>
+                <span>{claimDetailText}</span>
+              </div>
+            </div>
+            <div className="profile-claim-editor-foot">
+              <span>
+                {activeShortIdClaim.nextUnlockScore && !activeShortIdClaim.isCurrentShort
+                  ? t("profile.nextUnlockAt", { score: activeShortIdClaim.nextUnlockScore })
+                  : t("profile.currentClaimWindowOpen")}
+              </span>
+            </div>
+          </section>
 
           <button
             type="button"
@@ -338,6 +468,69 @@ const ProfileEditPage = () => {
             </span>
           </button>
 
+          <fieldset className="profile-avatars" aria-label={t("identityVault.avatarLibrary")}>
+            <legend>{t("identityVault.avatarLibrary")}</legend>
+            <div className="profile-avatar-head">
+              <p className="profile-hint">{t("identityVault.avatarLibraryNote")}</p>
+              <span className="profile-avatar-current-pill">{currentTierTitle}</span>
+            </div>
+
+            <div className="profile-avatar-sections">
+              {avatarSections.map((section) => (
+                <section
+                  key={section.tier}
+                  className={`profile-avatar-tier profile-avatar-tier-${section.tier} ${section.access.unlocked ? "open" : "locked"}`}
+                >
+                  <div className="profile-avatar-tier-head">
+                    <div>
+                      <p className="profile-settings-eyebrow">{getTierCopy(section.tier).eyebrow}</p>
+                      <h4>{getTierCopy(section.tier).title}</h4>
+                      <p className="profile-hint">
+                        {section.access.unlocked
+                          ? getTierCopy(section.tier).description
+                          : getTierCopy(section.tier).lockedHint}
+                      </p>
+                    </div>
+                    <span className={`profile-avatar-tier-pill ${section.access.unlocked ? "open" : "locked"}`}>
+                      {section.access.unlocked ? t("identityVault.unlock") : t("identityVault.lockedForNow")}
+                    </span>
+                  </div>
+
+                  <div className="profile-avatar-grid">
+                    {section.options.map((item) => (
+                      <label
+                        key={item.key}
+                        className={`profile-avatar-option ${item.isSelected ? "active" : ""} ${item.unlocked ? "" : "locked"} ${item.isCurrent ? "current" : ""}`}
+                      >
+                        <input
+                          type="radio"
+                          name="avatar"
+                          value={item.key}
+                          checked={avatar === item.key}
+                          onChange={() => setAvatar(item.key)}
+                          disabled={!item.unlocked || isSaving}
+                        />
+                        <img
+                          className={getAvatarToneClass(item.key)}
+                          src={getAvatarUrl(item.key)}
+                          alt={item.label}
+                        />
+                        <span>{item.label}</span>
+                        <em>
+                          {item.unlocked
+                            ? item.isCurrent
+                              ? t("identityVault.currentMark")
+                              : t("identityVault.availableNow")
+                            : t("identityVault.lockedForNow")}
+                        </em>
+                      </label>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </fieldset>
+
           <p className="profile-edit-caption">
             {t("profileEdit.caption")}
           </p>
@@ -354,7 +547,7 @@ const ProfileEditPage = () => {
             <button
               type="submit"
               className="profile-edit-action profile-edit-action-primary"
-              disabled={isSaving}
+              disabled={isSaving || Boolean(liveCleanIdValidation)}
             >
               {isSaving ? t("profileEdit.saving") : t("profileEdit.saveChanges")}
             </button>

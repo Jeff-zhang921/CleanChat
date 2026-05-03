@@ -105,9 +105,9 @@ const PurityDetailPage = () => {
     }, EXIT_MS);
   };
 
-  const handleOpenClaim = () => {
+  const handleOpenEditProfile = () => {
     if (!user) return;
-    navigate("/profile/vault", {
+    navigate("/profile/edit", {
       state: {
         user,
         spatialTransition: "push",
@@ -327,8 +327,8 @@ const PurityDetailPage = () => {
           </div>
           <div className="purity-detail-resonance-line">
             <p>{resonanceCopy.statement}</p>
-            <button type="button" className="purity-resonance-cta" onClick={handleOpenClaim}>
-              {t("purityDetail.claimShortId")}
+            <button type="button" className="purity-resonance-cta" onClick={handleOpenEditProfile}>
+              {t("profile.editProfile")}
             </button>
           </div>
           <p className="purity-detail-resonance-note">{resonanceCopy.note}</p>

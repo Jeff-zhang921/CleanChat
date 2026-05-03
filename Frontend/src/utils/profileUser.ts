@@ -36,11 +36,7 @@ export type ProfileRouteState = {
   user?: ProfileUser;
   spatialTransition?: SpatialTransition;
   focusClaim?: boolean;
-  returnTo?:
-    | "/profile"
-    | "/profile/purity"
-    | "/profile/vault"
-    | "/profile/settings";
+  returnTo?: "/profile" | "/profile/purity" | "/profile/settings";
 };
 
 export const hydrateProfileUser = (user: ProfileUserInput): ProfileUser => ({

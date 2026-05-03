@@ -1,7 +1,43 @@
 import { expect, test } from "@playwright/test";
 
-const isIdentityTransform = (value: string) =>
-  value === "none" || value === "matrix(1, 0, 0, 1, 0, 0)";
+const isIdentityTransform = (value: string) => {
+  const trimmed = value.trim();
+  if (trimmed === "none") return true;
+
+  const nearly = (actual: number, expected: number, epsilon = 0.001) =>
+    Number.isFinite(actual) && Math.abs(actual - expected) <= epsilon;
+
+  if (trimmed.startsWith("matrix3d(")) {
+    const parts = trimmed
+      .slice("matrix3d(".length, -1)
+      .split(",")
+      .map((part) => Number.parseFloat(part.trim()));
+    if (parts.length !== 16) return false;
+    return parts.every((value, index) => {
+      const expected =
+        index === 0 || index === 5 || index === 10 || index === 15 ? 1 : 0;
+      return nearly(value, expected);
+    });
+  }
+
+  if (trimmed.startsWith("matrix(")) {
+    const parts = trimmed
+      .slice("matrix(".length, -1)
+      .split(",")
+      .map((part) => Number.parseFloat(part.trim()));
+    if (parts.length !== 6) return false;
+    return (
+      nearly(parts[0], 1) &&
+      nearly(parts[1], 0) &&
+      nearly(parts[2], 0) &&
+      nearly(parts[3], 1) &&
+      nearly(parts[4], 0) &&
+      nearly(parts[5], 0)
+    );
+  }
+
+  return false;
+};
 
 const TRUST_CLEAR = {
   score: 96,
@@ -59,7 +95,18 @@ test("profile shell is edge-to-edge with no scale residue", async ({
 }) => {
   await page.goto("/profile");
   await expect(page.locator(".profile-shell")).toBeVisible();
-  await page.waitForTimeout(420);
+  await expect
+    .poll(
+      async () => {
+        const transform = await page.evaluate(() => {
+          const stage = document.querySelector<HTMLElement>(".app-route-stage");
+          return stage ? getComputedStyle(stage).transform : "";
+        });
+        return isIdentityTransform(transform);
+      },
+      { timeout: 2500 },
+    )
+    .toBe(true);
 
   const audit = await page.evaluate(() => {
     const shell = document.querySelector<HTMLElement>(".profile-shell");

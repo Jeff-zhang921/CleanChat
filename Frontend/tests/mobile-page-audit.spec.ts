@@ -127,7 +127,8 @@ const groups = [
   {
     id: "alpha",
     name: "Alpha Room",
-    description: "Long-running product discussion with enough content to scroll.",
+    description:
+      "Long-running product discussion with enough content to scroll.",
     avatarKey: "orbit",
     avatarUrl: groupAvatarUrl,
     joined: true,
@@ -240,18 +241,26 @@ const handleBackendRoute = async (route: Route) => {
   }
 
   if (path === "/profile/push/public-key") {
-    await routeJson(route, {
-      error: "Web push is not configured in mobile audit.",
-      errorCode: "PUSH_NOT_CONFIGURED",
-    }, 503);
+    await routeJson(
+      route,
+      {
+        error: "Web push is not configured in mobile audit.",
+        errorCode: "PUSH_NOT_CONFIGURED",
+      },
+      503,
+    );
     return;
   }
 
   if (path === "/profile/feedback" && method === "POST") {
-    await routeJson(route, {
-      message: "Feedback sent.",
-      recipient: "zjingxiang527@gmail.com",
-    }, 202);
+    await routeJson(
+      route,
+      {
+        message: "Feedback sent.",
+        recipient: "zjingxiang527@gmail.com",
+      },
+      202,
+    );
     return;
   }
 
@@ -298,7 +307,10 @@ const handleBackendRoute = async (route: Route) => {
     return;
   }
 
-  if (/^\/chat\/threads\/\d+\/(?:block|mute)$/.test(path) && method === "PATCH") {
+  if (
+    /^\/chat\/threads\/\d+\/(?:block|mute)$/.test(path) &&
+    method === "PATCH"
+  ) {
     await routeJson(route, { ok: true, blockedByMe: false, mutedByMe: true });
     return;
   }
@@ -328,7 +340,9 @@ const handleBackendRoute = async (route: Route) => {
 
   const groupMessagesMatch = path.match(/^\/chat\/groups\/([^/]+)\/messages$/);
   if (groupMessagesMatch) {
-    await routeJson(route, { messages: buildGroupMessages(decodeURIComponent(groupMessagesMatch[1])) });
+    await routeJson(route, {
+      messages: buildGroupMessages(decodeURIComponent(groupMessagesMatch[1])),
+    });
     return;
   }
 
@@ -349,7 +363,9 @@ const handleBackendRoute = async (route: Route) => {
     return;
   }
 
-  const groupJoinRequestsMatch = path.match(/^\/chat\/groups\/([^/]+)\/join-requests$/);
+  const groupJoinRequestsMatch = path.match(
+    /^\/chat\/groups\/([^/]+)\/join-requests$/,
+  );
   if (groupJoinRequestsMatch) {
     await routeJson(route, {
       group: groups[0],
@@ -369,7 +385,12 @@ const handleBackendRoute = async (route: Route) => {
     return;
   }
 
-  if (/^\/chat\/groups\/[^/]+\/join-requests\/\d+\/(?:approve|reject)$/.test(path) && method === "POST") {
+  if (
+    /^\/chat\/groups\/[^/]+\/join-requests\/\d+\/(?:approve|reject)$/.test(
+      path,
+    ) &&
+    method === "POST"
+  ) {
     await routeJson(route, { ok: true });
     return;
   }
@@ -379,9 +400,12 @@ const handleBackendRoute = async (route: Route) => {
     return;
   }
 
-  const directTargetMatch = path.match(/^\/chat\/requests\/direct\/target\/(\d+)$/);
+  const directTargetMatch = path.match(
+    /^\/chat\/requests\/direct\/target\/(\d+)$/,
+  );
   if (directTargetMatch) {
-    const user = Number(directTargetMatch[1]) === partner.id ? partner : targetUser;
+    const user =
+      Number(directTargetMatch[1]) === partner.id ? partner : targetUser;
     await routeJson(route, {
       user,
       relationship: {
@@ -416,18 +440,25 @@ const handleBackendRoute = async (route: Route) => {
   }
 
   if (path === "/chat/requests/direct" && method === "POST") {
-    await routeJson(route, {
-      request: {
-        ...directRequestEntry.request,
-        requesterId: viewer.id,
-        recipientId: targetUser.id,
-        direction: "outgoing",
+    await routeJson(
+      route,
+      {
+        request: {
+          ...directRequestEntry.request,
+          requesterId: viewer.id,
+          recipientId: targetUser.id,
+          direction: "outgoing",
+        },
       },
-    }, 201);
+      201,
+    );
     return;
   }
 
-  if (/^\/chat\/requests\/direct\/\d+\/(?:accept|reject)$/.test(path) && method === "POST") {
+  if (
+    /^\/chat\/requests\/direct\/\d+\/(?:accept|reject)$/.test(path) &&
+    method === "POST"
+  ) {
     await routeJson(route, { ok: true, threadId: 2 });
     return;
   }
@@ -441,14 +472,17 @@ const handleBackendRoute = async (route: Route) => {
 };
 
 const installSession = async (page: Page, authenticated: boolean) => {
-  await page.addInitScript(({ authenticated }) => {
-    if (authenticated) {
-      window.localStorage.setItem("cleanchat:auth-token", "playwright-token");
-      return;
-    }
+  await page.addInitScript(
+    ({ authenticated }) => {
+      if (authenticated) {
+        window.localStorage.setItem("cleanchat:auth-token", "playwright-token");
+        return;
+      }
 
-    window.localStorage.removeItem("cleanchat:auth-token");
-  }, { authenticated });
+      window.localStorage.removeItem("cleanchat:auth-token");
+    },
+    { authenticated },
+  );
 };
 
 const installApiMocks = async (page: Page) => {
@@ -469,14 +503,18 @@ const waitForLayoutSettled = async (page: Page) => {
         const timing = animation.effect?.getTiming();
         return Boolean(
           timing &&
-            timing.iterations !== Infinity &&
-            timing.duration !== Infinity &&
-            Number(timing.duration) <= 1200,
+          timing.iterations !== Infinity &&
+          timing.duration !== Infinity &&
+          Number(timing.duration) <= 1200,
         );
       });
 
     await Promise.race([
-      Promise.all(finiteAnimations.map((animation) => animation.finished.catch(() => undefined))),
+      Promise.all(
+        finiteAnimations.map((animation) =>
+          animation.finished.catch(() => undefined),
+        ),
+      ),
       new Promise((resolve) => window.setTimeout(resolve, 450)),
     ]);
   });
@@ -576,14 +614,19 @@ const pageTargets: PageTarget[] = [
     readySelector: "#code",
     beforeGoto: async (page) => {
       await page.addInitScript(() => {
-        window.sessionStorage.setItem("cleanchat:pending-email", "jeff@example.com");
+        window.sessionStorage.setItem(
+          "cleanchat:pending-email",
+          "jeff@example.com",
+        );
       });
     },
     smoke: async (page) => {
       await page.locator("#code").fill("123456");
       await page.locator("form").locator("button[type='submit']").click();
       await expect(page).toHaveURL(/\/conversations/);
-      await expect(page.locator("[data-conversation-id]").first()).toBeVisible();
+      await expect(
+        page.locator("[data-conversation-id]").first(),
+      ).toBeVisible();
     },
   },
   {
@@ -596,7 +639,9 @@ const pageTargets: PageTarget[] = [
       await page.locator("#cleanId").fill("jeff_mobile");
       await page.locator("form").locator("button[type='submit']").click();
       await expect(page).toHaveURL(/\/conversations/);
-      await expect(page.locator("[data-conversation-id]").first()).toBeVisible();
+      await expect(
+        page.locator("[data-conversation-id]").first(),
+      ).toBeVisible();
     },
   },
   {
@@ -607,7 +652,9 @@ const pageTargets: PageTarget[] = [
     smoke: async (page) => {
       const activeRoot = page.locator(".hybrid-root-view.is-active");
       await activeRoot.locator(".search-launcher").click();
-      await expect(activeRoot.locator(".search-input-wrap input")).toBeVisible();
+      await expect(
+        activeRoot.locator(".search-input-wrap input"),
+      ).toBeVisible();
       await activeRoot.locator(".search-input-wrap input").fill("quiet");
       await activeRoot.locator(".search-dismiss").click();
     },
@@ -620,11 +667,15 @@ const pageTargets: PageTarget[] = [
     smoke: async (page) => {
       const activeRoot = page.locator(".hybrid-root-view.is-active");
       await activeRoot.locator(".search-launcher").click();
-      await expect(activeRoot.locator(".search-input-wrap input")).toBeVisible();
+      await expect(
+        activeRoot.locator(".search-input-wrap input"),
+      ).toBeVisible();
       await activeRoot.locator(".search-input-wrap input").fill("alpha");
       await activeRoot.locator(".search-dismiss").click();
       await activeRoot.locator(".group-action.create:visible").first().click();
-      await expect(page.locator(".groups-create-modal .group-create-panel")).toBeVisible();
+      await expect(
+        page.locator(".groups-create-modal .group-create-panel"),
+      ).toBeVisible();
       await page.keyboard.press("Escape");
     },
   },
@@ -635,7 +686,9 @@ const pageTargets: PageTarget[] = [
     readySelector: ".discover-page",
     smoke: async (page) => {
       await expect(page.locator(".discover-card")).toBeVisible();
-      await expect(page.locator(".discover-card")).toContainText(/开发|development/i);
+      await expect(page.locator(".discover-card")).toContainText(
+        /开发|development/i,
+      );
     },
   },
   {
@@ -647,7 +700,9 @@ const pageTargets: PageTarget[] = [
       await expectChatHistoryScrollable(page, "direct chat");
       await page.locator(".chat-input input[type='text']").fill("mobile smoke");
       await page.locator(".send-button").click();
-      await expect(page.locator(".chat-bubble").filter({ hasText: "mobile smoke" })).toBeVisible();
+      await expect(
+        page.locator(".chat-bubble").filter({ hasText: "mobile smoke" }),
+      ).toBeVisible();
     },
   },
   {
@@ -659,7 +714,9 @@ const pageTargets: PageTarget[] = [
       await expectChatHistoryScrollable(page, "group chat");
       await page.locator(".chat-input input[type='text']").fill("group smoke");
       await page.locator(".send-button").click();
-      await expect(page.locator(".chat-bubble").filter({ hasText: "group smoke" })).toBeVisible();
+      await expect(
+        page.locator(".chat-bubble").filter({ hasText: "group smoke" }),
+      ).toBeVisible();
     },
   },
   {
@@ -701,7 +758,11 @@ const pageTargets: PageTarget[] = [
     smoke: async (page) => {
       await page.locator(".profile-settings-action").first().click();
       await expect(page.getByRole("dialog")).toBeVisible();
-      await page.getByRole("dialog").locator(".profile-settings-action").last().click();
+      await page
+        .getByRole("dialog")
+        .locator(".profile-settings-action")
+        .last()
+        .click();
     },
   },
   {
@@ -713,7 +774,9 @@ const pageTargets: PageTarget[] = [
       await page.locator("#feedback-message").fill("Mobile feedback smoke.");
       await page.locator(".feedback-composer button[type='submit']").click();
       await expect(page.getByRole("dialog")).toBeVisible();
-      await expect(page.getByRole("dialog")).toContainText(/反馈已发送|Feedback sent/i);
+      await expect(page.getByRole("dialog")).toContainText(
+        /反馈已发送|Feedback sent/i,
+      );
       await page.getByRole("dialog").getByRole("button").click();
       await expect(page.getByRole("dialog")).toBeHidden();
     },
@@ -739,12 +802,14 @@ const pageTargets: PageTarget[] = [
     },
   },
   {
-    name: "identity-vault",
+    name: "profile-vault-redirect",
     path: "/profile/vault",
     authenticated: true,
-    readySelector: ".identity-vault-page",
+    readySelector: ".profile-edit-page",
     smoke: async (page) => {
-      await expect(page.locator(".identity-vault-page")).toContainText("@");
+      await expect(page).toHaveURL(/\/profile\/edit/);
+      await expect(page.locator(".profile-claim-editor")).toBeVisible();
+      await expect(page.locator(".profile-avatar-grid").first()).toBeVisible();
     },
   },
   {
@@ -753,7 +818,9 @@ const pageTargets: PageTarget[] = [
     authenticated: true,
     readySelector: ".user-profile-page",
     smoke: async (page) => {
-      await expect(page.locator(".user-profile-page")).toContainText("Signal Seven");
+      await expect(page.locator(".user-profile-page")).toContainText(
+        "Signal Seven",
+      );
     },
   },
   {
@@ -815,14 +882,19 @@ const assertPageUsable = async (page: Page, pageName: string) => {
         const rect = element.getBoundingClientRect();
         return {
           tag: element.tagName.toLowerCase(),
-          className: typeof element.className === "string" ? element.className : "",
+          className:
+            typeof element.className === "string" ? element.className : "",
           leftOverflow: Math.max(0, -rect.left),
           rightOverflow: Math.max(0, rect.right - window.innerWidth),
           width: rect.width,
         };
       })
       .filter((item) => item.leftOverflow > 3 || item.rightOverflow > 3)
-      .sort((a, b) => Math.max(b.leftOverflow, b.rightOverflow) - Math.max(a.leftOverflow, a.rightOverflow))
+      .sort(
+        (a, b) =>
+          Math.max(b.leftOverflow, b.rightOverflow) -
+          Math.max(a.leftOverflow, a.rightOverflow),
+      )
       .slice(0, 6);
     const elementCandidates = Array.from(
       document.querySelectorAll<HTMLElement>("main, section, div"),
@@ -839,10 +911,9 @@ const assertPageUsable = async (page: Page, pageName: string) => {
       const style = getComputedStyle(candidate);
       return /auto|scroll|overlay/i.test(style.overflowY);
     });
-    const candidates = [
-      document.scrollingElement,
-      ...elementCandidates,
-    ].filter((item): item is Element => Boolean(item));
+    const candidates = [document.scrollingElement, ...elementCandidates].filter(
+      (item): item is Element => Boolean(item),
+    );
 
     let maxOverflow = 0;
     let scrollableCandidateCount = 0;
@@ -894,7 +965,8 @@ const assertPageUsable = async (page: Page, pageName: string) => {
         continue;
       }
 
-      const className = candidate instanceof HTMLElement ? candidate.className : "";
+      const className =
+        candidate instanceof HTMLElement ? candidate.className : "";
       if (
         typeof className === "string" &&
         className.includes("chat-virtuoso-scroller") &&
@@ -941,7 +1013,9 @@ const assertPageUsable = async (page: Page, pageName: string) => {
     };
   }, pageName);
 
-  expect(audit.bodyTextLength, `${pageName}: rendered text`).toBeGreaterThan(20);
+  expect(audit.bodyTextLength, `${pageName}: rendered text`).toBeGreaterThan(
+    20,
+  );
   expect(
     audit.horizontalOverflow,
     `${pageName}: horizontal overflow ${JSON.stringify(audit.horizontalOffenders)}`,
@@ -961,7 +1035,9 @@ const runPageAudit = (deviceName: string, device: typeof pixel7Device) => {
     });
 
     for (const target of pageTargets) {
-      test(`${target.name} renders, scrolls, and basic controls work`, async ({ page }) => {
+      test(`${target.name} renders, scrolls, and basic controls work`, async ({
+        page,
+      }) => {
         await installApiMocks(page);
         await installSession(page, target.authenticated);
         await target.beforeGoto?.(page);
@@ -973,7 +1049,10 @@ const runPageAudit = (deviceName: string, device: typeof pixel7Device) => {
 
         await target.smoke?.(page);
         await waitForLayoutSettled(page);
-        await assertPageUsable(page, `${deviceName}:${target.name}:after-smoke`);
+        await assertPageUsable(
+          page,
+          `${deviceName}:${target.name}:after-smoke`,
+        );
       });
     }
   });

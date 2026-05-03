@@ -17,7 +17,6 @@ import SendChatRequestPage from './pages/sendChatRequest'
 import UserRequestPage from './pages/userRequestPage'
 import GroupRequestPage from './pages/groupRequestPage'
 import PurityDetailPage from './pages/purityDetail'
-import IdentityVaultPage from './pages/identityVault'
 import ProfileSettingsPage from './pages/profileSettings'
 import FeedbackPage from './pages/feedback'
 import DiscoverPage from './pages/discover'
@@ -33,7 +32,6 @@ type DetailViewKey =
   | 'feedback'
   | 'profile-edit'
   | 'profile-purity'
-  | 'profile-vault'
   | 'profile-user'
   | 'send-chat-request'
   | 'user-requests'
@@ -255,7 +253,6 @@ const resolveDetailViewFromPath = (pathname: string): DetailViewKey => {
   if (pathname === '/profile/requests/groups') return 'group-requests';
   if (pathname === '/profile/edit') return 'profile-edit';
   if (pathname === '/profile/purity') return 'profile-purity';
-  if (pathname === '/profile/vault') return 'profile-vault';
   return null;
 };
 
@@ -272,7 +269,6 @@ const isKnownHybridPath = (pathname: string) => {
   if (pathname === '/profile/requests/users') return true;
   if (pathname === '/profile/requests/groups') return true;
   if (pathname === '/profile/purity') return true;
-  if (pathname === '/profile/vault') return true;
   if (pathname === '/chat' || pathname.startsWith('/chat/')) return true;
   return false;
 };
@@ -356,7 +352,6 @@ const HybridAppShell = () => {
       detailView === 'feedback' ||
       detailView === 'profile-edit' ||
       detailView === 'profile-purity' ||
-      detailView === 'profile-vault' ||
       detailView === 'user-requests' ||
       detailView === 'group-requests'
     ) {
@@ -469,14 +464,6 @@ const HybridAppShell = () => {
       );
     }
 
-    if (detailView === 'profile-vault') {
-      return (
-        <div className="hybrid-detail-surface" role="presentation">
-          <IdentityVaultPage />
-        </div>
-      );
-    }
-
     return null;
   };
 
@@ -557,6 +544,7 @@ const RoutedApp = () => {
             <Route path="/login" element={<LoginPage/>} />
             <Route path="/verify" element={<VerifyPage />} />
             <Route path="/basic-info" element={<BasicInfoPage />} />
+            <Route path="/profile/vault" element={<Navigate to="/profile/edit" replace />} />
             <Route path="*" element={<HybridAppShell />} />
             {/* <Route path="/personal" element={<PersonalPage />} /> */}
           </Routes>
