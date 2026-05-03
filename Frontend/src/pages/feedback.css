@@ -30,7 +30,7 @@
 }
 
 .feedback-back,
-.feedback-composer button,
+.feedback-submit,
 .feedback-dialog button {
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 999px;
@@ -54,7 +54,7 @@
 }
 
 .feedback-back:hover,
-.feedback-composer button:hover:not(:disabled),
+.feedback-submit:hover:not(:disabled),
 .feedback-dialog button:hover {
   border-color: rgba(255, 255, 255, 0.22);
   background: var(--ghost-button-bg-hover);
@@ -125,6 +125,13 @@
   line-height: 1.45;
 }
 
+.feedback-bubble em {
+  color: rgba(23, 33, 26, 0.58);
+  font-size: 0.8rem;
+  font-style: normal;
+  font-weight: 700;
+}
+
 .feedback-bubble-system {
   justify-self: start;
   background: rgba(255, 255, 255, 0.9);
@@ -153,6 +160,89 @@
 .feedback-composer label {
   font-weight: 700;
   color: #1c2a20;
+}
+
+.feedback-type-picker {
+  display: grid;
+  gap: 0.46rem;
+}
+
+.feedback-type-toggle {
+  width: 100%;
+  min-height: 3.35rem;
+  border: 1px solid rgba(23, 33, 26, 0.1);
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.84);
+  color: #17211a;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.72rem 0.78rem;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.feedback-type-toggle > span:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 0.14rem;
+}
+
+.feedback-type-label {
+  color: rgba(23, 33, 26, 0.58);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.feedback-type-toggle strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feedback-type-chevron {
+  flex: 0 0 auto;
+  color: rgba(23, 33, 26, 0.58);
+  font-weight: 700;
+}
+
+.feedback-type-options {
+  border: 1px solid rgba(23, 33, 26, 0.1);
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.86);
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.36rem;
+}
+
+.feedback-type-option {
+  border: 0;
+  border-radius: 0.72rem;
+  background: transparent;
+  color: #17211a;
+  display: grid;
+  gap: 0.16rem;
+  padding: 0.62rem 0.66rem;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.feedback-type-option:hover,
+.feedback-type-option.is-selected {
+  background: rgba(47, 126, 95, 0.12);
+}
+
+.feedback-type-option span {
+  font-weight: 700;
+}
+
+.feedback-type-option small {
+  color: rgba(23, 33, 26, 0.64);
+  font-size: 0.8rem;
+  line-height: 1.35;
 }
 
 .feedback-composer textarea {
@@ -184,14 +274,14 @@
   font-size: 0.82rem;
 }
 
-.feedback-composer button,
+.feedback-submit,
 .feedback-dialog button {
   min-height: 2.75rem;
   padding: 0.52rem 1.1rem;
   color: #1f553c;
 }
 
-.feedback-composer button:disabled {
+.feedback-submit:disabled {
   opacity: 0.54;
   cursor: default;
 }

@@ -5,16 +5,23 @@ import { BACKEND_URL } from "../config";
 import { hydrateProfileUser, type ProfileRouteState } from "../utils/profileUser";
 import "./feedback.css";
 
+type FeedbackType = "bug" | "feature" | "experience" | "other";
+
+const FEEDBACK_TYPES: FeedbackType[] = ["bug", "feature", "experience", "other"];
+
 const FeedbackPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const routeState = (location.state as ProfileRouteState | null) ?? null;
   const user = routeState?.user ? hydrateProfileUser(routeState.user) : null;
+  const [feedbackType, setFeedbackType] = useState<FeedbackType>("experience");
+  const [isTypePickerOpen, setIsTypePickerOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const selectedTypeLabel = t(`feedback.types.${feedbackType}.label`);
 
   const handleBack = () => {
     navigate(routeState?.returnTo ?? "/profile", { replace: true });
@@ -35,7 +42,7 @@ const FeedbackPage = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ message: trimmedMessage }),
+        body: JSON.stringify({ feedbackType, message: trimmedMessage }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -76,6 +83,7 @@ const FeedbackPage = () => {
           <div className="feedback-bubble feedback-bubble-system">
             <span>{t("feedback.destinationLabel")}</span>
             <strong>{t("feedback.destinationEmail")}</strong>
+            <em>{selectedTypeLabel}</em>
           </div>
           <div className="feedback-bubble feedback-bubble-user">
             <span>{user?.name || user?.cleanId || t("common.user")}</span>
@@ -84,6 +92,52 @@ const FeedbackPage = () => {
         </section>
 
         <form className="feedback-composer" onSubmit={handleSubmit}>
+          <div className="feedback-type-picker">
+            <button
+              type="button"
+              className="feedback-type-toggle"
+              aria-expanded={isTypePickerOpen}
+              aria-controls="feedback-type-options"
+              onClick={() => setIsTypePickerOpen((current) => !current)}
+              disabled={isSending}
+            >
+              <span>
+                <span className="feedback-type-label">{t("feedback.typeLabel")}</span>
+                <strong>{selectedTypeLabel}</strong>
+              </span>
+              <span className="feedback-type-chevron" aria-hidden="true">
+                {isTypePickerOpen ? "\u2191" : "\u2193"}
+              </span>
+            </button>
+
+            {isTypePickerOpen && (
+              <div
+                id="feedback-type-options"
+                className="feedback-type-options"
+                role="listbox"
+                aria-label={t("feedback.typeLabel")}
+              >
+                {FEEDBACK_TYPES.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    className={`feedback-type-option ${feedbackType === type ? "is-selected" : ""}`}
+                    role="option"
+                    aria-selected={feedbackType === type}
+                    onClick={() => {
+                      setFeedbackType(type);
+                      setIsTypePickerOpen(false);
+                    }}
+                    disabled={isSending}
+                  >
+                    <span>{t(`feedback.types.${type}.label`)}</span>
+                    <small>{t(`feedback.types.${type}.description`)}</small>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <label htmlFor="feedback-message">{t("feedback.messageLabel")}</label>
           <textarea
             id="feedback-message"
@@ -95,7 +149,11 @@ const FeedbackPage = () => {
           />
           <div className="feedback-composer-actions">
             <span>{t("feedback.characterCount", { count: message.trim().length })}</span>
-            <button type="submit" disabled={isSending || message.trim().length === 0}>
+            <button
+              type="submit"
+              className="feedback-submit"
+              disabled={isSending || message.trim().length === 0}
+            >
               {isSending ? t("feedback.sending") : t("feedback.send")}
             </button>
           </div>

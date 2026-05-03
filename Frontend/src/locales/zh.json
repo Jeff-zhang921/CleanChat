@@ -569,6 +569,25 @@
     "threadLabel": "反馈对话",
     "destinationLabel": "发送给",
     "destinationEmail": "开发者",
+    "typeLabel": "反馈类型",
+    "types": {
+      "bug": {
+        "label": "问题反馈",
+        "description": "报告无法正常使用或异常行为。"
+      },
+      "feature": {
+        "label": "功能建议",
+        "description": "建议新的流程、工具或能力。"
+      },
+      "experience": {
+        "label": "体验优化",
+        "description": "反馈可用性、布局或手机端体验。"
+      },
+      "other": {
+        "label": "其他",
+        "description": "其他想让开发者知道的内容。"
+      }
+    },
     "draftPlaceholder": "在下方输入反馈。",
     "messageLabel": "消息",
     "messagePlaceholder": "输入你的反馈...",

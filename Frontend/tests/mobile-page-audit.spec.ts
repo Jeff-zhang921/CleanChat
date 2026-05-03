@@ -771,6 +771,10 @@ const pageTargets: PageTarget[] = [
     authenticated: true,
     readySelector: ".feedback-page",
     smoke: async (page) => {
+      await page.locator(".feedback-type-toggle").click();
+      await expect(page.locator(".feedback-type-options")).toBeVisible();
+      await page.locator(".feedback-type-option").nth(1).click();
+      await expect(page.locator(".feedback-type-options")).toBeHidden();
       await page.locator("#feedback-message").fill("Mobile feedback smoke.");
       await page.locator(".feedback-composer button[type='submit']").click();
       await expect(page.getByRole("dialog")).toBeVisible();

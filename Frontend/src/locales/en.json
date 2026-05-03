@@ -569,6 +569,25 @@
     "threadLabel": "Feedback conversation",
     "destinationLabel": "Send to",
     "destinationEmail": "Developer",
+    "typeLabel": "Feedback type",
+    "types": {
+      "bug": {
+        "label": "Bug",
+        "description": "Something is broken or not behaving correctly."
+      },
+      "feature": {
+        "label": "Feature request",
+        "description": "Suggest a new flow, tool, or capability."
+      },
+      "experience": {
+        "label": "Experience",
+        "description": "Share usability, layout, or mobile experience feedback."
+      },
+      "other": {
+        "label": "Other",
+        "description": "Anything else the developer should know."
+      }
+    },
     "draftPlaceholder": "Write feedback below.",
     "messageLabel": "Message",
     "messagePlaceholder": "Type your feedback...",

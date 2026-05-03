@@ -26,6 +26,15 @@ const SMTP_FROM =
   process.env.SMTP_FROM || SMTP_USER || "CleanChat <no-reply@CleanChat.local>";
 const FEEDBACK_RECIPIENT =
   process.env.FEEDBACK_RECIPIENT || "charlottkgonzal@gmail.com";
+const FEEDBACK_TYPE_LABELS = {
+  bug: "Bug",
+  feature: "Feature request",
+  experience: "Experience",
+  other: "Other",
+} as const;
+type FeedbackType = keyof typeof FEEDBACK_TYPE_LABELS;
+const FEEDBACK_TYPE_KEYS = new Set<string>(Object.keys(FEEDBACK_TYPE_LABELS));
+
 const feedbackMailer =
   SMTP_USER && SMTP_PASS
     ? nodemailer.createTransport({
@@ -97,9 +106,15 @@ const escapeHtml = (value: string) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
+const parseFeedbackType = (value: unknown): FeedbackType =>
+  typeof value === "string" && FEEDBACK_TYPE_KEYS.has(value)
+    ? (value as FeedbackType)
+    : "experience";
+
 const sendFeedbackEmail = async (
   user: NonNullable<Awaited<ReturnType<typeof loadCurrentUser>>>,
   message: string,
+  feedbackType: FeedbackType,
 ) => {
   if (!feedbackMailer) {
     throw new Error("Feedback email is not configured.");
@@ -107,8 +122,10 @@ const sendFeedbackEmail = async (
 
   const fromName = user.name?.trim() || user.cleanId || user.email;
   const cleanId = user.cleanId ? `@${user.cleanId}` : "No CleanID";
-  const subject = `CleanChat feedback from ${fromName}`;
+  const feedbackTypeLabel = FEEDBACK_TYPE_LABELS[feedbackType];
+  const subject = `[${feedbackTypeLabel}] CleanChat feedback from ${fromName}`;
   const text = `Feedback from ${fromName}
+Type: ${feedbackTypeLabel}
 Email: ${user.email}
 CleanID: ${cleanId}
 User ID: ${user.id}
@@ -117,6 +134,7 @@ ${message}`;
   const html = `
     <div style="font-family: Arial, sans-serif; line-height: 1.55;">
       <h2>CleanChat feedback</h2>
+      <p><strong>Type:</strong> ${escapeHtml(feedbackTypeLabel)}</p>
       <p><strong>From:</strong> ${escapeHtml(fromName)}</p>
       <p><strong>Email:</strong> ${escapeHtml(user.email)}</p>
       <p><strong>CleanID:</strong> ${escapeHtml(cleanId)}</p>
@@ -452,6 +470,7 @@ router.post("/feedback", async (req, res) => {
 
   const message =
     typeof req.body?.message === "string" ? req.body.message.trim() : "";
+  const feedbackType = parseFeedbackType(req.body?.feedbackType);
   if (!message) {
     return res.status(400).json({ error: "Feedback message is required." });
   }
@@ -462,10 +481,11 @@ router.post("/feedback", async (req, res) => {
   }
 
   try {
-    await sendFeedbackEmail(sessionUser, message);
+    await sendFeedbackEmail(sessionUser, message, feedbackType);
     res.status(202).json({
       message: "Feedback sent.",
       recipient: FEEDBACK_RECIPIENT,
+      feedbackType,
     });
   } catch (error) {
     const details = error instanceof Error ? error.message : String(error);
