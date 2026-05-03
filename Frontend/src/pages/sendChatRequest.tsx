@@ -11,7 +11,6 @@ import {
 import { BACKEND_URL } from "../config";
 import { useNotificationBadges } from "../state/notificationBadgeContext";
 import { GENDER_ARIA_KEY_MAP, normalizeGender } from "../utils/gender";
-import type { CleanIdTrustSnapshot } from "../utils/cleanIdTrust";
 import "./sendChatRequest.css";
 
 type OverlayFromPath = "/conversations" | "/groups" | "/profile";
@@ -24,7 +23,6 @@ type ProfileUserSummary = {
   cleanId: string;
   avatar: AvatarKey;
   gender?: string | null;
-  trust?: CleanIdTrustSnapshot;
 };
 
 type RequestDirection = "incoming" | "outgoing";

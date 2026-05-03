@@ -2,16 +2,6 @@ import { Request, Response, Router } from "express";
 import { Avatar, PrismaClient } from "@prisma/client";
 import nodemailer from "nodemailer";
 import {
-  DEFAULT_AVATAR,
-  buildAvatarAccess,
-  getAvatarUnlockError,
-} from "../avatar";
-import {
-  buildCleanIdTrustSnapshots,
-  fallbackCleanIdTrustSnapshot,
-  type CleanIdTrustSnapshot,
-} from "../cleanIdTrust";
-import {
   buildCleanIdShortClaim,
   validateRequestedCleanId,
 } from "../cleanIdClaim";
@@ -81,22 +71,10 @@ const loadCurrentUser = (userId: number) =>
     },
   });
 
-const buildProfilePayload = <T extends { id: number; cleanId: string }>(
-  user: T,
-  trustSnapshots: Map<number, CleanIdTrustSnapshot>,
-) => {
-  const trust = trustSnapshots.get(user.id) ?? fallbackCleanIdTrustSnapshot;
-  const currentAvatar =
-    "avatar" in user && typeof user.avatar === "string"
-      ? (user.avatar as Avatar)
-      : DEFAULT_AVATAR;
-  return {
-    ...user,
-    trust,
-    shortIdClaim: buildCleanIdShortClaim(user.cleanId, trust),
-    avatarAccess: buildAvatarAccess(trust, currentAvatar),
-  };
-};
+const buildProfilePayload = <T extends { cleanId: string }>(user: T) => ({
+  ...user,
+  shortIdClaim: buildCleanIdShortClaim(user.cleanId),
+});
 
 const escapeHtml = (value: string) =>
   value
@@ -162,9 +140,8 @@ router.get("/me", async (req, res) => {
   if (!user) {
     return res.status(404).json({ error: "User not found" });
   }
-  const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [user.id]);
   res.json({
-    user: buildProfilePayload(user, trustSnapshots),
+    user: buildProfilePayload(user),
   });
 });
 
@@ -341,28 +318,6 @@ router.patch("/me", async (req, res) => {
     return res.status(400).json({ error: "Invalid name, avatar, or gender" });
   }
 
-  const currentAvatar =
-    typeof sessionUser.avatar === "string" &&
-    Object.values(Avatar).includes(sessionUser.avatar as Avatar)
-      ? (sessionUser.avatar as Avatar)
-      : DEFAULT_AVATAR;
-
-  if (avatar !== null && avatar !== currentAvatar) {
-    const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [
-      sessionUser.id,
-    ]);
-    const activeTrust =
-      trustSnapshots.get(sessionUser.id) ?? fallbackCleanIdTrustSnapshot;
-    const unlockError = getAvatarUnlockError(
-      avatar,
-      activeTrust,
-      currentAvatar,
-    );
-    if (unlockError) {
-      return res.status(403).json({ error: unlockError });
-    }
-  }
-
   try {
     const updatedUser = await prisma.user.update({
       where: { id: sessionUser.id },
@@ -376,13 +331,9 @@ router.patch("/me", async (req, res) => {
         gender: true,
       },
     });
-    const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [
-      updatedUser.id,
-    ]);
-
     res.json({
       message: "Profile updated.",
-      user: buildProfilePayload(updatedUser, trustSnapshots),
+      user: buildProfilePayload(updatedUser),
     });
   } catch (error) {
     const details = error instanceof Error ? error.message : String(error);
@@ -514,15 +465,9 @@ router.patch("/clean-id", async (req, res) => {
     return res.json({ message: "cleanId unchanged", cleanId: cleanIdRaw });
   }
 
-  const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [
-    sessionUser.id,
-  ]);
-  const activeTrust =
-    trustSnapshots.get(sessionUser.id) ?? fallbackCleanIdTrustSnapshot;
   const cleanIdValidation = validateRequestedCleanId({
     requestedCleanId: cleanIdRaw,
     currentCleanId: sessionUser.cleanId,
-    trust: activeTrust,
   });
   if (!cleanIdValidation.ok) {
     return res.status(400).json({ error: cleanIdValidation.error });
@@ -547,13 +492,9 @@ router.patch("/clean-id", async (req, res) => {
       gender: true,
     },
   });
-  const nextTrustSnapshots = await buildCleanIdTrustSnapshots(prisma, [
-    updatedUser.id,
-  ]);
-
   res.json({
     message: "cleanId updated.",
-    user: buildProfilePayload(updatedUser, nextTrustSnapshots),
+    user: buildProfilePayload(updatedUser),
   });
 });
 

@@ -4,21 +4,16 @@ import { useTranslation } from "react-i18next";
 import GenderLineIcon from "../components/GenderLineIcon";
 import GenderPicker from "../components/GenderPicker";
 import {
-  AVATAR_TIER_ORDER,
-  buildDerivedAvatarAccess,
-  getAvatarOptionsByTier,
+  getAvatarOptions,
   getAvatarToneClass,
   getAvatarUrl,
-  isAvatarUnlocked,
   type AvatarKey,
-  type AvatarTier,
 } from "../constants/avatarCatalog";
 import { BACKEND_URL } from "../config";
 import {
   FALLBACK_SHORT_ID_CLAIM,
   validateShortClaimInput,
 } from "../utils/cleanIdClaim";
-import { FALLBACK_CLEAN_ID_TRUST } from "../utils/cleanIdTrust";
 import { GENDER_ARIA_KEY_MAP, type GenderValue } from "../utils/gender";
 import { hydrateProfileUser, type ProfileRouteState, type ProfileUser } from "../utils/profileUser";
 import "./profile.css";
@@ -99,7 +94,7 @@ const ProfileEditPage = () => {
     window.setTimeout(() => {
       const nextState: ProfileRouteState = {
         spatialTransition: "pop",
-        returnTo: backTarget === "/profile/purity" ? "/profile" : backTarget,
+        returnTo: backTarget,
       };
       if (nextUser) {
         nextState.user = nextUser;
@@ -151,7 +146,6 @@ const ProfileEditPage = () => {
   }, [routeState?.focusClaim, user]);
 
   const normalizedCleanId = useMemo(() => cleanId.trim().toLowerCase(), [cleanId]);
-  const activeTrust = user?.trust ?? FALLBACK_CLEAN_ID_TRUST;
   const activeShortIdClaim = user?.shortIdClaim ?? FALLBACK_SHORT_ID_CLAIM;
   const shortClaimRangeLabel =
     activeShortIdClaim.minClaimLength && activeShortIdClaim.maxClaimLength
@@ -167,7 +161,6 @@ const ProfileEditPage = () => {
       ? validateShortClaimInput({
           cleanId: normalizedCleanId,
           currentCleanId: user.cleanId,
-          claim: activeShortIdClaim,
         })
       : null;
   const cleanIdLength = (normalizedCleanId || user?.cleanId || "").length;
@@ -179,35 +172,15 @@ const ProfileEditPage = () => {
         : t("profile.cleanIdIntentStandard");
   const claimDetailText = liveCleanIdValidation
     ? t("identityVault.cleanIdValidation")
-    : activeShortIdClaim.state === "locked"
-      ? t("identityVault.claimDetailLocked")
-      : activeShortIdClaim.state === "claimable"
-        ? t("identityVault.claimDetailClaimable")
-        : t("identityVault.claimDetailClaimed");
+    : activeShortIdClaim.isCurrentShort
+      ? t("identityVault.claimDetailClaimed")
+      : t("identityVault.claimDetailClaimable");
 
-  const avatarAccess =
-    user?.avatarAccess ??
-    buildDerivedAvatarAccess({
-      trust: activeTrust,
-      currentAvatar: user?.avatar,
-    });
-  const getTierCopy = (tier: AvatarTier) => ({
-    eyebrow: t(`identityVault.avatarTiers.${tier}.eyebrow`),
-    title: t(`identityVault.avatarTiers.${tier}.title`),
-    description: t(`identityVault.avatarTiers.${tier}.description`),
-    lockedHint: t(`identityVault.avatarTiers.${tier}.lockedHint`),
-  });
-  const avatarSections = AVATAR_TIER_ORDER.map((tier) => ({
-    tier,
-    access: avatarAccess.tiers[tier],
-    options: getAvatarOptionsByTier(tier).map((item) => ({
-      ...item,
-      unlocked: isAvatarUnlocked(item.key, avatarAccess),
-      isSelected: avatar === item.key,
-      isCurrent: user?.avatar === item.key,
-    })),
+  const avatarOptions = getAvatarOptions().map((item) => ({
+    ...item,
+    isSelected: avatar === item.key,
+    isCurrent: user?.avatar === item.key,
   }));
-  const currentTierTitle = getTierCopy(avatarAccess.currentTier).title;
 
   const handleSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -227,7 +200,6 @@ const ProfileEditPage = () => {
     const cleanIdValidation = validateShortClaimInput({
       cleanId: normalizedCleanId,
       currentCleanId: user.cleanId,
-      claim: user.shortIdClaim,
     });
     if (cleanIdValidation) {
       setStatus(t("profileEdit.cleanIdValidation"));
@@ -444,11 +416,7 @@ const ProfileEditPage = () => {
               </div>
             </div>
             <div className="profile-claim-editor-foot">
-              <span>
-                {activeShortIdClaim.nextUnlockScore && !activeShortIdClaim.isCurrentShort
-                  ? t("profile.nextUnlockAt", { score: activeShortIdClaim.nextUnlockScore })
-                  : t("profile.currentClaimWindowOpen")}
-              </span>
+              <span>{t("profile.currentClaimWindowOpen")}</span>
             </div>
           </section>
 
@@ -472,61 +440,34 @@ const ProfileEditPage = () => {
             <legend>{t("identityVault.avatarLibrary")}</legend>
             <div className="profile-avatar-head">
               <p className="profile-hint">{t("identityVault.avatarLibraryNote")}</p>
-              <span className="profile-avatar-current-pill">{currentTierTitle}</span>
             </div>
 
-            <div className="profile-avatar-sections">
-              {avatarSections.map((section) => (
-                <section
-                  key={section.tier}
-                  className={`profile-avatar-tier profile-avatar-tier-${section.tier} ${section.access.unlocked ? "open" : "locked"}`}
+            <div className="profile-avatar-grid">
+              {avatarOptions.map((item) => (
+                <label
+                  key={item.key}
+                  className={`profile-avatar-option ${item.isSelected ? "active" : ""} ${item.isCurrent ? "current" : ""}`}
                 >
-                  <div className="profile-avatar-tier-head">
-                    <div>
-                      <p className="profile-settings-eyebrow">{getTierCopy(section.tier).eyebrow}</p>
-                      <h4>{getTierCopy(section.tier).title}</h4>
-                      <p className="profile-hint">
-                        {section.access.unlocked
-                          ? getTierCopy(section.tier).description
-                          : getTierCopy(section.tier).lockedHint}
-                      </p>
-                    </div>
-                    <span className={`profile-avatar-tier-pill ${section.access.unlocked ? "open" : "locked"}`}>
-                      {section.access.unlocked ? t("identityVault.unlock") : t("identityVault.lockedForNow")}
-                    </span>
-                  </div>
-
-                  <div className="profile-avatar-grid">
-                    {section.options.map((item) => (
-                      <label
-                        key={item.key}
-                        className={`profile-avatar-option ${item.isSelected ? "active" : ""} ${item.unlocked ? "" : "locked"} ${item.isCurrent ? "current" : ""}`}
-                      >
-                        <input
-                          type="radio"
-                          name="avatar"
-                          value={item.key}
-                          checked={avatar === item.key}
-                          onChange={() => setAvatar(item.key)}
-                          disabled={!item.unlocked || isSaving}
-                        />
-                        <img
-                          className={getAvatarToneClass(item.key)}
-                          src={getAvatarUrl(item.key)}
-                          alt={item.label}
-                        />
-                        <span>{item.label}</span>
-                        <em>
-                          {item.unlocked
-                            ? item.isCurrent
-                              ? t("identityVault.currentMark")
-                              : t("identityVault.availableNow")
-                            : t("identityVault.lockedForNow")}
-                        </em>
-                      </label>
-                    ))}
-                  </div>
-                </section>
+                  <input
+                    type="radio"
+                    name="avatar"
+                    value={item.key}
+                    checked={avatar === item.key}
+                    onChange={() => setAvatar(item.key)}
+                    disabled={isSaving}
+                  />
+                  <img
+                    className={getAvatarToneClass(item.key)}
+                    src={getAvatarUrl(item.key)}
+                    alt={item.label}
+                  />
+                  <span>{item.label}</span>
+                  <em>
+                    {item.isCurrent
+                      ? t("identityVault.currentMark")
+                      : t("identityVault.availableNow")}
+                  </em>
+                </label>
               ))}
             </div>
           </fieldset>

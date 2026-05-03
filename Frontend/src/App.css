@@ -110,11 +110,11 @@ button {
   filter: var(--avatar-filter);
 }
 
-.avatar-tone-active {
+.avatar-tone-marble {
   --avatar-filter: contrast(0.9) grayscale(28%) sepia(20%);
 }
 
-.avatar-tone-trusted {
+.avatar-tone-ether {
   --avatar-filter: brightness(1.1) contrast(1.1) grayscale(24%);
 }
 

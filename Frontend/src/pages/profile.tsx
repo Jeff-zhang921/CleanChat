@@ -3,14 +3,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import BottomNav from "../components/BottomNav";
 import {
-  AVATAR_TIER_META,
-  AVATAR_TIER_ORDER,
-  buildDerivedAvatarAccess,
+  getAvatarOptions,
   getAvatarOption,
   getAvatarToneClass,
-  getAvatarOptionsByTier,
   getAvatarUrl,
-  isAvatarUnlocked,
   type AvatarKey,
 } from "../constants/avatarCatalog";
 import { BACKEND_URL } from "../config";
@@ -20,9 +16,6 @@ import {
   validateShortClaimInput,
 } from "../utils/cleanIdClaim";
 import { clearAuthToken } from "../utils/auth";
-import {
-  FALLBACK_CLEAN_ID_TRUST,
-} from "../utils/cleanIdTrust";
 import {
   ensurePushSubscriptionForCurrentUser,
   getNotificationPermission,
@@ -79,12 +72,6 @@ const ProfileLoadingState = () => (
         </div>
       </div>
 
-      <div className="profile-aura-skeleton">
-        <span className="profile-skeleton-surface profile-aura-label-skeleton" />
-        <span className="profile-skeleton-surface profile-aura-title-skeleton" />
-        <span className="profile-skeleton-surface profile-aura-copy-skeleton" />
-        <span className="profile-skeleton-surface profile-aura-copy-skeleton profile-aura-copy-skeleton-short" />
-      </div>
     </section>
 
     <div className="profile-top-actions profile-top-actions-loading" aria-hidden="true">
@@ -286,7 +273,6 @@ const ProfilePage = () => {
     const cleanIdValidation = validateShortClaimInput({
       cleanId: normalizedCleanId,
       currentCleanId: user.cleanId,
-      claim: user.shortIdClaim ?? FALLBACK_SHORT_ID_CLAIM,
     });
     if (cleanIdValidation) {
       setStatus(cleanIdValidation);
@@ -613,64 +599,18 @@ const ProfilePage = () => {
     }
   };
 
-  const handleOpenPurity = () => {
-    if (!user) return;
-    navigate("/profile/purity", {
-      state: {
-        user,
-        spatialTransition: "push",
-        returnTo: "/profile",
-      } satisfies ProfileRouteState,
-    });
-  };
-
   const activeAvatar = user ? (isEditing ? avatar : user.avatar) : "AVATAR_LEO";
   const activeName = user ? (isEditing ? nickname : user.name) : "";
   const activeCleanId = user ? (isEditing ? cleanId : user.cleanId) : "";
   const selectedOwnedGroup = ownedGroups.find((group) => group.id === selectedGroupId) ?? null;
-  const activeTrust = user?.trust ?? FALLBACK_CLEAN_ID_TRUST;
-  const avatarAccess =
-    user?.avatarAccess ??
-    buildDerivedAvatarAccess({
-      trust: activeTrust,
-      currentAvatar: user?.avatar,
-    });
-  const avatarSections = AVATAR_TIER_ORDER.map((tier) => ({
-    tier,
-    meta: AVATAR_TIER_META[tier],
-    access: avatarAccess.tiers[tier],
-    options: getAvatarOptionsByTier(tier).map((item) => ({
-      ...item,
-      unlocked: isAvatarUnlocked(item.key, avatarAccess),
-      isSelected: avatar === item.key,
-      isCurrent: user?.avatar === item.key,
-    })),
+  const avatarOptions = getAvatarOptions().map((item) => ({
+    ...item,
+    isSelected: avatar === item.key,
+    isCurrent: user?.avatar === item.key,
   }));
   const activeAvatarOption = getAvatarOption(activeAvatar);
   const activeShortIdClaim = user?.shortIdClaim ?? FALLBACK_SHORT_ID_CLAIM;
   const shortClaimRangeLabel = getShortClaimRangeLabel(activeShortIdClaim);
-  const purityMaterialLabel =
-    activeTrust.band === "clear"
-      ? t("profile.purityMaterialClear")
-      : activeTrust.band === "steady"
-        ? t("profile.purityMaterialSteady")
-        : activeTrust.band === "fragile"
-          ? t("profile.purityMaterialFragile")
-          : t("profile.purityMaterialBlurred");
-  const purityActionLabel =
-    activeTrust.band === "clear"
-      ? t("profile.purityActionClear")
-      : activeTrust.band === "steady"
-        ? t("profile.purityActionSteady")
-        : t("profile.purityActionDefault");
-  const activeTrustToneLabel =
-    activeTrust.band === "clear"
-      ? t("profile.trustToneClear")
-      : activeTrust.band === "steady"
-        ? t("profile.trustToneSteady")
-        : activeTrust.band === "fragile"
-          ? t("profile.trustToneFragile")
-          : t("profile.trustToneBlurred");
   const activeCleanIdLength = activeCleanId.trim().length;
   const cleanIdIntent =
     activeCleanIdLength > 0 && activeCleanIdLength <= 2
@@ -683,7 +623,6 @@ const ProfilePage = () => {
       ? validateShortClaimInput({
           cleanId: normalizedCleanId,
           currentCleanId: user.cleanId,
-          claim: activeShortIdClaim,
         })
       : null;
 
@@ -703,7 +642,7 @@ const ProfilePage = () => {
               </div>
             </header>
 
-            <section className={`profile-entry-card profile-entry-card-${activeTrust.band}`}>
+            <section className="profile-entry-card">
               <div className="profile-entry-identity">
                 <img
                   className={`profile-avatar-main ${getAvatarToneClass(activeAvatar)}`}
@@ -714,29 +653,12 @@ const ProfilePage = () => {
                   <p className="profile-entry-kicker">{t("profile.identity")}</p>
                   <h2>{activeName}</h2>
                   <div className="profile-summary-id-row">
-                    <p className={`profile-cleanid profile-cleanid-${activeTrust.band}`}>@{activeCleanId}</p>
+                    <p className="profile-cleanid">@{activeCleanId}</p>
                   </div>
                   <p className="profile-avatar-family">{activeAvatarOption.family}</p>
                   <span>{user.email}</span>
                 </div>
               </div>
-              <button
-                type="button"
-                className={`profile-aura-button profile-aura-button-${activeTrust.band}`}
-                onClick={handleOpenPurity}
-                disabled={isEditing}
-              >
-                <span className="profile-aura-label">{t("profile.purity")}</span>
-                <strong>{activeTrust.title}</strong>
-                <span className="profile-aura-score">
-                  {t("profile.signalScore", {
-                    label: activeTrustToneLabel,
-                    score: activeTrust.score,
-                  })}
-                </span>
-                <span className="profile-aura-texture">{purityMaterialLabel}</span>
-                <span className="profile-aura-hint">{purityActionLabel}</span>
-              </button>
             </section>
 
             {!isEditing && (
@@ -803,57 +725,28 @@ const ProfilePage = () => {
                     <p className="profile-hint">
                       {t("profile.avatarLibraryNote")}
                     </p>
-                    <span className="profile-avatar-current-pill">
-                      {AVATAR_TIER_META[avatarAccess.currentTier].title}
-                    </span>
                   </div>
-                  <div className="profile-avatar-sections">
-                    {avatarSections.map((section) => (
-                      <section
-                        key={section.tier}
-                        className={`profile-avatar-tier profile-avatar-tier-${section.tier} ${section.access.unlocked ? "open" : "locked"}`}
+                  <div className="profile-avatar-grid">
+                    {avatarOptions.map((item) => (
+                      <label
+                        key={item.key}
+                        className={`profile-avatar-option ${item.isSelected ? "active" : ""} ${item.isCurrent ? "current" : ""}`}
                       >
-                        <div className="profile-avatar-tier-head">
-                          <div>
-                            <p className="profile-settings-eyebrow">{section.meta.eyebrow}</p>
-                            <h4>{section.meta.title}</h4>
-                            <p className="profile-hint">
-                              {section.access.unlocked ? section.meta.description : section.access.hint}
-                            </p>
-                          </div>
-                          <span
-                            className={`profile-avatar-tier-pill ${section.access.unlocked ? "open" : "locked"}`}
-                          >
-                            {section.access.unlocked ? t("profile.open") : section.access.title}
-                          </span>
-                        </div>
-                        <div className="profile-avatar-grid">
-                          {section.options.map((item) => (
-                            <label
-                              key={item.key}
-                              className={`profile-avatar-option ${item.isSelected ? "active" : ""} ${item.unlocked ? "" : "locked"} ${item.isCurrent ? "current" : ""}`}
-                            >
-                              <input
-                                type="radio"
-                                name="avatar"
-                                value={item.key}
-                                checked={avatar === item.key}
-                                onChange={() => setAvatar(item.key)}
-                                disabled={!item.unlocked}
-                              />
-                              <img className={getAvatarToneClass(item.key)} src={item.url} alt={item.label} />
-                              <span>{item.label}</span>
-                              <em>
-                                {item.unlocked
-                                  ? item.isCurrent
-                                    ? t("profile.currentMark")
-                                    : t("profile.availableNow")
-                                  : t("profile.lockedForNow")}
-                              </em>
-                            </label>
-                          ))}
-                        </div>
-                      </section>
+                        <input
+                          type="radio"
+                          name="avatar"
+                          value={item.key}
+                          checked={avatar === item.key}
+                          onChange={() => setAvatar(item.key)}
+                        />
+                        <img className={getAvatarToneClass(item.key)} src={item.url} alt={item.label} />
+                        <span>{item.label}</span>
+                        <em>
+                          {item.isCurrent
+                            ? t("profile.currentMark")
+                            : t("profile.availableNow")}
+                        </em>
+                      </label>
                     ))}
                   </div>
                 </fieldset>
@@ -903,14 +796,7 @@ const ProfilePage = () => {
                     </div>
                   </div>
                   <div className="profile-claim-editor-foot">
-                    <span>
-                      {activeShortIdClaim.nextUnlockScore && !activeShortIdClaim.isCurrentShort
-                        ? t("profile.nextUnlockAt", { score: activeShortIdClaim.nextUnlockScore })
-                        : t("profile.currentClaimWindowOpen")}
-                    </span>
-                    {activeShortIdClaim.nextUnlockLabel && (
-                      <span>{activeShortIdClaim.nextUnlockLabel}</span>
-                    )}
+                    <span>{t("profile.currentClaimWindowOpen")}</span>
                   </div>
                 </section>
 

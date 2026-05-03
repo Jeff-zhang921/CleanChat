@@ -1,8 +1,3 @@
-import {
-  FALLBACK_CLEAN_ID_TRUST,
-  type CleanIdTrustSnapshot,
-} from "../utils/cleanIdTrust";
-
 export const AVATAR_KEYS = [
   "AVATAR_LEO",
   "AVATAR_SOPHIE",
@@ -47,29 +42,17 @@ export const AVATAR_KEYS = [
 ] as const;
 
 export type AvatarKey = (typeof AVATAR_KEYS)[number];
-export type AvatarTier = "starter" | "active" | "trusted";
+export type AvatarStyle = "character" | "marble" | "ether";
 
 export type AvatarOption = {
   key: AvatarKey;
   label: string;
   family: string;
-  tier: AvatarTier;
+  style: AvatarStyle;
   url: string;
 };
 
-export type AvatarTierAccess = {
-  unlocked: boolean;
-  title: string;
-  hint: string;
-};
-
-export type AvatarAccess = {
-  currentTier: AvatarTier;
-  availableKeys: AvatarKey[];
-  tiers: Record<AvatarTier, AvatarTierAccess>;
-};
-
-type StarterSeed = {
+type CharacterSeed = {
   key: AvatarKey;
   label: string;
   background: string;
@@ -106,49 +89,15 @@ type EtherSeed = {
   form: "arch" | "spire" | "orb" | "crown" | "veil";
 };
 
-const ACTIVE_UNLOCK_RECENT_MESSAGES = 8;
-const ACTIVE_UNLOCK_TOTAL_MESSAGES = 12;
-const TRUSTED_UNLOCK_SCORE = 64;
-
-const FAMILY_BY_TIER: Record<AvatarTier, string> = {
-  starter: "Minimalist Characters",
-  active: "Classical Marble Portraits",
-  trusted: "Ethereal Light Forms",
+const FAMILY_BY_STYLE: Record<AvatarStyle, string> = {
+  character: "Minimalist Characters",
+  marble: "Classical Marble Portraits",
+  ether: "Ethereal Light Forms",
 };
 
 export const DEFAULT_AVATAR_KEY: AvatarKey = "AVATAR_LEO";
 
-export const AVATAR_TIER_META: Record<
-  AvatarTier,
-  {
-    eyebrow: string;
-    title: string;
-    description: string;
-  }
-> = {
-  starter: {
-    eyebrow: "Level 1",
-    title: "Minimalist Characters",
-    description:
-      "Low-saturation human portraits with quiet line work, clean posture, and almost no ornament.",
-  },
-  active: {
-    eyebrow: "Level 2",
-    title: "Classical Marble Portraits",
-    description:
-      "Grayscale museum figures with illustrated marble texture, profile restraint, and old-money gravity.",
-  },
-  trusted: {
-    eyebrow: "Level 3",
-    title: "Ethereal Light Forms",
-    description:
-      "Abstract human silhouettes built from cosmic light, obsidian shadow, and silence rather than facial detail.",
-  },
-};
-
-export const AVATAR_TIER_ORDER: AvatarTier[] = ["starter", "active", "trusted"];
-
-const STARTER_SEEDS: StarterSeed[] = [
+const CHARACTER_SEEDS: CharacterSeed[] = [
   { key: "AVATAR_LEO", label: "Maple", background: "#F4EFE7", wash: "#EEE7DE", skin: "#E8D2C5", hair: "#6D675F", shirt: "#98A89E", line: "#57514A", accent: "#C7D2C1", hairShape: "bob", mark: "leaf" },
   { key: "AVATAR_SOPHIE", label: "Juniper", background: "#EEF2F2", wash: "#E7ECEB", skin: "#EAD8CB", hair: "#5B6670", shirt: "#8EA1AE", line: "#4D565D", accent: "#CBD5DA", hairShape: "wave", mark: "arc" },
   { key: "AVATAR_MAX", label: "Wren", background: "#F5EEE7", wash: "#EDE4DC", skin: "#E7D0C2", hair: "#735D56", shirt: "#B0988D", line: "#594841", accent: "#D9C4B9", hairShape: "crop", mark: "grid" },
@@ -166,7 +115,7 @@ const STARTER_SEEDS: StarterSeed[] = [
   { key: "AVATAR_NOOR", label: "Noor", background: "#F3F0E6", wash: "#EBE7DB", skin: "#E9D4C7", hair: "#605B50", shirt: "#98A18C", line: "#4E4A41", accent: "#D3D0C1", hairShape: "bob", mark: "ribbon" },
 ];
 
-const ACTIVE_SEEDS: MarbleSeed[] = [
+const MARBLE_SEEDS: MarbleSeed[] = [
   { key: "AVATAR_AVERY", label: "Sable", stone: "#D8D4CF", stoneDark: "#8A857F", fog: "#F1EEE9", accent: "#C3B9AF", profile: "left", crown: "halo", fracture: "ring" },
   { key: "AVATAR_RILEY", label: "Ellis", stone: "#D6D3CE", stoneDark: "#8E8881", fog: "#EEEAE4", accent: "#BFB4A8", profile: "right", crown: "laurel", fracture: "scar" },
   { key: "AVATAR_JORDAN", label: "Haze", stone: "#D9D6D1", stoneDark: "#8A857E", fog: "#F2EFEB", accent: "#C7BCB1", profile: "left", crown: "arch", fracture: "grain" },
@@ -179,7 +128,7 @@ const ACTIVE_SEEDS: MarbleSeed[] = [
   { key: "AVATAR_SENA", label: "Sena", stone: "#DAD7D2", stoneDark: "#908983", fog: "#F3EFEA", accent: "#C8BCB1", profile: "right", crown: "laurel", fracture: "ring" },
 ];
 
-const TRUSTED_SEEDS: EtherSeed[] = [
+const ETHER_SEEDS: EtherSeed[] = [
   { key: "AVATAR_AIRI", label: "Airi", base: "#0F1319", obsidian: "#1B2027", glowA: "#8A97A7", glowB: "#C4CCD5", glowC: "#697789", form: "arch" },
   { key: "AVATAR_REN", label: "Ren", base: "#10151D", obsidian: "#1D222C", glowA: "#8794A6", glowB: "#CAD1DA", glowC: "#647487", form: "spire" },
   { key: "AVATAR_NAMI", label: "Nami", base: "#11161B", obsidian: "#1D242A", glowA: "#7D8F9B", glowB: "#C1CCD3", glowC: "#5E7283", form: "orb" },
@@ -197,13 +146,9 @@ const TRUSTED_SEEDS: EtherSeed[] = [
   { key: "AVATAR_HARU", label: "Haru", base: "#111419", obsidian: "#1E232A", glowA: "#878F99", glowB: "#D0D4DA", glowC: "#6E7882", form: "veil" },
 ];
 
-const STARTER_KEYS = STARTER_SEEDS.map((seed) => seed.key);
-const ACTIVE_KEYS = ACTIVE_SEEDS.map((seed) => seed.key);
-const TRUSTED_KEYS = TRUSTED_SEEDS.map((seed) => seed.key);
-
 const encodeSvg = (svg: string) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 
-const renderStarterHair = (seed: StarterSeed) => {
+const renderStarterHair = (seed: CharacterSeed) => {
   switch (seed.hairShape) {
     case "crop":
       return `
@@ -234,7 +179,7 @@ const renderStarterHair = (seed: StarterSeed) => {
   }
 };
 
-const renderStarterMark = (seed: StarterSeed) => {
+const renderStarterMark = (seed: CharacterSeed) => {
   switch (seed.mark) {
     case "grid":
       return `
@@ -260,7 +205,7 @@ const renderStarterMark = (seed: StarterSeed) => {
   }
 };
 
-const buildStarterAvatar = (seed: StarterSeed) =>
+const buildStarterAvatar = (seed: CharacterSeed) =>
   encodeSvg(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" fill="none">
       <defs>
@@ -452,121 +397,41 @@ const buildEtherAvatar = (seed: EtherSeed) =>
   `);
 
 const AVATAR_OPTIONS: AvatarOption[] = [
-  ...STARTER_SEEDS.map((seed) => ({
+  ...CHARACTER_SEEDS.map((seed) => ({
     key: seed.key,
     label: seed.label,
-    family: FAMILY_BY_TIER.starter,
-    tier: "starter" as const,
+    family: FAMILY_BY_STYLE.character,
+    style: "character" as const,
     url: buildStarterAvatar(seed),
   })),
-  ...ACTIVE_SEEDS.map((seed) => ({
+  ...MARBLE_SEEDS.map((seed) => ({
     key: seed.key,
     label: seed.label,
-    family: FAMILY_BY_TIER.active,
-    tier: "active" as const,
+    family: FAMILY_BY_STYLE.marble,
+    style: "marble" as const,
     url: buildMarbleAvatar(seed),
   })),
-  ...TRUSTED_SEEDS.map((seed) => ({
+  ...ETHER_SEEDS.map((seed) => ({
     key: seed.key,
     label: seed.label,
-    family: FAMILY_BY_TIER.trusted,
-    tier: "trusted" as const,
+    family: FAMILY_BY_STYLE.ether,
+    style: "ether" as const,
     url: buildEtherAvatar(seed),
   })),
 ];
-
-const ACTIVE_UNLOCK_HINT =
-  "Classical Marble Portraits unlock after 24 hours of healthy activity or a steady reply rhythm.";
-const TRUSTED_UNLOCK_HINT =
-  "Ethereal Light Forms unlock once your Trust Score reaches the clear enough band.";
-
-const getTierAccess = (
-  tier: AvatarTier,
-  trust: CleanIdTrustSnapshot
-): AvatarTierAccess => {
-  if (tier === "starter") {
-    return {
-      unlocked: true,
-      title: "Starter",
-      hint: "Minimalist Characters are open from day one so every CleanID begins with a quiet human mark.",
-    };
-  }
-
-  if (tier === "active") {
-    const unlocked =
-      trust.metrics.accountAgeDays >= 1 ||
-      trust.metrics.recentMessages >= ACTIVE_UNLOCK_RECENT_MESSAGES ||
-      trust.metrics.sentMessages >= ACTIVE_UNLOCK_TOTAL_MESSAGES;
-    return {
-      unlocked,
-      title: "Active",
-      hint: unlocked
-        ? "Classical Marble Portraits are open. Your cadence already reads settled."
-        : ACTIVE_UNLOCK_HINT,
-    };
-  }
-
-  const unlocked = trust.score >= TRUSTED_UNLOCK_SCORE;
-  return {
-    unlocked,
-    title: "Trusted",
-    hint: unlocked
-      ? "Ethereal Light Forms are open. This set avoids suggestive, aggressive, or uncanny anatomy."
-      : TRUSTED_UNLOCK_HINT,
-  };
-};
 
 export const getAvatarOption = (avatar: AvatarKey) =>
   AVATAR_OPTIONS.find((option) => option.key === avatar) ??
   AVATAR_OPTIONS.find((option) => option.key === DEFAULT_AVATAR_KEY)!;
 
-export const getAvatarTier = (avatar: AvatarKey): AvatarTier => getAvatarOption(avatar).tier;
+export const getAvatarStyle = (avatar: AvatarKey): AvatarStyle => getAvatarOption(avatar).style;
 
 export const getAvatarUrl = (avatar?: AvatarKey | null) =>
   getAvatarOption(avatar ?? DEFAULT_AVATAR_KEY).url;
 
-export const getAvatarOptionsByTier = (tier: AvatarTier) =>
-  AVATAR_OPTIONS.filter((option) => option.tier === tier);
+export const getAvatarOptions = () => AVATAR_OPTIONS;
 
 export const getAvatarToneClass = (avatar?: AvatarKey | null) => {
-  const tier = getAvatarTier(avatar ?? DEFAULT_AVATAR_KEY);
-  return `avatar-tone avatar-tone-${tier}`;
+  const style = getAvatarStyle(avatar ?? DEFAULT_AVATAR_KEY);
+  return `avatar-tone avatar-tone-${style}`;
 };
-
-export const buildDerivedAvatarAccess = ({
-  trust = FALLBACK_CLEAN_ID_TRUST,
-  currentAvatar,
-}: {
-  trust?: CleanIdTrustSnapshot | null;
-  currentAvatar?: AvatarKey | null;
-}): AvatarAccess => {
-  const activeTrust = trust ?? FALLBACK_CLEAN_ID_TRUST;
-  const current = currentAvatar ?? DEFAULT_AVATAR_KEY;
-  const tiers: Record<AvatarTier, AvatarTierAccess> = {
-    starter: getTierAccess("starter", activeTrust),
-    active: getTierAccess("active", activeTrust),
-    trusted: getTierAccess("trusted", activeTrust),
-  };
-
-  const availableKeys = AVATAR_OPTIONS.filter((option) => {
-    if (option.key === current) {
-      return true;
-    }
-    return tiers[option.tier].unlocked;
-  }).map((option) => option.key);
-
-  return {
-    currentTier: getAvatarTier(current),
-    availableKeys,
-    tiers,
-  };
-};
-
-export const isAvatarUnlocked = (avatar: AvatarKey, access: AvatarAccess) =>
-  access.availableKeys.includes(avatar);
-
-export const AVATAR_COUNTS = {
-  starter: STARTER_KEYS.length,
-  active: ACTIVE_KEYS.length,
-  trusted: TRUSTED_KEYS.length,
-} as const;

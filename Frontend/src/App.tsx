@@ -16,7 +16,6 @@ import ProfileEditPage from './pages/profileEdit'
 import SendChatRequestPage from './pages/sendChatRequest'
 import UserRequestPage from './pages/userRequestPage'
 import GroupRequestPage from './pages/groupRequestPage'
-import PurityDetailPage from './pages/purityDetail'
 import ProfileSettingsPage from './pages/profileSettings'
 import FeedbackPage from './pages/feedback'
 import DiscoverPage from './pages/discover'
@@ -31,7 +30,6 @@ type DetailViewKey =
   | 'group-settings'
   | 'feedback'
   | 'profile-edit'
-  | 'profile-purity'
   | 'profile-user'
   | 'send-chat-request'
   | 'user-requests'
@@ -252,7 +250,6 @@ const resolveDetailViewFromPath = (pathname: string): DetailViewKey => {
   if (pathname === '/profile/requests/users') return 'user-requests';
   if (pathname === '/profile/requests/groups') return 'group-requests';
   if (pathname === '/profile/edit') return 'profile-edit';
-  if (pathname === '/profile/purity') return 'profile-purity';
   return null;
 };
 
@@ -268,7 +265,6 @@ const isKnownHybridPath = (pathname: string) => {
   if (pathname === '/profile/request-chat') return true;
   if (pathname === '/profile/requests/users') return true;
   if (pathname === '/profile/requests/groups') return true;
-  if (pathname === '/profile/purity') return true;
   if (pathname === '/chat' || pathname.startsWith('/chat/')) return true;
   return false;
 };
@@ -351,7 +347,6 @@ const HybridAppShell = () => {
     if (
       detailView === 'feedback' ||
       detailView === 'profile-edit' ||
-      detailView === 'profile-purity' ||
       detailView === 'user-requests' ||
       detailView === 'group-requests'
     ) {
@@ -452,14 +447,6 @@ const HybridAppShell = () => {
       return (
         <div className="hybrid-detail-surface" role="presentation">
           <ProfileEditPage />
-        </div>
-      );
-    }
-
-    if (detailView === 'profile-purity') {
-      return (
-        <div className="hybrid-detail-surface" role="presentation">
-          <PurityDetailPage />
         </div>
       );
     }

@@ -10,7 +10,6 @@ import {
 import { BACKEND_URL } from "../config";
 import { useNotificationBadges } from "../state/notificationBadgeContext";
 import { GENDER_ARIA_KEY_MAP, normalizeGender } from "../utils/gender";
-import type { CleanIdTrustSnapshot } from "../utils/cleanIdTrust";
 import "./userRequestPage.css";
 
 type OverlayFromPath = "/conversations" | "/groups" | "/profile";
@@ -39,7 +38,6 @@ type UserSummary = {
   cleanId: string;
   avatar: AvatarKey;
   gender?: string | null;
-  trust: CleanIdTrustSnapshot;
 };
 
 type RequestEntry = {

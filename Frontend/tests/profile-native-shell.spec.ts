@@ -38,30 +38,12 @@ const isIdentityTransform = (value: string) => {
 
   return false;
 };
-
-const TRUST_CLEAR = {
-  score: 96,
-  band: "clear",
-  title: "Clear signal",
-  summary: "Stable, calm, and trusted.",
-  detail: "This CleanID has a consistent and healthy communication history.",
-  metrics: {
-    accountAgeDays: 380,
-    directThreads: 42,
-    sentMessages: 1320,
-    sustainedThreads: 24,
-    recentMessages: 28,
-    moderationPenalties: 0,
-  },
-} as const;
-
 const profileUser = {
   id: 1,
   name: "Jeff",
   email: "zjingxiang527@gmail.com",
   cleanId: "jeff",
   avatar: "AVATAR_LEO",
-  trust: TRUST_CLEAR,
 };
 
 test.beforeEach(async ({ page }) => {

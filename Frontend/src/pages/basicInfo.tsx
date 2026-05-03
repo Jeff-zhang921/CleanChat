@@ -1,20 +1,16 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  AVATAR_TIER_META,
-  buildDerivedAvatarAccess,
+  getAvatarOptions,
   getAvatarToneClass,
-  getAvatarOptionsByTier,
-  type AvatarAccess,
   type AvatarKey,
 } from "../constants/avatarCatalog";
 import GenderPicker from "../components/GenderPicker";
 import { BACKEND_URL } from "../config";
-import { type CleanIdTrustSnapshot } from "../utils/cleanIdTrust";
 import { normalizeGender, type GenderValue } from "../utils/gender";
 import "./basicInfo.css";
 
-const CLEAN_ID_REGEX = /^[a-z0-9_]{5,20}$/;
+const CLEAN_ID_REGEX = /^[a-z0-9_]{1,20}$/;
 
 type ProfileUser = {
   id: number;
@@ -23,8 +19,6 @@ type ProfileUser = {
   cleanId: string;
   avatar: AvatarKey;
   gender?: GenderValue | string;
-  trust?: CleanIdTrustSnapshot;
-  avatarAccess?: AvatarAccess;
 };
 
 const BasicInfoPage = () => {
@@ -43,15 +37,7 @@ const BasicInfoPage = () => {
     () => cleanId.trim().toLowerCase(),
     [cleanId]
   );
-  const avatarAccess =
-    user?.avatarAccess ??
-    buildDerivedAvatarAccess({
-      trust: user?.trust,
-      currentAvatar: user?.avatar,
-    });
-  const starterAvatars = getAvatarOptionsByTier("starter");
-  const activePreviewAvatars = getAvatarOptionsByTier("active").slice(0, 4);
-  const trustedPreviewAvatars = getAvatarOptionsByTier("trusted").slice(0, 4);
+  const avatarOptions = getAvatarOptions();
 
   useEffect(() => {
     let isMounted = true;
@@ -103,7 +89,7 @@ const BasicInfoPage = () => {
       return;
     }
     if (!CLEAN_ID_REGEX.test(normalizedCleanId)) {
-      setStatus("Standard CleanID must be 5-20 characters: a-z, 0-9, or _.");
+      setStatus("CleanID must be 1-20 characters: a-z, 0-9, or _.");
       return;
     }
 
@@ -206,13 +192,12 @@ const BasicInfoPage = () => {
 
         <form className="basic-form" onSubmit={handleSubmit}>
           <fieldset className="basic-avatars">
-            <legend>Choose a minimalist character</legend>
+            <legend>Choose an avatar</legend>
             <p className="basic-hint">
-              New CleanIDs begin with {AVATAR_TIER_META.starter.title}: quiet human figures, low-saturation palettes,
-              and almost no ornament.
+              Every avatar is available from the start.
             </p>
             <div className="basic-avatar-grid">
-              {starterAvatars.map((item) => (
+              {avatarOptions.map((item) => (
                 <label
                   key={item.key}
                   className={`basic-avatar-option ${avatar === item.key ? "active" : ""}`}
@@ -234,48 +219,6 @@ const BasicInfoPage = () => {
               ))}
             </div>
           </fieldset>
-
-          <section className="basic-avatar-roadmap" aria-label="Avatar roadmap">
-            <article className="basic-avatar-roadmap-card">
-              <div className="basic-avatar-roadmap-head">
-                <div>
-                  <p className="basic-step">Unlock Next</p>
-                  <h2>{AVATAR_TIER_META.active.title}</h2>
-                </div>
-                <span className={`basic-roadmap-pill ${avatarAccess.tiers.active.unlocked ? "open" : ""}`}>
-                  {avatarAccess.tiers.active.unlocked ? "Open" : "Locked"}
-                </span>
-              </div>
-              <div className="basic-avatar-preview-row">
-                {activePreviewAvatars.map((item) => (
-                  <div key={item.key} className="basic-avatar-preview">
-                    <img className={getAvatarToneClass(item.key)} src={item.url} alt="" />
-                  </div>
-                ))}
-              </div>
-              <p className="basic-hint">{avatarAccess.tiers.active.hint}</p>
-            </article>
-
-            <article className="basic-avatar-roadmap-card trusted">
-              <div className="basic-avatar-roadmap-head">
-                <div>
-                  <p className="basic-step">Identity Mark</p>
-                  <h2>{AVATAR_TIER_META.trusted.title}</h2>
-                </div>
-                <span className={`basic-roadmap-pill ${avatarAccess.tiers.trusted.unlocked ? "open" : ""}`}>
-                  {avatarAccess.tiers.trusted.unlocked ? "Open" : "Locked"}
-                </span>
-              </div>
-              <div className="basic-avatar-preview-row">
-                {trustedPreviewAvatars.map((item) => (
-                  <div key={item.key} className="basic-avatar-preview trusted">
-                    <img className={getAvatarToneClass(item.key)} src={item.url} alt="" />
-                  </div>
-                ))}
-              </div>
-              <p className="basic-hint">{avatarAccess.tiers.trusted.hint}</p>
-            </article>
-          </section>
 
           <section className="basic-gender-row">
             <GenderPicker value={gender} onChange={setGender} />
@@ -310,7 +253,7 @@ const BasicInfoPage = () => {
             maxLength={20}
             required
           />
-          <p className="basic-hint">5-20 chars for now. Short 1-4 char claims unlock later through trust.</p>
+          <p className="basic-hint">Use 1-20 lowercase letters, numbers, or underscore.</p>
 
           <button className="basic-submit" type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Saving..." : "Save and Continue"}

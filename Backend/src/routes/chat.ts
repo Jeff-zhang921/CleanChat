@@ -21,10 +21,6 @@ import {
   updateGroupJoinPolicy,
   isGroupMember,
 } from "../groupStore";
-import {
-  buildCleanIdTrustSnapshots,
-  fallbackCleanIdTrustSnapshot,
-} from "../cleanIdTrust";
 import { authMiddleware } from "../auth";
 import { deleteConversation } from "../controllers/conversation";
 import {
@@ -625,17 +621,7 @@ router.get("/users/search", async (req, res) => {
     take: 20,
   });
 
-  const trustSnapshots = await buildCleanIdTrustSnapshots(
-    prisma,
-    users.map((user) => user.id),
-  );
-
-  res.json({
-    users: users.map((user) => ({
-      ...user,
-      trust: trustSnapshots.get(user.id) ?? fallbackCleanIdTrustSnapshot,
-    })),
-  });
+  res.json({ users });
 });
 
 router.get("/users/:userId", async (req, res) => {
@@ -673,19 +659,15 @@ router.get("/users/:userId", async (req, res) => {
     return;
   }
 
-  const [existingThread, acceptedRequest, latestRequest, trustSnapshots] =
+  const [existingThread, acceptedRequest, latestRequest] =
     await Promise.all([
       findExistingDirectThread(sessionUserId, targetUserId),
       findAcceptedDirectRequest(sessionUserId, targetUserId),
       findLatestDirectRequest(sessionUserId, targetUserId),
-      buildCleanIdTrustSnapshots(prisma, [targetUserId]),
     ]);
 
   res.json({
-    user: {
-      ...targetUser,
-      trust: trustSnapshots.get(targetUser.id) ?? fallbackCleanIdTrustSnapshot,
-    },
+    user: targetUser,
     relationship: {
       existingThreadId: existingThread?.id ?? null,
       canDirectMessage: Boolean(existingThread || acceptedRequest),
@@ -748,27 +730,14 @@ router.get("/requests/direct/received", async (req, res) => {
     }),
   ]);
 
-  const trustSnapshots = await buildCleanIdTrustSnapshots(
-    prisma,
-    [...pendingRequests, ...recentRequests].map((item) => item.requester.id),
-  );
-
   res.json({
     pending: pendingRequests.map((item) => ({
       request: serializeDirectRequest(item, sessionUserId),
-      user: {
-        ...item.requester,
-        trust:
-          trustSnapshots.get(item.requester.id) ?? fallbackCleanIdTrustSnapshot,
-      },
+      user: item.requester,
     })),
     recent: recentRequests.map((item) => ({
       request: serializeDirectRequest(item, sessionUserId),
-      user: {
-        ...item.requester,
-        trust:
-          trustSnapshots.get(item.requester.id) ?? fallbackCleanIdTrustSnapshot,
-      },
+      user: item.requester,
     })),
   });
 });
@@ -800,19 +769,10 @@ router.get("/requests/direct/sent", async (req, res) => {
     },
   });
 
-  const trustSnapshots = await buildCleanIdTrustSnapshots(
-    prisma,
-    requests.map((item) => item.recipient.id),
-  );
-
   res.json({
     requests: requests.map((item) => ({
       request: serializeDirectRequest(item, sessionUserId),
-      user: {
-        ...item.recipient,
-        trust:
-          trustSnapshots.get(item.recipient.id) ?? fallbackCleanIdTrustSnapshot,
-      },
+      user: item.recipient,
     })),
   });
 });
@@ -857,20 +817,15 @@ router.get("/requests/direct/target/:userId", async (req, res) => {
     acceptedRequest,
     latestRequest,
     blocked,
-    trustSnapshots,
   ] = await Promise.all([
     findExistingDirectThread(sessionUserId, targetUserId),
     findAcceptedDirectRequest(sessionUserId, targetUserId),
     findLatestDirectRequest(sessionUserId, targetUserId),
     ensurePairNotBlocked(sessionUserId, targetUserId),
-    buildCleanIdTrustSnapshots(prisma, [targetUserId]),
   ]);
 
   res.json({
-    user: {
-      ...targetUser,
-      trust: trustSnapshots.get(targetUser.id) ?? fallbackCleanIdTrustSnapshot,
-    },
+    user: targetUser,
     relationship: {
       existingThreadId: existingThread?.id ?? null,
       accepted: Boolean(acceptedRequest),
@@ -1205,19 +1160,10 @@ router.post("/requests/direct/:requestId/accept", async (req, res) => {
     },
   });
 
-  const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [
-    pendingRequest.requester.id,
-  ]);
-
   res.json({
     request: serializeDirectRequest(acceptedRequest, sessionUserId),
     thread: ensured.thread,
-    user: {
-      ...pendingRequest.requester,
-      trust:
-        trustSnapshots.get(pendingRequest.requester.id) ??
-        fallbackCleanIdTrustSnapshot,
-    },
+    user: pendingRequest.requester,
   });
 });
 
@@ -1896,25 +1842,10 @@ router.get("/threads", async (req, res) => {
     orderBy: [{ lastMessageAt: "desc" }, { updatedAt: "desc" }],
   });
 
-  const trustSnapshots = await buildCleanIdTrustSnapshots(
-    prisma,
-    threads.flatMap((thread) => [thread.UserA.id, thread.UserB.id]),
-  );
-
   res.json(
     threads.map((thread) => ({
       ...thread,
       mutedByMe: isThreadMutedForUser(userId, thread.id),
-      UserA: {
-        ...thread.UserA,
-        trust:
-          trustSnapshots.get(thread.UserA.id) ?? fallbackCleanIdTrustSnapshot,
-      },
-      UserB: {
-        ...thread.UserB,
-        trust:
-          trustSnapshots.get(thread.UserB.id) ?? fallbackCleanIdTrustSnapshot,
-      },
     })),
   );
 });

@@ -29,23 +29,6 @@ const ipadPro11Device = (({
 }))(devices["iPad Pro 11"]);
 
 const HORIZONTAL_OVERFLOW_TOLERANCE_PX = 8;
-
-const TRUST_CLEAR = {
-  score: 100,
-  band: "clear",
-  title: "Clear signal",
-  summary: "Stable, calm, and trusted.",
-  detail: "This CleanID has a consistent and healthy communication history.",
-  metrics: {
-    accountAgeDays: 400,
-    directThreads: 48,
-    sentMessages: 1480,
-    sustainedThreads: 28,
-    recentMessages: 34,
-    moderationPenalties: 0,
-  },
-} as const;
-
 const viewer = {
   id: 1,
   name: "Jeff",
@@ -53,7 +36,6 @@ const viewer = {
   cleanId: "jeff_clean",
   avatar: "AVATAR_LEO",
   gender: "male",
-  trust: TRUST_CLEAR,
 };
 
 const partner = {
@@ -63,17 +45,15 @@ const partner = {
   cleanId: "quiet_two",
   avatar: "AVATAR_SOPHIE",
   gender: "female",
-  trust: TRUST_CLEAR,
 };
 
 const targetUser = {
   id: 7,
-  name: "Signal Seven",
+  name: "Quiet Seven",
   email: "seven@example.com",
-  cleanId: "signal_seven",
+  cleanId: "quiet_seven",
   avatar: "AVATAR_LEO",
   gender: "non_binary",
-  trust: TRUST_CLEAR,
 };
 
 const nowIso = () => new Date().toISOString();
@@ -797,15 +777,6 @@ const pageTargets: PageTarget[] = [
     },
   },
   {
-    name: "profile-purity",
-    path: "/profile/purity",
-    authenticated: true,
-    readySelector: ".purity-detail-page",
-    smoke: async (page) => {
-      await expect(page.locator(".purity-detail-page")).toContainText("Clear");
-    },
-  },
-  {
     name: "profile-vault-redirect",
     path: "/profile/vault",
     authenticated: true,
@@ -823,7 +794,7 @@ const pageTargets: PageTarget[] = [
     readySelector: ".user-profile-page",
     smoke: async (page) => {
       await expect(page.locator(".user-profile-page")).toContainText(
-        "Signal Seven",
+        "Quiet Seven",
       );
     },
   },

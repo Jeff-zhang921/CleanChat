@@ -3,10 +3,6 @@ import { PrismaClient } from "@prisma/client";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 import { DEFAULT_AVATAR } from "../avatar";
-import {
-  buildCleanIdTrustSnapshots,
-  fallbackCleanIdTrustSnapshot,
-} from "../cleanIdTrust";
 import { authMiddleware, signAuthToken } from "../auth";
 
 const router = Router();
@@ -429,17 +425,13 @@ router.post("/email/verify", async (req, res) => {
     const isNewUser = !existingUser;
     const user = existingUser ? existingUser : await createAuthUser(email);
 
-    const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [user.id]);
     // Single-token auth: issue only one long-lived access token.
     const token = signAuthToken(user.id);
 
     res.json({
       message: "Login code verified",
       token,
-      user: {
-        ...user,
-        trust: trustSnapshots.get(user.id) ?? fallbackCleanIdTrustSnapshot,
-      },
+      user,
       isNewUser,
     });
   } catch (error) {
@@ -464,12 +456,8 @@ router.get("/me", authMiddleware, async (req, res) => {
       res.status(404).json({ error: "User not found" });
       return;
     }
-    const trustSnapshots = await buildCleanIdTrustSnapshots(prisma, [user.id]);
     res.json({
-      user: {
-        ...user,
-        trust: trustSnapshots.get(user.id) ?? fallbackCleanIdTrustSnapshot,
-      },
+      user,
     });
   } catch (error) {
     const details = error instanceof Error ? error.message : String(error);

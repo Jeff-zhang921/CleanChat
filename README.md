@@ -197,8 +197,7 @@ flowchart TB
     subgraph Ephemeral[Ephemeral Detail Views]
       C1[pages/chatPage.tsx]
       C2[pages/profileEdit.tsx]
-      C3[pages/purityDetail.tsx]
-      C4[pages/identityVault.tsx]
+      C3[pages/feedback.tsx]
     end
 
     S1[utils/unreadCounts.ts]
@@ -258,7 +257,7 @@ flowchart TB
 1. Always-mounted view pool
    - conversation/group/profile/settings initialize once and remain alive.
 2. Detail view lifecycle
-   - chat/profile-edit/purity/vault mount on entry and unmount on exit.
+   - chat/profile-edit/feedback/request detail views mount on entry and unmount on exit.
 3. Dormant mode
    - root keeps DOM and state but blocks interaction hit targets to prevent hidden-state clicks.
 4. Observer and subscription cleanup
@@ -329,8 +328,7 @@ Frontend/
       profileSettings.tsx
       chatPage.tsx
       profileEdit.tsx
-      purityDetail.tsx
-      identityVault.tsx
+      feedback.tsx
   public/
     sw.js
   tests/
@@ -431,11 +429,6 @@ npx playwright test --config=playwright.conversations.config.ts
 
 ### Canonical Lexicon (Cross-Locale)
 
-- Pristine signal
-  - zh-TW: 純粹信號
-  - zh: 纯净信号
-  - ko: 태초의 신호
-  - ja: 純粋な信号
 - Read the quiet ledger
   - zh-TW: 閱覽靜謐賬本
   - zh: 查阅宁静账本

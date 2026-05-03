@@ -12,11 +12,6 @@ import { BACKEND_URL, SOCKET_URL } from "../config";
 import { useCompactViewport } from "../hooks/useCompactViewport";
 import { useViewportOverscan } from "../hooks/useViewportOverscan";
 import {
-  FALLBACK_CLEAN_ID_TRUST,
-  type CleanIdTrustSnapshot,
-  getTrustToneLabel,
-} from "../utils/cleanIdTrust";
-import {
   GENDER_ARIA_KEY_MAP,
   normalizeGender,
   type GenderValue,
@@ -77,7 +72,6 @@ type UserSummary = {
   cleanId: string;
   avatar: AvatarKey;
   gender?: string | null;
-  trust: CleanIdTrustSnapshot;
 };
 
 type SessionUser = UserSummary;
@@ -117,7 +111,6 @@ type ConversationItem = {
   time: string;
   sortAt?: string | null;
   subline: string;
-  trust?: CleanIdTrustSnapshot;
   unreadCount: number;
   muted: boolean;
 };
@@ -163,7 +156,6 @@ type ConversationSkeletonCard = {
   id: string;
   chatType: "direct" | "group";
   role: string;
-  hasTrust: boolean;
   nameWidth: string;
   previewWidth: string;
   previewSecondaryWidth: string;
@@ -185,7 +177,6 @@ const FALLBACK_SKELETON_CARDS: ConversationSkeletonCard[] = [
     id: "skeleton-direct-a",
     chatType: "direct",
     role: "Direct",
-    hasTrust: true,
     nameWidth: "8.4rem",
     previewWidth: "84%",
     previewSecondaryWidth: "56%",
@@ -195,7 +186,6 @@ const FALLBACK_SKELETON_CARDS: ConversationSkeletonCard[] = [
     id: "skeleton-group-a",
     chatType: "group",
     role: "Group",
-    hasTrust: false,
     nameWidth: "7.1rem",
     previewWidth: "78%",
     previewSecondaryWidth: "48%",
@@ -205,7 +195,6 @@ const FALLBACK_SKELETON_CARDS: ConversationSkeletonCard[] = [
     id: "skeleton-direct-b",
     chatType: "direct",
     role: "Direct",
-    hasTrust: true,
     nameWidth: "7.8rem",
     previewWidth: "88%",
     previewSecondaryWidth: "60%",
@@ -215,7 +204,6 @@ const FALLBACK_SKELETON_CARDS: ConversationSkeletonCard[] = [
     id: "skeleton-direct-c",
     chatType: "direct",
     role: "Direct",
-    hasTrust: true,
     nameWidth: "6.6rem",
     previewWidth: "74%",
     previewSecondaryWidth: "52%",
@@ -1490,7 +1478,6 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         time: formatTime(lastActivityTime, i18n.language, t("conversations.new")),
         sortAt: lastActivityTime,
         subline: `@${other.cleanId}`,
-        trust: other.trust ?? FALLBACK_CLEAN_ID_TRUST,
         unreadCount: unreadCounts[getThreadUnreadKey(item.id)] ?? 0,
         muted: isConversationMuted(
           mutedConversations,
@@ -1538,7 +1525,6 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       id: item.id,
       chatType: item.chatType,
       role: item.role,
-      hasTrust: Boolean(item.trust),
       nameWidth: item.chatType === "group" ? "7.3rem" : index % 2 === 0 ? "8.2rem" : "6.9rem",
       previewWidth: item.chatType === "group" ? "81%" : index % 2 === 0 ? "87%" : "76%",
       previewSecondaryWidth: item.chatType === "group" ? "54%" : index % 2 === 0 ? "58%" : "49%",
@@ -1662,12 +1648,9 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
               <p className="role">{actionLabel}</p>
             </div>
             <div className="conversation-identity-row">
-              <p className={`conversation-subline conversation-cleanid conversation-cleanid-${user.trust?.band ?? "blurred"}`}>
+              <p className="conversation-subline conversation-cleanid">
                 @{user.cleanId}
               </p>
-              <span className={`conversation-trust-chip conversation-trust-chip-${user.trust?.band ?? "blurred"}`}>
-                {getTrustToneLabel(user.trust ?? FALLBACK_CLEAN_ID_TRUST)}
-              </span>
             </div>
             <p className="conversation-subline">{user.email}</p>
           </div>
@@ -1737,16 +1720,9 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         </div>
         <p className="preview">{item.preview}</p>
         <div className="conversation-identity-row">
-          <p
-            className={`conversation-subline ${item.trust ? `conversation-cleanid conversation-cleanid-${item.trust.band}` : ""}`}
-          >
+          <p className="conversation-subline conversation-cleanid">
             {item.subline}
           </p>
-          {item.trust && (
-            <span className={`conversation-trust-chip conversation-trust-chip-${item.trust.band}`}>
-              {getTrustToneLabel(item.trust)}
-            </span>
-          )}
         </div>
       </div>
     </>
@@ -1900,11 +1876,6 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
                           >
                             <span className="skeleton-surface cleanid-skeleton-core" style={{ width: item.sublineWidth }} />
                           </span>
-                          {item.hasTrust && (
-                            <span className="conversation-trust-chip conversation-trust-chip-skeleton">
-                              <span className="skeleton-surface trust-skeleton-core" />
-                            </span>
-                          )}
                         </div>
                       </div>
                     </article>
@@ -1959,7 +1930,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
               <div className="conversations-scroll-content">
                 <section className="conversations-empty-state">
                   <div className="conversations-empty-mark">
-                    <span className="conversation-cleanid conversation-cleanid-steady">@{me?.cleanId ?? "cleanid"}</span>
+                    <span className="conversation-cleanid">@{me?.cleanId ?? "cleanid"}</span>
                   </div>
                   <h3>{t("conversations.emptyTitle")}</h3>
                   <p>{t("conversations.emptyCopy")}</p>

@@ -27,30 +27,12 @@ const ipadPro11Device = (({
   isMobile,
   hasTouch,
 }))(devices["iPad Pro 11"]);
-
-const TRUST_CLEAR = {
-  score: 100,
-  band: "clear",
-  title: "Clear signal",
-  summary: "Stable, calm, and trusted.",
-  detail: "This CleanID has a consistent and healthy communication history.",
-  metrics: {
-    accountAgeDays: 400,
-    directThreads: 48,
-    sentMessages: 1480,
-    sustainedThreads: 28,
-    recentMessages: 34,
-    moderationPenalties: 0,
-  },
-} as const;
-
 const viewer = {
   id: 1,
   name: "Jeff",
   email: "zjingxiang527@gmail.com",
   cleanId: "jeff",
   avatar: "AVATAR_LEO",
-  trust: TRUST_CLEAR,
 };
 
 const buildThreads = () =>
@@ -74,12 +56,6 @@ const buildThreads = () =>
         email: `quiet${partnerId}@example.com`,
         cleanId: `quiet_${partnerId}`,
         avatar: "AVATAR_SOPHIE",
-        trust: {
-          ...TRUST_CLEAR,
-          score: 84,
-          band: partnerId % 3 === 0 ? "steady" : "clear",
-          title: partnerId % 3 === 0 ? "Steady signal" : "Clear signal",
-        },
       },
       Messages: [
         {
