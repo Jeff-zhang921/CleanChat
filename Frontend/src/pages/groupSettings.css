@@ -121,6 +121,7 @@
 }
 
 .group-settings-row-copy {
+  min-width: 0;
   display: grid;
   gap: 0.34rem;
 }
@@ -140,6 +141,7 @@
 }
 
 .group-settings-toggle {
+  flex: 0 0 auto;
   width: 3.1rem;
   height: 1.84rem;
   border-radius: 999px;

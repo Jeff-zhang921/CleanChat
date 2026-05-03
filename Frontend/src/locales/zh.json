@@ -19,7 +19,17 @@
     "primaryNavigation": "主导航",
     "chats": "聊天",
     "groups": "群组",
+    "discover": "发现",
     "me": "我的"
+  },
+  "discover": {
+    "title": "发现",
+    "heading": "发现",
+    "subtitle": "这里会承载新的内容、社区信号和产品实验。",
+    "cardLabel": "发现页开发状态",
+    "cardEyebrow": "即将上线",
+    "inDevelopment": "更多新内容正在开发。",
+    "inDevelopmentCopy": "发现页已经接入主导航，后续内容会在这里展开。"
   },
   "language": {
     "label": "语言 / Language",
@@ -485,6 +495,8 @@
     "editProfileNote": "调整昵称和 CleanID，不影响身份库权限",
     "settings": "设置",
     "settingsNote": "通知、会话控制与账户删除",
+    "feedback": "反馈",
+    "feedbackNote": "把消息直接发送给 CleanChat 维护者",
     "manageUserRequests": "管理用户请求",
     "userRequestsNote": "集中处理私聊验证申请",
     "manageGroupAccess": "管理群组准入",
@@ -549,6 +561,25 @@
     "noPendingRequests": "该群组当前没有待处理申请。",
     "approve": "批准",
     "reject": "拒绝"
+  },
+  "feedback": {
+    "title": "反馈",
+    "heading": "告诉我们需要改进的地方。",
+    "subtitle": "你的消息会直接发送到项目邮箱。",
+    "threadLabel": "反馈对话",
+    "destinationLabel": "收件人",
+    "destinationEmail": "zjingxiang527@gmail.com",
+    "draftPlaceholder": "在下方输入反馈。",
+    "messageLabel": "消息",
+    "messagePlaceholder": "输入你的反馈...",
+    "characterCount": "{{count}} / 1200",
+    "send": "发送",
+    "sending": "发送中...",
+    "messageRequired": "请先输入反馈内容。",
+    "sendFailed": "反馈发送失败。",
+    "sentEyebrow": "已发送",
+    "sentTitle": "反馈已发送",
+    "sentCopy": "你的反馈已发送。"
   },
   "userProfile": {
     "title": "用户资料",

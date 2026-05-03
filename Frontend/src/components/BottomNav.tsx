@@ -5,7 +5,7 @@ import { useNotificationBadges } from "../state/notificationBadgeContext";
 import "./BottomNav.css";
 
 type NavIconProps = {
-  kind: "conversations" | "groups" | "profile";
+  kind: "conversations" | "groups" | "discover" | "profile";
   active: boolean;
 };
 
@@ -40,6 +40,15 @@ const NavIcon = ({ kind, active }: NavIconProps) => {
     );
   }
 
+  if (kind === "discover") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="bottom-nav-icon">
+        <path {...common} d="M12 3.8 14.15 9l5.6.45-4.25 3.62 1.3 5.48L12 15.64l-4.8 2.91 1.3-5.48-4.25-3.62L9.85 9 12 3.8Z" />
+        <path {...common} d="M12 8.6v3.5l2.2 1.2" />
+      </svg>
+    );
+  }
+
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="bottom-nav-icon">
       <path {...common} d="M12 12.5a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
@@ -55,6 +64,7 @@ const BottomNav = () => {
   const items = [
     { to: "/conversations", label: t("nav.chats"), kind: "conversations" as const },
     { to: "/groups", label: t("nav.groups"), kind: "groups" as const },
+    { to: "/discover", label: t("nav.discover"), kind: "discover" as const },
     { to: "/profile", label: t("nav.me"), kind: "profile" as const },
   ];
 
@@ -87,7 +97,9 @@ const BottomNav = () => {
                       count:
                         item.kind === "conversations"
                           ? totalUnreadMessages
-                          : pendingVerificationTotal,
+                          : item.kind === "profile"
+                            ? pendingVerificationTotal
+                            : 0,
                     })}
                   />
                 </span>

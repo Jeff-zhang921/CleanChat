@@ -19,7 +19,17 @@
     "primaryNavigation": "Primary navigation",
     "chats": "Chats",
     "groups": "Groups",
+    "discover": "Discover",
     "me": "Me"
+  },
+  "discover": {
+    "title": "Discover",
+    "heading": "Discover",
+    "subtitle": "A quieter place for new surfaces, community signals, and product experiments.",
+    "cardLabel": "Discover development status",
+    "cardEyebrow": "Coming soon",
+    "inDevelopment": "More new content is in development.",
+    "inDevelopmentCopy": "This page is connected to the main navigation and ready for the next release surface."
   },
   "language": {
     "label": "Language / 语言",
@@ -485,6 +495,8 @@
     "editProfileNote": "Adjust display name and CleanID without touching vault privileges",
     "settings": "Settings",
     "settingsNote": "Notifications, session controls, and account removal",
+    "feedback": "Feedback",
+    "feedbackNote": "Send a message directly to the CleanChat maintainer",
     "manageUserRequests": "Manage User Requests",
     "userRequestsNote": "Review incoming direct-chat verifications",
     "manageGroupAccess": "Manage Group Access",
@@ -549,6 +561,25 @@
     "noPendingRequests": "No pending requests for this group.",
     "approve": "Approve",
     "reject": "Reject"
+  },
+  "feedback": {
+    "title": "Feedback",
+    "heading": "Tell us what needs attention.",
+    "subtitle": "Your message is sent directly to the project mailbox.",
+    "threadLabel": "Feedback conversation",
+    "destinationLabel": "Recipient",
+    "destinationEmail": "zjingxiang527@gmail.com",
+    "draftPlaceholder": "Write feedback below.",
+    "messageLabel": "Message",
+    "messagePlaceholder": "Type your feedback...",
+    "characterCount": "{{count}} / 1200",
+    "send": "Send",
+    "sending": "Sending...",
+    "messageRequired": "Please enter feedback before sending.",
+    "sendFailed": "Failed to send feedback.",
+    "sentEyebrow": "Sent",
+    "sentTitle": "Feedback sent",
+    "sentCopy": "Your feedback has been sent."
   },
   "userProfile": {
     "title": "User Profile",

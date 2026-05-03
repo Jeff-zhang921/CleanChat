@@ -239,6 +239,18 @@ const ProfilePage = () => {
     });
   };
 
+  const openFeedback = () => {
+    if (!user) return;
+    setStatus("");
+    navigate("/profile/feedback", {
+      state: {
+        user,
+        spatialTransition: "push",
+        returnTo: "/profile",
+      } satisfies ProfileRouteState,
+    });
+  };
+
   const openUserRequestHub = () => {
     navigate("/profile/requests/users", {
       state: {
@@ -740,6 +752,13 @@ const ProfilePage = () => {
                   <span className="profile-action-row-copy">
                     <span className="profile-action-row-title">{t("profile.settings")}</span>
                     <span className="profile-action-row-note">{t("profile.settingsNote")}</span>
+                  </span>
+                  <span className="profile-action-row-arrow" aria-hidden="true">{"\u2192"}</span>
+                </button>
+                <button type="button" className="profile-action-row" onClick={openFeedback}>
+                  <span className="profile-action-row-copy">
+                    <span className="profile-action-row-title">{t("profile.feedback")}</span>
+                    <span className="profile-action-row-note">{t("profile.feedbackNote")}</span>
                   </span>
                   <span className="profile-action-row-arrow" aria-hidden="true">{"\u2192"}</span>
                 </button>

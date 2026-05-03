@@ -19,15 +19,18 @@ import GroupRequestPage from './pages/groupRequestPage'
 import PurityDetailPage from './pages/purityDetail'
 import IdentityVaultPage from './pages/identityVault'
 import ProfileSettingsPage from './pages/profileSettings'
+import FeedbackPage from './pages/feedback'
+import DiscoverPage from './pages/discover'
 import { NotificationBadgeProvider } from './state/notificationBadgeContext';
 import { getAuthToken } from './utils/auth';
 
 type PretextBackdropVariant = 'auth' | 'app';
-type RootViewKey = 'conversations' | 'groups' | 'profile' | 'settings';
+type RootViewKey = 'conversations' | 'groups' | 'discover' | 'profile' | 'settings';
 type DetailViewKey =
   | 'chat'
   | 'chat-settings'
   | 'group-settings'
+  | 'feedback'
   | 'profile-edit'
   | 'profile-purity'
   | 'profile-vault'
@@ -234,6 +237,7 @@ const resolveRootViewFromPath = (
   fallback: RootViewKey = 'conversations'
 ): RootViewKey => {
   if (pathname === '/groups') return 'groups';
+  if (pathname === '/discover') return 'discover';
   if (pathname === '/profile/settings') return 'settings';
   if (pathname.startsWith('/profile')) return 'profile';
   if (pathname === '/conversations') return 'conversations';
@@ -244,6 +248,7 @@ const resolveDetailViewFromPath = (pathname: string): DetailViewKey => {
   if (pathname === '/chat/settings') return 'chat-settings';
   if (pathname === '/chat/group/settings') return 'group-settings';
   if (pathname === '/chat' || pathname.startsWith('/chat/')) return 'chat';
+  if (pathname === '/profile/feedback') return 'feedback';
   if (/^\/profile\/user\/\d+$/.test(pathname)) return 'profile-user';
   if (pathname === '/profile/request-chat') return 'send-chat-request';
   if (pathname === '/profile/requests/users') return 'user-requests';
@@ -257,8 +262,10 @@ const resolveDetailViewFromPath = (pathname: string): DetailViewKey => {
 const isKnownHybridPath = (pathname: string) => {
   if (pathname === '/conversations') return true;
   if (pathname === '/groups') return true;
+  if (pathname === '/discover') return true;
   if (pathname === '/profile') return true;
   if (pathname === '/profile/settings') return true;
+  if (pathname === '/profile/feedback') return true;
   if (pathname === '/profile/edit') return true;
   if (/^\/profile\/user\/\d+$/.test(pathname)) return true;
   if (pathname === '/profile/request-chat') return true;
@@ -305,6 +312,7 @@ const HybridAppShell = () => {
   const [mountedRootViews, setMountedRootViews] = useState<Record<RootViewKey, boolean>>(() => ({
     conversations: true,
     groups: initialRoot === 'groups',
+    discover: initialRoot === 'discover',
     profile: initialRoot === 'profile' || initialRoot === 'settings',
     settings: initialRoot === 'settings',
   }));
@@ -345,6 +353,7 @@ const HybridAppShell = () => {
     }
 
     if (
+      detailView === 'feedback' ||
       detailView === 'profile-edit' ||
       detailView === 'profile-purity' ||
       detailView === 'profile-vault' ||
@@ -400,6 +409,14 @@ const HybridAppShell = () => {
       return (
         <div className="hybrid-detail-surface" role="presentation">
           <GroupSettingsPage />
+        </div>
+      );
+    }
+
+    if (detailView === 'feedback') {
+      return (
+        <div className="hybrid-detail-surface" role="presentation">
+          <FeedbackPage />
         </div>
       );
     }
@@ -483,6 +500,15 @@ const HybridAppShell = () => {
             aria-hidden={hasDetailOverlay || activeRootView !== 'groups'}
           >
             <GroupConversationPage />
+          </section>
+        )}
+
+        {mountedRootViews.discover && (
+          <section
+            className={`hybrid-root-view ${activeRootView === 'discover' ? 'is-active' : ''} ${hasDetailOverlay && activeRootView === 'discover' ? 'is-sleeping' : ''}`}
+            aria-hidden={hasDetailOverlay || activeRootView !== 'discover'}
+          >
+            <DiscoverPage />
           </section>
         )}
 

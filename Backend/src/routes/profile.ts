@@ -1,5 +1,6 @@
 import { Request, Response, Router } from "express";
 import { Avatar, PrismaClient } from "@prisma/client";
+import nodemailer from "nodemailer";
 import {
   DEFAULT_AVATAR,
   buildAvatarAccess,
@@ -18,6 +19,29 @@ import { authMiddleware } from "../auth";
 import { getPushConfigurationStatus, getVapidPublicKey } from "../push";
 const router = Router();
 const prisma = new PrismaClient();
+
+const SMTP_USER = process.env.SMTP_USER || "";
+const SMTP_PASS = process.env.SMTP_PASS || "";
+const SMTP_FROM =
+  process.env.SMTP_FROM || SMTP_USER || "CleanChat <no-reply@CleanChat.local>";
+const FEEDBACK_RECIPIENT =
+  process.env.FEEDBACK_RECIPIENT || "zjingxiang527@gmail.com";
+const feedbackMailer =
+  SMTP_USER && SMTP_PASS
+    ? nodemailer.createTransport({
+        service: "gmail",
+        pool: true,
+        maxConnections: 2,
+        maxMessages: 100,
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 15_000,
+        auth: {
+          user: SMTP_USER,
+          pass: SMTP_PASS,
+        },
+      })
+    : null;
 
 const GENDER_VALUES = ["male", "female", "non_binary", "hidden"] as const;
 type GenderValue = (typeof GENDER_VALUES)[number];
@@ -63,6 +87,52 @@ const buildProfilePayload = <T extends { id: number; cleanId: string }>(
     shortIdClaim: buildCleanIdShortClaim(user.cleanId, trust),
     avatarAccess: buildAvatarAccess(trust, currentAvatar),
   };
+};
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const sendFeedbackEmail = async (
+  user: NonNullable<Awaited<ReturnType<typeof loadCurrentUser>>>,
+  message: string,
+) => {
+  if (!feedbackMailer) {
+    throw new Error("Feedback email is not configured.");
+  }
+
+  const fromName = user.name?.trim() || user.cleanId || user.email;
+  const cleanId = user.cleanId ? `@${user.cleanId}` : "No CleanID";
+  const subject = `CleanChat feedback from ${fromName}`;
+  const text = `Feedback from ${fromName}
+Email: ${user.email}
+CleanID: ${cleanId}
+User ID: ${user.id}
+
+${message}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.55;">
+      <h2>CleanChat feedback</h2>
+      <p><strong>From:</strong> ${escapeHtml(fromName)}</p>
+      <p><strong>Email:</strong> ${escapeHtml(user.email)}</p>
+      <p><strong>CleanID:</strong> ${escapeHtml(cleanId)}</p>
+      <p><strong>User ID:</strong> ${user.id}</p>
+      <hr />
+      <p style="white-space: pre-wrap;">${escapeHtml(message)}</p>
+    </div>
+  `;
+
+  await feedbackMailer.sendMail({
+    from: SMTP_FROM,
+    to: FEEDBACK_RECIPIENT,
+    subject,
+    text,
+    html,
+  });
 };
 
 router.get("/me", async (req, res) => {
@@ -366,6 +436,43 @@ router.delete("/me", async (req, res) => {
   } catch (error) {
     const details = error instanceof Error ? error.message : String(error);
     res.status(500).json({ error: "Failed to delete account.", details });
+  }
+});
+
+router.post("/feedback", async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+
+  const sessionUser = await loadCurrentUser(userId);
+  if (!sessionUser) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  const message =
+    typeof req.body?.message === "string" ? req.body.message.trim() : "";
+  if (!message) {
+    return res.status(400).json({ error: "Feedback message is required." });
+  }
+  if (message.length > 1200) {
+    return res.status(400).json({
+      error: "Feedback message must be 1200 characters or fewer.",
+    });
+  }
+
+  try {
+    await sendFeedbackEmail(sessionUser, message);
+    res.status(202).json({
+      message: "Feedback sent.",
+      recipient: FEEDBACK_RECIPIENT,
+    });
+  } catch (error) {
+    const details = error instanceof Error ? error.message : String(error);
+    res.status(503).json({
+      error: "Failed to send feedback email.",
+      details,
+    });
   }
 });
 
