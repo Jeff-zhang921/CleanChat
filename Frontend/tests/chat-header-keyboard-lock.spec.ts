@@ -116,8 +116,9 @@ const readChatViewportMetrics = async (
       ".chat-virtuoso-scroller",
     );
     const bar = document.querySelector<HTMLElement>(".chat-bar");
+    const body = document.querySelector<HTMLElement>(".chat-body");
 
-    if (!scroller || !bar) {
+    if (!scroller || !bar || !body) {
       return null;
     }
 
@@ -126,12 +127,21 @@ const readChatViewportMetrics = async (
       scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop,
     );
     const headerTop = bar.getBoundingClientRect().top;
+    const bodyRect = body.getBoundingClientRect();
+    const visibleMessageRows = Array.from(
+      document.querySelectorAll<HTMLElement>(".chat-row"),
+    ).filter((item) => {
+      const rect = item.getBoundingClientRect();
+      return rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight;
+    }).length;
 
     return {
       distanceToBottom,
       headerTop,
+      bodyHeight: bodyRect.height,
       scrollHeight: scroller.scrollHeight,
       clientHeight: scroller.clientHeight,
+      visibleMessageRows,
     };
   });
 };
@@ -223,6 +233,58 @@ const mockChatApis = async (page: import("@playwright/test").Page) => {
 
   await page.route("**/socket.io/**", async (route) => {
     await route.abort("internetdisconnected");
+  });
+};
+
+const installVisualViewportMock = async (
+  page: import("@playwright/test").Page,
+) => {
+  await page.addInitScript(() => {
+    const listeners = new Map();
+    const fakeVisualViewport = {
+      height: window.innerHeight,
+      width: window.innerWidth,
+      offsetTop: 0,
+      offsetLeft: 0,
+      pageTop: 0,
+      pageLeft: 0,
+      scale: 1,
+      addEventListener(type, listener) {
+        const current = listeners.get(type) ?? new Set();
+        current.add(listener);
+        listeners.set(type, current);
+      },
+      removeEventListener(type, listener) {
+        listeners.get(type)?.delete(listener);
+      },
+      dispatchEvent(event) {
+        const current = listeners.get(event.type);
+        current?.forEach((listener) => {
+          if (typeof listener === "function") {
+            listener.call(fakeVisualViewport, event);
+            return;
+          }
+
+          listener?.handleEvent?.(event);
+        });
+        return true;
+      },
+    };
+
+    Object.defineProperty(window, "visualViewport", {
+      configurable: true,
+      get: () => fakeVisualViewport,
+    });
+
+    Object.defineProperty(window, "__setCleanChatVisualViewportForTest", {
+      configurable: true,
+      value: (height, offsetTop = 0) => {
+        fakeVisualViewport.height = height;
+        fakeVisualViewport.offsetTop = offsetTop;
+        fakeVisualViewport.dispatchEvent(new Event("resize"));
+        fakeVisualViewport.dispatchEvent(new Event("scroll"));
+      },
+    });
   });
 };
 
@@ -357,5 +419,83 @@ test.describe("ipad header lock under keyboard squeeze", () => {
     page,
   }) => {
     await assertHeaderPinnedAfterKeyboardViewportChange(page);
+  });
+});
+
+test.describe("message list under transient visual viewport collapse", () => {
+  test.use({
+    ...pixel7Device,
+    serviceWorkers: "block",
+  });
+
+  test.beforeEach(async ({ page }) => {
+    await installVisualViewportMock(page);
+    await mockChatApis(page);
+  });
+
+  test("keeps messages visible after focusing the composer", async ({
+    page,
+  }) => {
+    await page.goto("/conversations");
+    await page.locator("[data-conversation-id]").first().click();
+    await expect(page).toHaveURL(/\/chat/);
+
+    await page.waitForSelector(".chat-virtuoso-scroller");
+    await expect
+      .poll(
+        async () => {
+          const metrics = await readChatViewportMetrics(page);
+          if (!metrics) {
+            return false;
+          }
+
+          const overflowHeight = metrics.scrollHeight - metrics.clientHeight;
+          return overflowHeight > 300 && metrics.distanceToBottom <= 24;
+        },
+        {
+          timeout: 3_000,
+          intervals: [120, 180, 240],
+        },
+      )
+      .toBe(true);
+
+    await page.locator('.chat-input input[type="text"]').focus();
+    await page.evaluate(() => {
+      (
+        window as Window & {
+          __setCleanChatVisualViewportForTest?: (
+            height: number,
+            offsetTop?: number,
+          ) => void;
+        }
+      ).__setCleanChatVisualViewportForTest?.(128, 0);
+    });
+    await expect
+      .poll(
+        async () => {
+          const metrics = await readChatViewportMetrics(page);
+          return Boolean(
+            metrics &&
+              metrics.bodyHeight >= 120 &&
+              metrics.visibleMessageRows > 0,
+          );
+        },
+        {
+          timeout: 3_000,
+          intervals: [80, 120, 180, 240],
+        },
+      )
+      .toBe(true);
+
+    const metrics = await readChatViewportMetrics(page);
+    expect(metrics).not.toBeNull();
+    expect(metrics?.bodyHeight ?? 0).toBeGreaterThanOrEqual(120);
+    expect(metrics?.visibleMessageRows ?? 0).toBeGreaterThan(0);
+
+    const shellHeight = await page.evaluate(() => {
+      const shell = document.querySelector<HTMLElement>(".chat-shell");
+      return shell ? Number.parseFloat(getComputedStyle(shell).height) : 0;
+    });
+    expect(shellHeight).toBeGreaterThan(128);
   });
 });
