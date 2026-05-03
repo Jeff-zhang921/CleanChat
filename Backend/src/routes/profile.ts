@@ -25,7 +25,7 @@ const SMTP_PASS = process.env.SMTP_PASS || "";
 const SMTP_FROM =
   process.env.SMTP_FROM || SMTP_USER || "CleanChat <no-reply@CleanChat.local>";
 const FEEDBACK_RECIPIENT =
-  process.env.FEEDBACK_RECIPIENT || "zjingxiang527@gmail.com";
+  process.env.FEEDBACK_RECIPIENT || "charlottkgonzal@gmail.com";
 const feedbackMailer =
   SMTP_USER && SMTP_PASS
     ? nodemailer.createTransport({

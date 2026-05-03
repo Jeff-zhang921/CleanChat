@@ -257,7 +257,7 @@ const handleBackendRoute = async (route: Route) => {
       route,
       {
         message: "Feedback sent.",
-        recipient: "zjingxiang527@gmail.com",
+        recipient: "charlottkgonzal@gmail.com",
       },
       202,
     );
