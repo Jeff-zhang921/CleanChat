@@ -1,0 +1,134 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap");
+
+.discover-shell {
+  --discover-ink: #17211a;
+  --discover-muted: rgba(23, 33, 26, 0.68);
+  min-height: 100svh;
+  min-height: 100dvh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(64rem 34rem at 82% -12%, rgba(62, 128, 104, 0.14), transparent 62%),
+    linear-gradient(180deg, #f7f1e7 0%, #f2ebdc 100%);
+  color: var(--discover-ink);
+  font-family: "Manrope", sans-serif;
+  overflow: hidden;
+}
+
+.discover-page {
+  width: min(100%, 60rem);
+  margin: 0 auto;
+  padding:
+    clamp(1rem, 2.8vw, 1.8rem)
+    clamp(0.92rem, 2.4vw, 1.6rem)
+    clamp(1rem, 2vw, 1.4rem);
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+.discover-hero {
+  display: grid;
+  gap: 0.38rem;
+}
+
+.discover-eyebrow {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #1f8a5b;
+}
+
+.discover-hero h1 {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(1.7rem, 4vw, 2.6rem);
+  line-height: 1.02;
+}
+
+.discover-hero p:last-child,
+.discover-card p:last-child {
+  margin: 0;
+  max-width: 42rem;
+  color: var(--discover-muted);
+  line-height: 1.55;
+}
+
+.discover-card {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 1.3rem;
+  background:
+    radial-gradient(circle at 90% 10%, rgba(214, 250, 232, 0.72), transparent 38%),
+    rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    0 20px 44px rgba(20, 38, 28, 0.1);
+  padding: clamp(1rem, 3vw, 1.45rem);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.9rem;
+  align-items: center;
+}
+
+.discover-card-mark {
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(31, 138, 91, 0.16);
+  background:
+    linear-gradient(135deg, rgba(31, 138, 91, 0.9), rgba(87, 184, 126, 0.86)),
+    #1f8a5b;
+  box-shadow: 0 16px 32px rgba(31, 138, 91, 0.18);
+  position: relative;
+}
+
+.discover-card-mark::before,
+.discover-card-mark::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.discover-card-mark::before {
+  width: 1.45rem;
+  height: 0.2rem;
+  left: 0.88rem;
+  top: 1.48rem;
+}
+
+.discover-card-mark::after {
+  width: 0.2rem;
+  height: 1.45rem;
+  left: 1.5rem;
+  top: 0.86rem;
+}
+
+.discover-card h2 {
+  margin: 0.18rem 0 0.24rem;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+}
+
+@media (min-width: 1100px) {
+  .discover-page {
+    padding-left: calc(clamp(6.75rem, 7vw, 8rem) + clamp(1.1rem, 1.8vw, 1.8rem));
+  }
+}
+
+@media (max-width: 640px) {
+  .discover-card {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+}
