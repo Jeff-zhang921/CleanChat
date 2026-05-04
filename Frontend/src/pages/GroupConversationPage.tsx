@@ -102,6 +102,27 @@ const GroupConversationPage = () => {
   const [isLoadingInvitations, setIsLoadingInvitations] = useState(false);
   const [processingInvitationId, setProcessingInvitationId] = useState<number | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const statusToastTimeoutRef = useRef<number | null>(null);
+
+  const showStatusToast = (toastMessage: string, durationMs = 2200) => {
+    setStatus(toastMessage);
+    if (statusToastTimeoutRef.current !== null) {
+      window.clearTimeout(statusToastTimeoutRef.current);
+    }
+
+    statusToastTimeoutRef.current = window.setTimeout(() => {
+      setStatus((current) => (current === toastMessage ? "" : current));
+      statusToastTimeoutRef.current = null;
+    }, durationMs);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (statusToastTimeoutRef.current !== null) {
+        window.clearTimeout(statusToastTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!isSearchExpanded) return;
@@ -283,7 +304,7 @@ const GroupConversationPage = () => {
         prev.map((item) => (item.id === group.id ? joinedGroup ?? { ...item, joined: true } : item))
       );
       if (data.pendingApproval) {
-        setStatus(data.message || t("groups.joinRequestSent"));
+        showStatusToast(data.message || t("groups.joinRequestSent"));
         return;
       }
       setStatus("");
