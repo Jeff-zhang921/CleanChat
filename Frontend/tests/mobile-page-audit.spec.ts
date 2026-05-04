@@ -163,6 +163,23 @@ const directRequestEntry = {
   user: targetUser,
 };
 
+const groupInvitationEntry = {
+  id: 71,
+  groupId: "beta",
+  createdAt: nowIso(),
+  group: {
+    ...groups[1],
+    joined: false,
+    joinRequestStatus: "none",
+  },
+  inviter: {
+    id: partner.id,
+    name: partner.name,
+    email: partner.email,
+    cleanId: partner.cleanId,
+  },
+};
+
 const routeJson = async (route: Route, body: unknown, status = 200) => {
   await route.fulfill({
     status,
@@ -305,6 +322,11 @@ const handleBackendRoute = async (route: Route) => {
     return;
   }
 
+  if (path === "/chat/groups/invitations/received" && method === "GET") {
+    await routeJson(route, { invitations: [groupInvitationEntry] });
+    return;
+  }
+
   if (path === "/chat/groups" && method === "POST") {
     await routeJson(route, {
       group: {
@@ -313,6 +335,56 @@ const handleBackendRoute = async (route: Route) => {
         name: "Created Group",
         joined: true,
         isOwner: true,
+      },
+    });
+    return;
+  }
+
+  if (path === "/chat/users/search" && method === "GET") {
+    await routeJson(route, {
+      users: [
+        {
+          id: targetUser.id,
+          name: targetUser.name,
+          email: targetUser.email,
+          cleanId: targetUser.cleanId,
+          avatar: targetUser.avatar,
+          gender: targetUser.gender,
+        },
+      ],
+    });
+    return;
+  }
+
+  if (/^\/chat\/groups\/[^/]+\/invitations$/.test(path) && method === "POST") {
+    await routeJson(
+      route,
+      {
+        group: groups[0],
+        invitation: {
+          id: 72,
+          groupId: "alpha",
+          inviterUserId: viewer.id,
+          targetUserId: targetUser.id,
+          createdAt: nowIso(),
+        },
+        targetUser,
+        alreadyInvited: false,
+      },
+      201,
+    );
+    return;
+  }
+
+  if (
+    /^\/chat\/groups\/invitations\/\d+\/(?:accept|reject)$/.test(path) &&
+    method === "POST"
+  ) {
+    await routeJson(route, {
+      group: {
+        ...groups[1],
+        joined: true,
+        joinRequestStatus: "none",
       },
     });
     return;
@@ -652,11 +724,30 @@ const pageTargets: PageTarget[] = [
       ).toBeVisible();
       await activeRoot.locator(".search-input-wrap input").fill("alpha");
       await activeRoot.locator(".search-dismiss").click();
+
+      await activeRoot.locator(".groups-invitations-trigger").click();
+      await expect(page.locator(".groups-invitations-modal")).toBeVisible();
+      await expect(page.locator(".groups-invitations-list li")).toHaveCount(1);
+      await page.locator(".groups-invitations-actions .group-action.invite").click();
+      await expect(page.locator(".groups-invitations-list li")).toHaveCount(0);
+      await page.locator(".groups-invitations-modal .group-action.cancel").click();
+      await expect(page.locator(".groups-invitations-modal")).toBeHidden();
+
+      await activeRoot.locator(".group-action.invite:visible").first().click();
+      await expect(page.locator(".groups-invite-modal")).toBeVisible();
+      await page.locator(".groups-invite-field input[type='search']").fill("quiet");
+      await expect(page.locator(".groups-invite-results li")).toHaveCount(1);
+      await page.locator(".groups-invite-results .group-action.invite").click();
+      await expect(page.locator(".groups-invite-status")).toBeVisible();
+      await page.locator(".groups-invite-modal .group-action.cancel").click();
+      await expect(page.locator(".groups-invite-modal")).toBeHidden();
+
       await activeRoot.locator(".group-action.create:visible").first().click();
       await expect(
         page.locator(".groups-create-modal .group-create-panel"),
       ).toBeVisible();
-      await page.keyboard.press("Escape");
+      await page.locator(".groups-create-modal .group-action.cancel").click();
+      await expect(page.locator(".groups-create-modal")).toBeHidden();
     },
   },
   {

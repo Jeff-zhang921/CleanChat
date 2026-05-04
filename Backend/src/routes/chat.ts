@@ -3,12 +3,15 @@ import { ChatRequestStatus, PrismaClient } from "@prisma/client";
 import multer from "multer";
 import { UTApi, UTFile } from "uploadthing/server";
 import {
+  acceptGroupInvitation,
   approveGroupJoinRequest,
   createGroup,
   deleteGroup,
   GROUP_AVATAR_KEYS,
   getGroupById,
+  inviteUserToGroup,
   isValidGroupAvatarKey,
+  listGroupInvitationsForUser,
   listGroupJoinRequests,
   joinGroup,
   leaveGroup,
@@ -16,6 +19,7 @@ import {
   listGroupMessages,
   listGroupsForUser,
   normalizeGroupId,
+  rejectGroupInvitation,
   rejectGroupJoinRequest,
   updateGroupAvatar,
   updateGroupJoinPolicy,
@@ -1243,6 +1247,43 @@ router.get("/groups", async (req, res) => {
   res.json({ groups });
 });
 
+router.get("/groups/invitations/received", async (req, res) => {
+  const sessionUserId = req.user?.userId;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const invitationItems = listGroupInvitationsForUser(sessionUserId);
+  const inviterIds = [
+    ...new Set(invitationItems.map((item) => item.invitation.inviterUserId)),
+  ];
+  const inviters =
+    inviterIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: inviterIds } },
+          select: { id: true, name: true, email: true, cleanId: true },
+        })
+      : [];
+  const inviterMap = new Map(inviters.map((user) => [user.id, user]));
+
+  const invitations = invitationItems
+    .map((item) => {
+      const inviter = inviterMap.get(item.invitation.inviterUserId);
+      if (!inviter) return null;
+      return {
+        id: item.invitation.id,
+        groupId: item.invitation.groupId,
+        createdAt: item.invitation.createdAt,
+        group: item.summary,
+        inviter,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
+
+  res.status(200).json({ invitations });
+});
+
 router.post("/groups", async (req, res) => {
   const sessionUserId = req.user?.userId;
   if (!ensureAuth(sessionUserId)) {
@@ -1332,6 +1373,123 @@ router.post("/groups/:groupId/join", async (req, res) => {
     pendingApproval: false,
     alreadyRequested: false,
   });
+});
+
+router.post("/groups/:groupId/invitations", async (req, res) => {
+  const sessionUserId = req.user?.userId;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const groupId = normalizeGroupId(req.params.groupId);
+  if (!groupId) {
+    res.status(400).json({ message: "Invalid group ID." });
+    return;
+  }
+
+  const targetUserId = parsePositiveInt(
+    req.body?.targetUserId ?? req.body?.userId,
+  );
+  if (!targetUserId) {
+    res.status(400).json({ message: "Invalid target user ID." });
+    return;
+  }
+
+  const targetUser = await prisma.user.findUnique({
+    where: { id: targetUserId },
+    select: { id: true, name: true, email: true, cleanId: true },
+  });
+  if (!targetUser) {
+    res.status(404).json({ message: "Target user not found." });
+    return;
+  }
+
+  const invited = inviteUserToGroup(groupId, sessionUserId, targetUserId);
+  if (!invited.invited) {
+    if (invited.reason === "forbidden") {
+      res
+        .status(403)
+        .json({ message: "Join this group before inviting others." });
+      return;
+    }
+    if (invited.reason === "self") {
+      res.status(400).json({ message: "You cannot invite yourself." });
+      return;
+    }
+    if (invited.reason === "already_member") {
+      res.status(409).json({ message: "This user is already in the group." });
+      return;
+    }
+    res.status(404).json({ message: "Group not found." });
+    return;
+  }
+
+  res.status(invited.alreadyInvited ? 200 : 201).json({
+    group: invited.summary,
+    invitation: invited.invitation,
+    targetUser,
+    alreadyInvited: invited.alreadyInvited,
+    message: invited.alreadyInvited
+      ? "Invitation already sent."
+      : "Invitation sent.",
+  });
+});
+
+router.post("/groups/invitations/:invitationId/accept", async (req, res) => {
+  const sessionUserId = req.user?.userId;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const invitationId = parsePositiveInt(req.params.invitationId);
+  if (!invitationId) {
+    res.status(400).json({ message: "Invalid invitation ID." });
+    return;
+  }
+
+  const accepted = acceptGroupInvitation(invitationId, sessionUserId);
+  if (!accepted.accepted) {
+    if (accepted.reason === "forbidden") {
+      res.status(403).json({ message: "This invitation is not for you." });
+      return;
+    }
+    if (accepted.reason === "group_not_found") {
+      res.status(404).json({ message: "Group not found." });
+      return;
+    }
+    res.status(404).json({ message: "Invitation not found." });
+    return;
+  }
+
+  res.status(200).json({ group: accepted.summary });
+});
+
+router.post("/groups/invitations/:invitationId/reject", async (req, res) => {
+  const sessionUserId = req.user?.userId;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const invitationId = parsePositiveInt(req.params.invitationId);
+  if (!invitationId) {
+    res.status(400).json({ message: "Invalid invitation ID." });
+    return;
+  }
+
+  const rejected = rejectGroupInvitation(invitationId, sessionUserId);
+  if (!rejected.rejected) {
+    if (rejected.reason === "forbidden") {
+      res.status(403).json({ message: "This invitation is not for you." });
+      return;
+    }
+    res.status(404).json({ message: "Invitation not found." });
+    return;
+  }
+
+  res.status(200).json({ group: rejected.summary });
 });
 
 router.post("/groups/:groupId/leave", async (req, res) => {

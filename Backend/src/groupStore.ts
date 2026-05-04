@@ -63,6 +63,14 @@ export type GroupJoinRequest = {
   requestedAt: string;
 };
 
+export type GroupInvitation = {
+  id: number;
+  groupId: string;
+  inviterUserId: number;
+  targetUserId: number;
+  createdAt: string;
+};
+
 const SYSTEM_GROUP_CREATED_AT = new Date().toISOString();
 
 let groups: GroupDefinition[] = [
@@ -101,14 +109,18 @@ let groups: GroupDefinition[] = [
 const groupMembers = new Map<string, Set<number>>();
 const groupMessages = new Map<string, GroupMessage[]>();
 const groupJoinRequests = new Map<string, Map<number, string>>();
+const groupInvitations = new Map<number, GroupInvitation>();
 let nextGroupMessageId = 1;
+let nextGroupInvitationId = 1;
 
 export type GroupStoreSnapshot = {
   groups: GroupDefinition[];
   membersByGroupId: Record<string, number[]>;
   messagesByGroupId: Record<string, GroupMessage[]>;
   joinRequestsByGroupId: Record<string, Record<string, string>>;
+  invitations: GroupInvitation[];
   nextGroupMessageId: number;
+  nextGroupInvitationId: number;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -225,7 +237,11 @@ export const snapshotGroupStore = (): GroupStoreSnapshot => {
     membersByGroupId,
     messagesByGroupId,
     joinRequestsByGroupId,
+    invitations: [...groupInvitations.values()]
+      .map((invitation) => ({ ...invitation }))
+      .sort((a, b) => a.id - b.id),
     nextGroupMessageId,
+    nextGroupInvitationId,
   };
 };
 
@@ -388,8 +404,51 @@ export const hydrateGroupStore = (snapshot: unknown) => {
     }
   });
 
+  groupInvitations.clear();
+  const rawInvitations = Array.isArray(snapshot.invitations)
+    ? snapshot.invitations
+    : [];
+  let maxInvitationId = 0;
+  rawInvitations.forEach((rawInvitation) => {
+    if (!isRecord(rawInvitation)) {
+      return;
+    }
+
+    const invitationId = toPositiveInt(rawInvitation.id);
+    const groupId = normalizeGroupId(rawInvitation.groupId);
+    const inviterUserId = toPositiveInt(rawInvitation.inviterUserId);
+    const targetUserId = toPositiveInt(rawInvitation.targetUserId);
+    const createdAt = toIsoString(rawInvitation.createdAt);
+    if (
+      !invitationId ||
+      !groupId ||
+      !activeGroupIds.has(groupId) ||
+      !inviterUserId ||
+      !targetUserId ||
+      inviterUserId === targetUserId ||
+      !createdAt
+    ) {
+      return;
+    }
+
+    groupInvitations.set(invitationId, {
+      id: invitationId,
+      groupId,
+      inviterUserId,
+      targetUserId,
+      createdAt,
+    });
+    maxInvitationId = Math.max(maxInvitationId, invitationId);
+  });
+
   const parsedNextMessageId = toPositiveInt(snapshot.nextGroupMessageId);
   nextGroupMessageId = Math.max(parsedNextMessageId ?? 0, maxMessageId + 1, 1);
+  const parsedNextInvitationId = toPositiveInt(snapshot.nextGroupInvitationId);
+  nextGroupInvitationId = Math.max(
+    parsedNextInvitationId ?? 0,
+    maxInvitationId + 1,
+    1,
+  );
 };
 
 export const getGroupById = (groupId: string) =>
@@ -416,6 +475,21 @@ const buildSummary = (group: GroupDefinition, userId: number): GroupSummary => {
     joinRequestStatus,
     pendingRequestCount: joinRequests.size,
   };
+};
+
+const removeGroupInvitationsFor = (groupId: string, targetUserId?: number) => {
+  let didRemove = false;
+  [...groupInvitations.entries()].forEach(([invitationId, invitation]) => {
+    if (
+      invitation.groupId === groupId &&
+      (typeof targetUserId !== "number" ||
+        invitation.targetUserId === targetUserId)
+    ) {
+      groupInvitations.delete(invitationId);
+      didRemove = true;
+    }
+  });
+  return didRemove;
 };
 
 export const listGroupsForUser = (userId: number): GroupSummary[] => {
@@ -470,6 +544,7 @@ export const deleteGroup = (groupId: string, requestUserId: number) => {
   groupMembers.delete(groupId);
   groupMessages.delete(groupId);
   groupJoinRequests.delete(groupId);
+  removeGroupInvitationsFor(groupId);
   notifyGroupStoreStateChanged();
   return { deleted: true as const };
 };
@@ -506,6 +581,7 @@ export const joinGroup = (groupId: string, userId: number) => {
 
   members.add(userId);
   joinRequests.delete(userId);
+  removeGroupInvitationsFor(groupId, userId);
   notifyGroupStoreStateChanged();
 
   return {
@@ -612,6 +688,127 @@ export const rejectGroupJoinRequest = (
   return {
     rejected: true as const,
     summary: buildSummary(group, ownerUserId),
+  };
+};
+
+export const inviteUserToGroup = (
+  groupId: string,
+  inviterUserId: number,
+  targetUserId: number,
+) => {
+  const group = getGroupById(groupId);
+  if (!group) {
+    return { invited: false as const, reason: "not_found" as const };
+  }
+  if (inviterUserId === targetUserId) {
+    return { invited: false as const, reason: "self" as const };
+  }
+  if (!isGroupMember(groupId, inviterUserId)) {
+    return { invited: false as const, reason: "forbidden" as const };
+  }
+  if (isGroupMember(groupId, targetUserId)) {
+    return { invited: false as const, reason: "already_member" as const };
+  }
+
+  const existingInvitation = [...groupInvitations.values()].find(
+    (invitation) =>
+      invitation.groupId === groupId && invitation.targetUserId === targetUserId,
+  );
+  if (existingInvitation) {
+    return {
+      invited: true as const,
+      alreadyInvited: true,
+      invitation: { ...existingInvitation },
+      summary: buildSummary(group, inviterUserId),
+    };
+  }
+
+  const invitation: GroupInvitation = {
+    id: nextGroupInvitationId++,
+    groupId,
+    inviterUserId,
+    targetUserId,
+    createdAt: new Date().toISOString(),
+  };
+  groupInvitations.set(invitation.id, invitation);
+  notifyGroupStoreStateChanged();
+  return {
+    invited: true as const,
+    alreadyInvited: false,
+    invitation: { ...invitation },
+    summary: buildSummary(group, inviterUserId),
+  };
+};
+
+export const listGroupInvitationsForUser = (targetUserId: number) =>
+  [...groupInvitations.values()]
+    .filter((invitation) => invitation.targetUserId === targetUserId)
+    .map((invitation) => {
+      const group = getGroupById(invitation.groupId);
+      if (!group) {
+        return null;
+      }
+      return {
+        invitation: { ...invitation },
+        summary: buildSummary(group, targetUserId),
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+    .sort(
+      (a, b) =>
+        new Date(b.invitation.createdAt).getTime() -
+        new Date(a.invitation.createdAt).getTime(),
+    );
+
+export const acceptGroupInvitation = (
+  invitationId: number,
+  targetUserId: number,
+) => {
+  const invitation = groupInvitations.get(invitationId);
+  if (!invitation) {
+    return { accepted: false as const, reason: "not_found" as const };
+  }
+  if (invitation.targetUserId !== targetUserId) {
+    return { accepted: false as const, reason: "forbidden" as const };
+  }
+
+  const group = getGroupById(invitation.groupId);
+  if (!group) {
+    groupInvitations.delete(invitationId);
+    notifyGroupStoreStateChanged();
+    return { accepted: false as const, reason: "group_not_found" as const };
+  }
+
+  const members = getOrCreateMembers(invitation.groupId);
+  members.add(targetUserId);
+  getOrCreateJoinRequests(invitation.groupId).delete(targetUserId);
+  groupInvitations.delete(invitationId);
+  notifyGroupStoreStateChanged();
+
+  return {
+    accepted: true as const,
+    summary: buildSummary(group, targetUserId),
+  };
+};
+
+export const rejectGroupInvitation = (
+  invitationId: number,
+  targetUserId: number,
+) => {
+  const invitation = groupInvitations.get(invitationId);
+  if (!invitation) {
+    return { rejected: false as const, reason: "not_found" as const };
+  }
+  if (invitation.targetUserId !== targetUserId) {
+    return { rejected: false as const, reason: "forbidden" as const };
+  }
+
+  groupInvitations.delete(invitationId);
+  notifyGroupStoreStateChanged();
+  const group = getGroupById(invitation.groupId);
+  return {
+    rejected: true as const,
+    summary: group ? buildSummary(group, targetUserId) : null,
   };
 };
 

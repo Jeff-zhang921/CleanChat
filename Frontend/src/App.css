@@ -121,12 +121,18 @@ button {
 .app-route-stage {
   animation: app-route-enter var(--motion-medium) var(--motion-smooth) both;
   will-change: opacity, transform, filter;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .hybrid-app-shell {
   position: relative;
   min-height: 100svh;
   min-height: 100dvh;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .hybrid-root-stack {
@@ -134,6 +140,9 @@ button {
   min-height: 100svh;
   min-height: 100dvh;
   isolation: isolate;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .hybrid-root-view {
@@ -146,6 +155,8 @@ button {
   transform: translateX(0) translateZ(0);
   transition: opacity var(--motion-ios-duration) ease;
   will-change: transform, opacity;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .hybrid-root-view.is-active {
@@ -165,6 +176,8 @@ button {
   z-index: 22;
   pointer-events: none;
   background-color: #f7f1e7;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .hybrid-detail-surface {
@@ -173,6 +186,8 @@ button {
   pointer-events: auto;
   background-color: #f7f1e7;
   transition: var(--motion-ios-transition);
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .hybrid-chat-overlay {

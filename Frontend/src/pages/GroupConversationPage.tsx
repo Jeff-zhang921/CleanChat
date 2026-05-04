@@ -14,6 +14,13 @@ type SessionUser = {
   cleanId: string;
 };
 
+type InviteCandidate = {
+  id: number;
+  name: string | null;
+  email: string;
+  cleanId: string;
+};
+
 type GroupSummary = {
   id: string;
   name: string;
@@ -28,6 +35,14 @@ type GroupSummary = {
   memberCount: number;
   lastMessagePreview: string;
   lastMessageAt: string | null;
+};
+
+type GroupInvitationEntry = {
+  id: number;
+  groupId: string;
+  createdAt: string;
+  group: GroupSummary;
+  inviter: InviteCandidate;
 };
 
 const formatTime = (time?: string | null, fallback = "") => {
@@ -74,6 +89,17 @@ const GroupConversationPage = () => {
   const [pendingDeleteGroup, setPendingDeleteGroup] = useState<GroupSummary | null>(null);
   const [pendingAvatarGroup, setPendingAvatarGroup] = useState<GroupSummary | null>(null);
   const [pendingAvatarKey, setPendingAvatarKey] = useState<GroupAvatarKey>(GROUP_AVATAR_OPTIONS[0].key);
+  const [isInvitePanelOpen, setIsInvitePanelOpen] = useState(false);
+  const [inviteGroupId, setInviteGroupId] = useState("");
+  const [inviteQuery, setInviteQuery] = useState("");
+  const [inviteCandidates, setInviteCandidates] = useState<InviteCandidate[]>([]);
+  const [isSearchingInvitees, setIsSearchingInvitees] = useState(false);
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const [inviteStatus, setInviteStatus] = useState("");
+  const [isInvitationPanelOpen, setIsInvitationPanelOpen] = useState(false);
+  const [groupInvitations, setGroupInvitations] = useState<GroupInvitationEntry[]>([]);
+  const [isLoadingInvitations, setIsLoadingInvitations] = useState(false);
+  const [processingInvitationId, setProcessingInvitationId] = useState<number | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -101,6 +127,25 @@ const GroupConversationPage = () => {
     setStatus("");
   };
 
+  const refreshGroupInvitations = async () => {
+    setIsLoadingInvitations(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/chat/groups/invitations/received`, {
+        credentials: "include",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setInviteStatus(data.message || data.error || t("groups.invitationsLoadFailed"));
+        return;
+      }
+      setGroupInvitations(Array.isArray(data.invitations) ? data.invitations : []);
+    } catch {
+      setInviteStatus(t("groups.invitationsLoadFailed"));
+    } finally {
+      setIsLoadingInvitations(false);
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
 
@@ -123,6 +168,7 @@ const GroupConversationPage = () => {
         if (isMounted) {
           setMe(meData.user);
           await refreshGroups();
+          await refreshGroupInvitations();
         }
       } catch {
         if (isMounted) setStatus(t("groups.loadingFailed"));
@@ -135,6 +181,63 @@ const GroupConversationPage = () => {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    const joinedGroupIds = groups.filter((group) => group.joined).map((group) => group.id);
+    if (joinedGroupIds.length === 0) {
+      setInviteGroupId("");
+      return;
+    }
+    if (!inviteGroupId || !joinedGroupIds.includes(inviteGroupId)) {
+      setInviteGroupId(joinedGroupIds[0]);
+    }
+  }, [groups, inviteGroupId]);
+
+  useEffect(() => {
+    if (!isInvitePanelOpen) {
+      return;
+    }
+
+    const normalizedQuery = inviteQuery.trim();
+    if (!normalizedQuery) {
+      setInviteCandidates([]);
+      setIsSearchingInvitees(false);
+      return;
+    }
+
+    let isMounted = true;
+    setIsSearchingInvitees(true);
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `${BACKEND_URL}/chat/users/search?q=${encodeURIComponent(normalizedQuery)}`,
+          { credentials: "include" },
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!isMounted) return;
+        if (!response.ok) {
+          setInviteStatus(data.message || data.error || t("groups.inviteSearchFailed"));
+          setInviteCandidates([]);
+          return;
+        }
+        setInviteCandidates(Array.isArray(data.users) ? data.users : []);
+      } catch {
+        if (isMounted) {
+          setInviteStatus(t("groups.inviteSearchFailed"));
+          setInviteCandidates([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsSearchingInvitees(false);
+        }
+      }
+    }, 220);
+
+    return () => {
+      isMounted = false;
+      window.clearTimeout(timer);
+    };
+  }, [inviteQuery, isInvitePanelOpen, t]);
 
   const filteredGroups = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -363,10 +466,130 @@ const GroupConversationPage = () => {
     await handleJoinGroup(group);
   };
 
+  const openInvitePanel = () => {
+    const firstJoinedGroup = groups.find((group) => group.joined);
+    if (!firstJoinedGroup) {
+      setStatus(t("groups.inviteJoinFirst"));
+      return;
+    }
+    setInviteGroupId((current) => current || firstJoinedGroup.id);
+    setInviteQuery("");
+    setInviteCandidates([]);
+    setInviteStatus("");
+    setIsInvitePanelOpen(true);
+  };
+
+  const openInvitationsPanel = () => {
+    setInviteStatus("");
+    setIsInvitationPanelOpen(true);
+    void refreshGroupInvitations();
+  };
+
+  const handleInviteCandidate = async (candidate: InviteCandidate) => {
+    const group = groups.find((item) => item.id === inviteGroupId);
+    if (!group) {
+      setInviteStatus(t("groups.inviteChooseGroup"));
+      return;
+    }
+
+    setIsSendingInvite(true);
+    setInviteStatus(t("groups.inviteSending", { name: candidate.cleanId }));
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/chat/groups/${encodeURIComponent(group.id)}/invitations`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ targetUserId: candidate.id }),
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setInviteStatus(data.message || data.error || t("groups.inviteFailed"));
+        return;
+      }
+
+      const updatedGroup = data.group as GroupSummary | undefined;
+      if (updatedGroup) {
+        setGroups((prev) =>
+          prev.map((item) => (item.id === updatedGroup.id ? updatedGroup : item)),
+        );
+      }
+      setInviteCandidates((prev) => prev.filter((item) => item.id !== candidate.id));
+      setInviteQuery("");
+      setInviteStatus(
+        data.alreadyInvited
+          ? t("groups.inviteAlreadySent", { name: candidate.cleanId })
+          : t("groups.inviteSent", { name: candidate.cleanId, group: group.name }),
+      );
+    } catch {
+      setInviteStatus(t("groups.inviteFailed"));
+    } finally {
+      setIsSendingInvite(false);
+    }
+  };
+
+  const handleResolveInvitation = async (
+    invitation: GroupInvitationEntry,
+    action: "accept" | "reject",
+  ) => {
+    setProcessingInvitationId(invitation.id);
+    setInviteStatus(
+      action === "accept" ? t("groups.acceptingInvite") : t("groups.rejectingInvite"),
+    );
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/chat/groups/invitations/${invitation.id}/${action}`,
+        {
+          method: "POST",
+          credentials: "include",
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setInviteStatus(
+          data.message ||
+            data.error ||
+            (action === "accept"
+              ? t("groups.acceptInviteFailed")
+              : t("groups.rejectInviteFailed")),
+        );
+        return;
+      }
+
+      setGroupInvitations((prev) => prev.filter((item) => item.id !== invitation.id));
+      if (action === "accept") {
+        const acceptedGroup = data.group as GroupSummary | undefined;
+        if (acceptedGroup) {
+          setGroups((prev) => {
+            const exists = prev.some((item) => item.id === acceptedGroup.id);
+            return exists
+              ? prev.map((item) => (item.id === acceptedGroup.id ? acceptedGroup : item))
+              : [acceptedGroup, ...prev];
+          });
+        } else {
+          await refreshGroups();
+        }
+        setInviteStatus(t("groups.inviteAccepted", { group: invitation.group.name }));
+        return;
+      }
+      setInviteStatus(t("groups.inviteRejected", { group: invitation.group.name }));
+    } catch {
+      setInviteStatus(
+        action === "accept" ? t("groups.acceptInviteFailed") : t("groups.rejectInviteFailed"),
+      );
+    } finally {
+      setProcessingInvitationId(null);
+    }
+  };
+
   const heroName = me?.name || me?.cleanId || me?.email || t("common.cleanChat");
   const hasQuery = query.trim().length > 0;
+  const allJoinedGroups = groups.filter((group) => group.joined);
   const joinedGroups = filteredGroups.filter((group) => group.joined);
   const discoverGroups = filteredGroups.filter((group) => !group.joined);
+  const invitationCount = groupInvitations.length;
   const isSearchOpen = isSearchExpanded || hasQuery;
   const openSearch = () => {
     setIsSearchExpanded(true);
@@ -610,13 +833,33 @@ const GroupConversationPage = () => {
                   })}
             </span>
           </div>
-          <button
-            type="button"
-            className="group-action create groups-create-trigger"
-            onClick={() => setIsCreatePanelOpen(true)}
-          >
-            {t("groups.createGroup")}
-          </button>
+          <div className="groups-stage-actions">
+            <button
+              type="button"
+              className="group-action invite groups-invite-trigger"
+              onClick={openInvitePanel}
+            >
+              <span aria-hidden="true">+</span>
+              {t("groups.invitePeople")}
+            </button>
+            <button
+              type="button"
+              className="group-action invitations groups-invitations-trigger"
+              onClick={openInvitationsPanel}
+            >
+              {t("groups.invitationsButton")}
+              {invitationCount > 0 && (
+                <span className="groups-invitations-count">{invitationCount}</span>
+              )}
+            </button>
+            <button
+              type="button"
+              className="group-action create groups-create-trigger"
+              onClick={() => setIsCreatePanelOpen(true)}
+            >
+              {t("groups.createGroup")}
+            </button>
+          </div>
         </div>
 
         {status && <div className="status-text">{status}</div>}
@@ -653,9 +896,9 @@ const GroupConversationPage = () => {
       </div>
       <button
         type="button"
-        className="group-action create groups-fab"
-        aria-label={t("groups.createGroup")}
-        onClick={() => setIsCreatePanelOpen(true)}
+        className="group-action invite groups-fab"
+        aria-label={t("groups.invitePeople")}
+        onClick={openInvitePanel}
       >
         <span className="groups-fab-icon" aria-hidden="true">
           <span />
@@ -736,6 +979,190 @@ const GroupConversationPage = () => {
                 </div>
               </div>
             </section>
+          </div>
+        </div>
+      )}
+      {isInvitePanelOpen && (
+        <div className="groups-invite-overlay" role="presentation" onClick={() => setIsInvitePanelOpen(false)}>
+          <div
+            className="groups-invite-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="group-invite-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="groups-create-head">
+              <div>
+                <p className="eyebrow">{t("groups.inviteEyebrow")}</p>
+                <h3 id="group-invite-title">{t("groups.invitePeople")}</h3>
+                <p>{t("groups.invitePeopleHint")}</p>
+              </div>
+              <button
+                type="button"
+                className="group-action cancel"
+                onClick={() => setIsInvitePanelOpen(false)}
+                disabled={isSendingInvite}
+              >
+                {t("common.close")}
+              </button>
+            </div>
+
+            {allJoinedGroups.length === 0 ? (
+              <p className="groups-invite-empty">{t("groups.inviteNoJoinedGroups")}</p>
+            ) : (
+              <section className="groups-invite-panel">
+                <label className="groups-invite-field">
+                  <span>{t("groups.inviteGroupLabel")}</span>
+                  <select
+                    value={inviteGroupId}
+                    onChange={(event) => setInviteGroupId(event.target.value)}
+                    disabled={isSendingInvite}
+                  >
+                    {allJoinedGroups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="groups-invite-field">
+                  <span>{t("groups.inviteSearchLabel")}</span>
+                  <input
+                    type="search"
+                    value={inviteQuery}
+                    onChange={(event) => {
+                      setInviteQuery(event.target.value);
+                      setInviteStatus("");
+                    }}
+                    placeholder={t("groups.inviteSearchPlaceholder")}
+                    disabled={isSendingInvite}
+                  />
+                </label>
+
+                <div className="groups-invite-results" aria-live="polite">
+                  {isSearchingInvitees ? (
+                    <p>{t("groups.inviteSearching")}</p>
+                  ) : inviteQuery.trim().length === 0 ? (
+                    <p>{t("groups.inviteSearchIdle")}</p>
+                  ) : inviteCandidates.length === 0 ? (
+                    <p>{t("groups.inviteSearchEmpty")}</p>
+                  ) : (
+                    <ul>
+                      {inviteCandidates.map((candidate) => (
+                        <li key={candidate.id}>
+                          <div className="groups-invite-user">
+                            <strong>@{candidate.cleanId}</strong>
+                            <span>{candidate.name || candidate.email}</span>
+                          </div>
+                          <button
+                            type="button"
+                            className="group-action invite"
+                            onClick={() => {
+                              void handleInviteCandidate(candidate);
+                            }}
+                            disabled={isSendingInvite}
+                          >
+                            {isSendingInvite ? t("groups.inviteSendingShort") : t("groups.invite")}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {inviteStatus && (
+              <p className="groups-invite-status" role="status">
+                {inviteStatus}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+      {isInvitationPanelOpen && (
+        <div className="groups-invitations-overlay" role="presentation" onClick={() => setIsInvitationPanelOpen(false)}>
+          <div
+            className="groups-invitations-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="group-invitations-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="groups-create-head">
+              <div>
+                <p className="eyebrow">{t("groups.invitationsEyebrow")}</p>
+                <h3 id="group-invitations-title">{t("groups.invitationsTitle")}</h3>
+                <p>{t("groups.invitationsHint")}</p>
+              </div>
+              <button
+                type="button"
+                className="group-action cancel"
+                onClick={() => setIsInvitationPanelOpen(false)}
+                disabled={processingInvitationId !== null}
+              >
+                {t("common.close")}
+              </button>
+            </div>
+
+            <section className="groups-invitations-list" aria-live="polite">
+              {isLoadingInvitations ? (
+                <p className="groups-invite-empty">{t("groups.invitationsLoading")}</p>
+              ) : groupInvitations.length === 0 ? (
+                <p className="groups-invite-empty">{t("groups.invitationsEmpty")}</p>
+              ) : (
+                <ul>
+                  {groupInvitations.map((invitation) => {
+                    const isProcessing = processingInvitationId === invitation.id;
+                    return (
+                      <li key={invitation.id}>
+                        <img
+                          src={invitation.group.avatarUrl}
+                          alt={t("groups.groupAvatarAlt", { name: invitation.group.name })}
+                        />
+                        <div className="groups-invitations-copy">
+                          <strong>{invitation.group.name}</strong>
+                          <span>
+                            {t("groups.invitationLine", {
+                              inviter: invitation.inviter.cleanId,
+                            })}
+                          </span>
+                        </div>
+                        <div className="groups-invitations-actions">
+                          <button
+                            type="button"
+                            className="group-action invite"
+                            onClick={() => {
+                              void handleResolveInvitation(invitation, "accept");
+                            }}
+                            disabled={processingInvitationId !== null}
+                          >
+                            {isProcessing ? t("groups.acceptingInvite") : t("groups.acceptInvite")}
+                          </button>
+                          <button
+                            type="button"
+                            className="group-action leave"
+                            onClick={() => {
+                              void handleResolveInvitation(invitation, "reject");
+                            }}
+                            disabled={processingInvitationId !== null}
+                          >
+                            {isProcessing ? t("groups.rejectingInvite") : t("groups.rejectInvite")}
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+
+            {inviteStatus && (
+              <p className="groups-invite-status" role="status">
+                {inviteStatus}
+              </p>
+            )}
           </div>
         </div>
       )}
