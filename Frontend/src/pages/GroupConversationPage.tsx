@@ -861,14 +861,16 @@ const GroupConversationPage = () => {
             </span>
           </div>
           <div className="groups-stage-actions">
-            <button
-              type="button"
-              className="group-action invite groups-invite-trigger"
-              onClick={openInvitePanel}
-            >
-              <span aria-hidden="true">+</span>
-              {t("groups.invitePeople")}
-            </button>
+            {allJoinedGroups.length > 0 && (
+              <button
+                type="button"
+                className="group-action invite groups-invite-trigger"
+                onClick={openInvitePanel}
+              >
+                <span aria-hidden="true">+</span>
+                {t("groups.invitePeople")}
+              </button>
+            )}
             <button
               type="button"
               className="group-action invitations groups-invitations-trigger"
@@ -921,17 +923,19 @@ const GroupConversationPage = () => {
           </div>
         )}
       </div>
-      <button
-        type="button"
-        className="group-action invite groups-fab"
-        aria-label={t("groups.invitePeople")}
-        onClick={openInvitePanel}
-      >
-        <span className="groups-fab-icon" aria-hidden="true">
-          <span />
-          <span />
-        </span>
-      </button>
+      {allJoinedGroups.length > 0 && (
+        <button
+          type="button"
+          className="group-action invite groups-fab"
+          aria-label={t("groups.invitePeople")}
+          onClick={openInvitePanel}
+        >
+          <span className="groups-fab-icon" aria-hidden="true">
+            <span />
+            <span />
+          </span>
+        </button>
+      )}
       {isCreatePanelOpen && (
         <div className="groups-create-overlay" role="presentation" onClick={() => setIsCreatePanelOpen(false)}>
           <div
