@@ -6,6 +6,7 @@ import {
   acceptGroupInvitation,
   approveGroupJoinRequest,
   appendGroupMessage,
+  COMMUNITY_CATEGORIES,
   createGroup,
   deleteGroup,
   GROUP_AVATAR_KEYS,
@@ -22,6 +23,8 @@ import {
   normalizeGroupId,
   rejectGroupInvitation,
   rejectGroupJoinRequest,
+  removeGroupMember,
+  resolveCommunityCategorySelection,
   updateGroupAvatar,
   updateGroupJoinPolicy,
   isGroupMember,
@@ -154,6 +157,28 @@ const emitToAll = (
   }
 
   io.emit(event, buildRealtimePayload(payload));
+};
+
+const emitGroupCatalogUpdated = (
+  req: Request,
+  groupId: string,
+  payload: Record<string, unknown>,
+) => {
+  const group = getGroupById(groupId);
+  if (group?.groupKind === "private") {
+    listGroupMemberIds(groupId).forEach((memberId) => {
+      emitToUser(req, memberId, "group:catalog-updated", {
+        ...payload,
+        groupId,
+      });
+    });
+    return;
+  }
+
+  emitToAll(req, "group:catalog-updated", {
+    ...payload,
+    groupId,
+  });
 };
 
 const emitGroupMessage = (req: Request, groupId: string, payload: unknown) => {
@@ -1450,12 +1475,30 @@ router.get("/groups", async (req, res) => {
     return;
   }
 
-  const groups = listGroupsForUser(sessionUserId).map((group) => ({
+  const requestedScope =
+    typeof req.query.scope === "string" ? req.query.scope : "";
+  const scope =
+    requestedScope === "communities"
+      ? "communities"
+      : requestedScope === "joined"
+        ? "joined"
+        : "all";
+  const groups = listGroupsForUser(sessionUserId, { scope }).map((group) => ({
     ...group,
     mutedByMe: isGroupMutedForUser(sessionUserId, group.id),
   }));
 
   res.json({ groups });
+});
+
+router.get("/groups/categories", async (req, res) => {
+  const sessionUserId = req.user?.userId;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  res.status(200).json({ categories: COMMUNITY_CATEGORIES });
 });
 
 router.get("/groups/invitations/received", async (req, res) => {
@@ -1510,7 +1553,16 @@ router.post("/groups", async (req, res) => {
     typeof req.body?.description === "string"
       ? req.body.description.trim()
       : "";
-  const requiresApproval = req.body?.requiresApproval === true;
+  const groupKind = req.body?.groupKind === "private" ? "private" : "community";
+  const requiresApproval =
+    groupKind === "community" && req.body?.requiresApproval === true;
+  const categorySelection =
+    groupKind === "community"
+      ? resolveCommunityCategorySelection(
+          req.body?.mainCategoryId,
+          req.body?.subcategoryId,
+        )
+      : null;
   const rawAvatarKey = req.body?.avatarKey;
   const avatarKeyProvided = typeof rawAvatarKey === "string";
   if (avatarKeyProvided && !isValidGroupAvatarKey(rawAvatarKey)) {
@@ -1535,6 +1587,12 @@ router.post("/groups", async (req, res) => {
     });
     return;
   }
+  if (groupKind === "community" && !categorySelection) {
+    res.status(400).json({
+      message: "Choose a valid main category and sub-category.",
+    });
+    return;
+  }
 
   const group = createGroup(
     sessionUserId,
@@ -1544,10 +1602,14 @@ router.post("/groups", async (req, res) => {
     avatarKeyProvided && isValidGroupAvatarKey(rawAvatarKey)
       ? rawAvatarKey
       : undefined,
+    {
+      groupKind,
+      mainCategoryId: categorySelection?.mainCategoryId,
+      subcategoryId: categorySelection?.subcategoryId,
+    },
   );
-  emitToAll(req, "group:catalog-updated", {
+  emitGroupCatalogUpdated(req, group.id, {
     type: "created",
-    groupId: group.id,
     actorUserId: sessionUserId,
   });
   res.status(201).json({ group });
@@ -1570,6 +1632,15 @@ router.post("/groups/:groupId/join", async (req, res) => {
   const joined = joinGroup(groupId, sessionUserId);
   if (!joined) {
     res.status(404).json({ message: "Group not found." });
+    return;
+  }
+
+  if (joined.inviteOnly) {
+    res.status(403).json({
+      group: joined.summary,
+      inviteOnly: true,
+      message: "Private groups are invite-only.",
+    });
     return;
   }
 
@@ -1602,9 +1673,8 @@ router.post("/groups/:groupId/join", async (req, res) => {
       const message = appendGroupMessage(groupId, joiner, body);
       emitGroupMessage(req, groupId, message);
     }
-    emitToAll(req, "group:catalog-updated", {
+    emitGroupCatalogUpdated(req, groupId, {
       type: "member-joined",
-      groupId,
       actorUserId: sessionUserId,
     });
   }
@@ -1728,9 +1798,8 @@ router.post("/groups/invitations/:invitationId/accept", async (req, res) => {
       const message = appendGroupMessage(groupId, acceptedUser, body);
       emitGroupMessage(req, groupId, message);
     }
-    emitToAll(req, "group:catalog-updated", {
+    emitGroupCatalogUpdated(req, groupId, {
       type: "invitation-accepted",
-      groupId,
       actorUserId: sessionUserId,
     });
   }
@@ -1797,6 +1866,58 @@ router.post("/groups/:groupId/leave", async (req, res) => {
   clearGroupMuteForUser(sessionUserId, groupId);
 
   res.status(200).json({ group: left.summary, alreadyLeft: left.alreadyLeft });
+});
+
+router.delete("/groups/:groupId/members/:userId", async (req, res) => {
+  const sessionUserId = req.user?.userId;
+  if (!ensureAuth(sessionUserId)) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const groupId = normalizeGroupId(req.params.groupId);
+  if (!groupId) {
+    res.status(400).json({ message: "Invalid group ID." });
+    return;
+  }
+
+  const targetUserId = parsePositiveInt(req.params.userId);
+  if (!targetUserId) {
+    res.status(400).json({ message: "Invalid user ID." });
+    return;
+  }
+
+  const removed = removeGroupMember(groupId, sessionUserId, targetUserId);
+  if (!removed.removed) {
+    if (removed.reason === "forbidden") {
+      res
+        .status(403)
+        .json({ message: "Only the owner can remove members." });
+      return;
+    }
+    if (removed.reason === "owner") {
+      res.status(409).json({ message: "The owner cannot be removed." });
+      return;
+    }
+    res.status(404).json({ message: "Group not found." });
+    return;
+  }
+
+  clearGroupMuteForUser(targetUserId, groupId);
+  emitToUser(req, targetUserId, "group:member-removed", {
+    groupId,
+    actorUserId: sessionUserId,
+  });
+  emitGroupCatalogUpdated(req, groupId, {
+    type: "member-removed",
+    actorUserId: sessionUserId,
+    targetUserId,
+  });
+
+  res.status(200).json({
+    group: removed.summary,
+    alreadyRemoved: removed.alreadyRemoved,
+  });
 });
 
 router.get("/groups/:groupId/settings", async (req, res) => {
@@ -1930,6 +2051,12 @@ router.patch("/groups/:groupId/settings", async (req, res) => {
       res
         .status(403)
         .json({ message: "Only the group creator can update this setting." });
+      return;
+    }
+    if (updated.reason === "private_group") {
+      res.status(409).json({
+        message: "Private groups are always invite-only.",
+      });
       return;
     }
     res.status(404).json({ message: "Group not found." });
@@ -2088,9 +2215,8 @@ router.post(
       groupId,
       actorUserId: sessionUserId,
     });
-    emitToAll(req, "group:catalog-updated", {
+    emitGroupCatalogUpdated(req, groupId, {
       type: "member-joined",
-      groupId,
       actorUserId: targetUserId,
     });
 
@@ -2180,9 +2306,8 @@ router.delete("/groups/:groupId", async (req, res) => {
 
   clearGroupMuteForAllUsers(groupId);
   clearGroupReadCheckpointForAllUsers(groupId);
-  emitToAll(req, "group:catalog-updated", {
+  emitGroupCatalogUpdated(req, groupId, {
     type: "deleted",
-    groupId,
     actorUserId: sessionUserId,
   });
 

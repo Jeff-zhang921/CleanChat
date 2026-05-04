@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import BottomNav from "../components/BottomNav";
 import Badge from "../components/Badge";
 import { BACKEND_URL } from "../config";
+import {
+  COMMUNITY_CATEGORIES,
+  findCommunityCategory,
+  findCommunitySubcategory,
+  isValidCommunityCategoryPair,
+} from "../constants/communityCategories";
 import { GROUP_AVATAR_OPTIONS, type GroupAvatarKey } from "../constants/groupAvatars";
 import { useNotificationBadges } from "../state/notificationBadgeContext";
 import {
@@ -20,6 +26,8 @@ type SessionUser = {
   cleanId: string;
 };
 
+type GroupKind = "community" | "private";
+
 type InviteCandidate = {
   id: number;
   name: string | null;
@@ -33,6 +41,9 @@ type GroupSummary = {
   description: string;
   avatarKey: GroupAvatarKey;
   avatarUrl: string;
+  groupKind?: GroupKind;
+  mainCategoryId?: string | null;
+  subcategoryId?: string | null;
   isOwner: boolean;
   joined: boolean;
   requiresApproval: boolean;
@@ -76,9 +87,16 @@ const SearchGlyph = () => (
   </svg>
 );
 
+const buildCategoryPath = (mainCategoryId?: string, subcategoryId?: string) => {
+  if (!mainCategoryId) return "/groups";
+  if (!subcategoryId) return `/groups/${encodeURIComponent(mainCategoryId)}`;
+  return `/groups/${encodeURIComponent(mainCategoryId)}/${encodeURIComponent(subcategoryId)}`;
+};
+
 const GroupConversationPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { refreshPendingCounts } = useNotificationBadges();
   const [me, setMe] = useState<SessionUser | null>(null);
   const [groups, setGroups] = useState<GroupSummary[]>([]);
@@ -88,6 +106,8 @@ const GroupConversationPage = () => {
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupDescription, setNewGroupDescription] = useState("");
+  const [newGroupMainCategoryId, setNewGroupMainCategoryId] = useState("");
+  const [newGroupSubcategoryId, setNewGroupSubcategoryId] = useState("");
   const [newGroupAvatarKey, setNewGroupAvatarKey] = useState<GroupAvatarKey>(GROUP_AVATAR_OPTIONS[0].key);
   const [newGroupRequiresApproval, setNewGroupRequiresApproval] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -96,19 +116,19 @@ const GroupConversationPage = () => {
   const [pendingDeleteGroup, setPendingDeleteGroup] = useState<GroupSummary | null>(null);
   const [pendingAvatarGroup, setPendingAvatarGroup] = useState<GroupSummary | null>(null);
   const [pendingAvatarKey, setPendingAvatarKey] = useState<GroupAvatarKey>(GROUP_AVATAR_OPTIONS[0].key);
-  const [isInvitePanelOpen, setIsInvitePanelOpen] = useState(false);
-  const [inviteGroupId, setInviteGroupId] = useState("");
-  const [inviteQuery, setInviteQuery] = useState("");
-  const [inviteCandidates, setInviteCandidates] = useState<InviteCandidate[]>([]);
-  const [isSearchingInvitees, setIsSearchingInvitees] = useState(false);
-  const [isSendingInvite, setIsSendingInvite] = useState(false);
-  const [inviteStatus, setInviteStatus] = useState("");
   const [isInvitationPanelOpen, setIsInvitationPanelOpen] = useState(false);
   const [groupInvitations, setGroupInvitations] = useState<GroupInvitationEntry[]>([]);
   const [isLoadingInvitations, setIsLoadingInvitations] = useState(false);
   const [processingInvitationId, setProcessingInvitationId] = useState<number | null>(null);
+  const [inviteStatus, setInviteStatus] = useState("");
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const statusToastTimeoutRef = useRef<number | null>(null);
+
+  const pathSegments = location.pathname.split("/").filter(Boolean);
+  const selectedMainCategoryId = pathSegments[1] ? decodeURIComponent(pathSegments[1]) : "";
+  const selectedSubcategoryId = pathSegments[2] ? decodeURIComponent(pathSegments[2]) : "";
+  const selectedMainCategory = findCommunityCategory(selectedMainCategoryId);
+  const selectedSubcategory = findCommunitySubcategory(selectedMainCategoryId, selectedSubcategoryId);
 
   const showStatusToast = (toastMessage: string, durationMs = 2200) => {
     setStatus(toastMessage);
@@ -140,7 +160,7 @@ const GroupConversationPage = () => {
   }, [isSearchExpanded]);
 
   const refreshGroups = useCallback(async () => {
-    const response = await fetch(`${BACKEND_URL}/chat/groups`, {
+    const response = await fetch(`${BACKEND_URL}/chat/groups?scope=communities`, {
       credentials: "include",
     });
     if (!response.ok) {
@@ -239,72 +259,29 @@ const GroupConversationPage = () => {
     };
   }, [refreshGroupInvitations, refreshGroups]);
 
-  useEffect(() => {
-    const joinedGroupIds = groups.filter((group) => group.joined).map((group) => group.id);
-    if (joinedGroupIds.length === 0) {
-      setInviteGroupId("");
-      return;
-    }
-    if (!inviteGroupId || !joinedGroupIds.includes(inviteGroupId)) {
-      setInviteGroupId(joinedGroupIds[0]);
-    }
-  }, [groups, inviteGroupId]);
+  const communityGroups = useMemo(
+    () => groups.filter((group) => group.groupKind !== "private"),
+    [groups],
+  );
 
-  useEffect(() => {
-    if (!isInvitePanelOpen) {
-      return;
-    }
-
-    const normalizedQuery = inviteQuery.trim();
-    if (!normalizedQuery) {
-      setInviteCandidates([]);
-      setIsSearchingInvitees(false);
-      return;
-    }
-
-    let isMounted = true;
-    setIsSearchingInvitees(true);
-    const timer = window.setTimeout(async () => {
-      try {
-        const response = await fetch(
-          `${BACKEND_URL}/chat/users/search?q=${encodeURIComponent(normalizedQuery)}`,
-          { credentials: "include" },
-        );
-        const data = await response.json().catch(() => ({}));
-        if (!isMounted) return;
-        if (!response.ok) {
-          setInviteStatus(data.message || data.error || t("groups.inviteSearchFailed"));
-          setInviteCandidates([]);
-          return;
-        }
-        setInviteCandidates(Array.isArray(data.users) ? data.users : []);
-      } catch {
-        if (isMounted) {
-          setInviteStatus(t("groups.inviteSearchFailed"));
-          setInviteCandidates([]);
-        }
-      } finally {
-        if (isMounted) {
-          setIsSearchingInvitees(false);
-        }
-      }
-    }, 220);
-
-    return () => {
-      isMounted = false;
-      window.clearTimeout(timer);
-    };
-  }, [inviteQuery, isInvitePanelOpen, t]);
+  const communitiesInSelectedSubcategory = useMemo(() => {
+    if (!selectedMainCategory || !selectedSubcategory) return [];
+    return communityGroups.filter(
+      (group) =>
+        group.mainCategoryId === selectedMainCategory.id &&
+        group.subcategoryId === selectedSubcategory.id,
+    );
+  }, [communityGroups, selectedMainCategory, selectedSubcategory]);
 
   const filteredGroups = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedQuery) return groups;
-    return groups.filter(
+    if (!normalizedQuery) return communitiesInSelectedSubcategory;
+    return communitiesInSelectedSubcategory.filter(
       (group) =>
         group.name.toLowerCase().includes(normalizedQuery) ||
-        group.description.toLowerCase().includes(normalizedQuery)
+        group.description.toLowerCase().includes(normalizedQuery),
     );
-  }, [groups, query]);
+  }, [communitiesInSelectedSubcategory, query]);
 
   const openGroupChat = (group: GroupSummary) => {
     navigate("/chat", {
@@ -336,7 +313,7 @@ const GroupConversationPage = () => {
 
       const joinedGroup = data.group as GroupSummary | undefined;
       setGroups((prev) =>
-        prev.map((item) => (item.id === group.id ? joinedGroup ?? { ...item, joined: true } : item))
+        prev.map((item) => (item.id === group.id ? joinedGroup ?? { ...item, joined: true } : item)),
       );
       if (data.pendingApproval) {
         showStatusToast(data.message || t("groups.joinRequestSent"));
@@ -352,9 +329,19 @@ const GroupConversationPage = () => {
     }
   };
 
+  const openCreatePanel = () => {
+    setNewGroupMainCategoryId(selectedMainCategory?.id ?? "");
+    setNewGroupSubcategoryId(selectedSubcategory?.id ?? "");
+    setIsCreatePanelOpen(true);
+  };
+
   const handleCreateGroup = async () => {
     const name = newGroupName.trim().replace(/\s+/g, " ");
     const description = newGroupDescription.trim();
+    if (!isValidCommunityCategoryPair(newGroupMainCategoryId, newGroupSubcategoryId)) {
+      setStatus(t("groups.chooseCommunityCategory", { defaultValue: "Choose a main category and sub-category." }));
+      return;
+    }
     if (name.length < 2 || name.length > 48) {
       setStatus(t("groups.groupNameLength"));
       return;
@@ -365,13 +352,16 @@ const GroupConversationPage = () => {
     }
 
     setIsCreating(true);
-    setStatus(t("groups.creatingGroup"));
+    setStatus(t("groups.creatingCommunity", { defaultValue: "Creating community..." }));
     try {
       const response = await fetch(`${BACKEND_URL}/chat/groups`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
+          groupKind: "community",
+          mainCategoryId: newGroupMainCategoryId,
+          subcategoryId: newGroupSubcategoryId,
           name,
           description,
           requiresApproval: newGroupRequiresApproval,
@@ -425,8 +415,8 @@ const GroupConversationPage = () => {
         prev.map((item) =>
           item.id === group.id
             ? leftGroup ?? { ...item, joined: false, memberCount: Math.max(0, item.memberCount - 1) }
-            : item
-        )
+            : item,
+        ),
       );
       setStatus("");
     } catch {
@@ -435,15 +425,6 @@ const GroupConversationPage = () => {
       setWorkingGroupId(null);
       setWorkingAction(null);
     }
-  };
-
-  const requestDeleteGroup = (group: GroupSummary) => {
-    setPendingDeleteGroup(group);
-  };
-
-  const requestAvatarChange = (group: GroupSummary) => {
-    setPendingAvatarGroup(group);
-    setPendingAvatarKey(group.avatarKey);
   };
 
   const handleConfirmDeleteGroup = async () => {
@@ -502,8 +483,8 @@ const GroupConversationPage = () => {
         prev.map((item) =>
           item.id === group.id
             ? updatedGroup ?? { ...item, avatarKey: pendingAvatarKey, avatarUrl: selectedAvatarUrl }
-            : item
-        )
+            : item,
+        ),
       );
       setStatus("");
       setPendingAvatarGroup(null);
@@ -523,68 +504,10 @@ const GroupConversationPage = () => {
     await handleJoinGroup(group);
   };
 
-  const openInvitePanel = () => {
-    const firstJoinedGroup = groups.find((group) => group.joined);
-    if (!firstJoinedGroup) {
-      setStatus(t("groups.inviteJoinFirst"));
-      return;
-    }
-    setInviteGroupId((current) => current || firstJoinedGroup.id);
-    setInviteQuery("");
-    setInviteCandidates([]);
-    setInviteStatus("");
-    setIsInvitePanelOpen(true);
-  };
-
   const openInvitationsPanel = () => {
     setInviteStatus("");
     setIsInvitationPanelOpen(true);
     void refreshGroupInvitations();
-  };
-
-  const handleInviteCandidate = async (candidate: InviteCandidate) => {
-    const group = groups.find((item) => item.id === inviteGroupId);
-    if (!group) {
-      setInviteStatus(t("groups.inviteChooseGroup"));
-      return;
-    }
-
-    setIsSendingInvite(true);
-    setInviteStatus(t("groups.inviteSending", { name: candidate.cleanId }));
-    try {
-      const response = await fetch(
-        `${BACKEND_URL}/chat/groups/${encodeURIComponent(group.id)}/invitations`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ targetUserId: candidate.id }),
-        },
-      );
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setInviteStatus(data.message || data.error || t("groups.inviteFailed"));
-        return;
-      }
-
-      const updatedGroup = data.group as GroupSummary | undefined;
-      if (updatedGroup) {
-        setGroups((prev) =>
-          prev.map((item) => (item.id === updatedGroup.id ? updatedGroup : item)),
-        );
-      }
-      setInviteCandidates((prev) => prev.filter((item) => item.id !== candidate.id));
-      setInviteQuery("");
-      setInviteStatus(
-        data.alreadyInvited
-          ? t("groups.inviteAlreadySent", { name: candidate.cleanId })
-          : t("groups.inviteSent", { name: candidate.cleanId, group: group.name }),
-      );
-    } catch {
-      setInviteStatus(t("groups.inviteFailed"));
-    } finally {
-      setIsSendingInvite(false);
-    }
   };
 
   const handleResolveInvitation = async (
@@ -619,7 +542,9 @@ const GroupConversationPage = () => {
       void refreshPendingCounts();
       if (action === "accept") {
         const acceptedGroup = data.group as GroupSummary | undefined;
-        if (acceptedGroup) {
+        if (!acceptedGroup) {
+          await refreshGroups();
+        } else if (acceptedGroup.groupKind !== "private") {
           setGroups((prev) => {
             const exists = prev.some((item) => item.id === acceptedGroup.id);
             return exists
@@ -644,11 +569,13 @@ const GroupConversationPage = () => {
 
   const heroName = me?.name || me?.cleanId || me?.email || t("common.cleanChat");
   const hasQuery = query.trim().length > 0;
-  const allJoinedGroups = groups.filter((group) => group.joined);
-  const joinedGroups = filteredGroups.filter((group) => group.joined);
-  const discoverGroups = filteredGroups.filter((group) => !group.joined);
+  const joinedInSelectedSubcategory = filteredGroups.filter((group) => group.joined);
+  const discoverInSelectedSubcategory = filteredGroups.filter((group) => !group.joined);
   const invitationCount = groupInvitations.length;
   const isSearchOpen = isSearchExpanded || hasQuery;
+  const getGroupAvatarLabel = (key: GroupAvatarKey) => t(GROUP_AVATAR_LABEL_KEYS[key]);
+  const selectedSubcategoryLabel = selectedSubcategory?.label ?? "";
+
   const openSearch = () => {
     setIsSearchExpanded(true);
   };
@@ -656,7 +583,13 @@ const GroupConversationPage = () => {
     setQuery("");
     setIsSearchExpanded(false);
   };
-  const getGroupAvatarLabel = (key: GroupAvatarKey) => t(GROUP_AVATAR_LABEL_KEYS[key]);
+
+  const getCommunityCount = (mainCategoryId: string, subcategoryId?: string) =>
+    communityGroups.filter((group) => {
+      if (group.mainCategoryId !== mainCategoryId) return false;
+      if (subcategoryId && group.subcategoryId !== subcategoryId) return false;
+      return true;
+    }).length;
 
   const renderGroupCard = (group: GroupSummary) => {
     const isWorking = workingGroupId === group.id;
@@ -754,7 +687,8 @@ const GroupConversationPage = () => {
                 disabled={isWorking || isCreating}
                 onClick={(event) => {
                   event.stopPropagation();
-                  requestAvatarChange(group);
+                  setPendingAvatarGroup(group);
+                  setPendingAvatarKey(group.avatarKey);
                 }}
               >
                 {avatarLabel}
@@ -767,7 +701,7 @@ const GroupConversationPage = () => {
                 disabled={isWorking || isCreating}
                 onClick={(event) => {
                   event.stopPropagation();
-                  requestDeleteGroup(group);
+                  setPendingDeleteGroup(group);
                 }}
               >
                 {deleteLabel}
@@ -790,24 +724,11 @@ const GroupConversationPage = () => {
             {group.isOwner && (
               <button
                 type="button"
-                className="group-action avatar"
-                disabled={isWorking || isCreating}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  requestAvatarChange(group);
-                }}
-              >
-                {avatarLabel}
-              </button>
-            )}
-            {group.isOwner && (
-              <button
-                type="button"
                 className="group-action delete"
                 disabled={isWorking || isCreating}
                 onClick={(event) => {
                   event.stopPropagation();
-                  requestDeleteGroup(group);
+                  setPendingDeleteGroup(group);
                 }}
               >
                 {deleteLabel}
@@ -819,159 +740,234 @@ const GroupConversationPage = () => {
     );
   };
 
-  return (
-    <div className="conversations-page groups-page">
-      <div className="conversations-shell">
-        <header className="conversations-hero conversations-hero-compact">
-          <div className="conversations-title-wrap">
-            <p className="eyebrow">{heroName}</p>
-            <h1 className="page-title">{t("groups.title")}</h1>
-            <p className="page-copy">
-              {t("groups.pageCopy")}
-            </p>
-          </div>
-        </header>
+  const renderMainCategories = () => (
+    <section className="community-category-grid" aria-label={t("groups.mainCategories", { defaultValue: "Main categories" })}>
+      {COMMUNITY_CATEGORIES.map((category) => (
+        <button
+          key={category.id}
+          type="button"
+          className="community-category-card"
+          onClick={() => navigate(buildCategoryPath(category.id))}
+        >
+          <span>{t("groups.mainCategory", { defaultValue: "Main category" })}</span>
+          <strong>{category.label}</strong>
+          <p>{category.description}</p>
+          <em>{t("groups.communityCount", { defaultValue: "{{count}} communities", count: getCommunityCount(category.id) })}</em>
+        </button>
+      ))}
+    </section>
+  );
 
-        <div className={`conversations-toolbar ${isSearchOpen ? "search-open" : ""}`}>
-          {!isSearchOpen && (
-            <button
-              type="button"
-              className="search-launcher"
-              aria-label={t("groups.openSearch")}
-              onClick={openSearch}
-            >
-              <SearchGlyph />
-            </button>
-          )}
-          <div className={`search-shell ${isSearchOpen ? "expanded" : ""}`}>
-            <div className="search-field">
-              <label className="sr-only" htmlFor="group-search">
-                {t("groups.searchGroups")}
-              </label>
-              <div className="search-input-wrap">
-                <span className="search-icon">
-                  <SearchGlyph />
-                </span>
-                <input
-                  ref={searchInputRef}
-                  id="group-search"
-                  type="text"
-                  placeholder={t("groups.searchPlaceholder")}
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  onFocus={openSearch}
-                  onBlur={() => {
-                    if (!query.trim()) {
-                      setIsSearchExpanded(false);
-                    }
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Escape") {
-                      closeSearch();
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="search-dismiss"
-                  aria-label={t("groups.closeSearch")}
-                  onClick={closeSearch}
-                >
-                  {t("common.close")}
-                </button>
-              </div>
+  const renderSubcategories = () => {
+    if (!selectedMainCategory) return null;
+    return (
+      <section className="community-category-grid" aria-label={t("groups.subCategories", { defaultValue: "Sub-categories" })}>
+        {selectedMainCategory.subcategories.map((subcategory) => (
+          <button
+            key={subcategory.id}
+            type="button"
+            className="community-category-card community-subcategory-card"
+            onClick={() => navigate(buildCategoryPath(selectedMainCategory.id, subcategory.id))}
+          >
+            <span>{t("groups.subCategory", { defaultValue: "Sub-category" })}</span>
+            <strong>{subcategory.label}</strong>
+            <p>
+              {t("groups.subCategoryHint", {
+                defaultValue: "Browse communities in {{category}}.",
+                category: selectedMainCategory.label,
+              })}
+            </p>
+            <em>{t("groups.communityCount", { defaultValue: "{{count}} communities", count: getCommunityCount(selectedMainCategory.id, subcategory.id) })}</em>
+          </button>
+        ))}
+      </section>
+    );
+  };
+
+  const renderCommunityList = () => (
+    <>
+      <div className={`conversations-toolbar ${isSearchOpen ? "search-open" : ""}`}>
+        {!isSearchOpen && (
+          <button
+            type="button"
+            className="search-launcher"
+            aria-label={t("groups.openSearch")}
+            onClick={openSearch}
+          >
+            <SearchGlyph />
+          </button>
+        )}
+        <div className={`search-shell ${isSearchOpen ? "expanded" : ""}`}>
+          <div className="search-field">
+            <label className="sr-only" htmlFor="group-search">
+              {t("groups.searchGroups")}
+            </label>
+            <div className="search-input-wrap">
+              <span className="search-icon">
+                <SearchGlyph />
+              </span>
+              <input
+                ref={searchInputRef}
+                id="group-search"
+                type="text"
+                placeholder={t("groups.searchPlaceholder")}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onFocus={openSearch}
+                onBlur={() => {
+                  if (!query.trim()) {
+                    setIsSearchExpanded(false);
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    closeSearch();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="search-dismiss"
+                aria-label={t("groups.closeSearch")}
+                onClick={closeSearch}
+              >
+                {t("common.close")}
+              </button>
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="groups-stage-bar">
-          <div className="groups-stage-copy">
-            <h2>{hasQuery ? t("groups.searchResults") : t("groups.yourCirclesFirst")}</h2>
-            <span>
-              {hasQuery
-                ? t("groups.visibleCount", { count: filteredGroups.length })
-                : t("groups.joinedAndDiscover", {
-                    joined: joinedGroups.length,
-                    discover: discoverGroups.length,
-                  })}
-            </span>
-          </div>
-          <div className="groups-stage-actions">
-            {allJoinedGroups.length > 0 && (
-              <button
-                type="button"
-                className="group-action invite groups-invite-trigger"
-                onClick={openInvitePanel}
-              >
-                <span aria-hidden="true">+</span>
-                {t("groups.invitePeople")}
-              </button>
+      <div className="groups-stage-bar">
+        <div className="groups-stage-copy">
+          <h2>{hasQuery ? t("groups.searchResults") : selectedSubcategoryLabel}</h2>
+          <span>
+            {hasQuery
+              ? t("groups.visibleCount", { count: filteredGroups.length })
+              : t("groups.joinedAndDiscover", {
+                  joined: joinedInSelectedSubcategory.length,
+                  discover: discoverInSelectedSubcategory.length,
+                })}
+          </span>
+        </div>
+        <div className="groups-stage-actions">
+          <button
+            type="button"
+            className="group-action invitations groups-invitations-trigger"
+            onClick={openInvitationsPanel}
+          >
+            {t("groups.invitationsButton")}
+            {invitationCount > 0 && (
+              <span className="groups-invitations-count">{invitationCount}</span>
             )}
-            <button
-              type="button"
-              className="group-action invitations groups-invitations-trigger"
-              onClick={openInvitationsPanel}
-            >
-              {t("groups.invitationsButton")}
-              {invitationCount > 0 && (
-                <span className="groups-invitations-count">{invitationCount}</span>
-              )}
-            </button>
-            <button
-              type="button"
-              className="group-action create groups-create-trigger"
-              onClick={() => setIsCreatePanelOpen(true)}
-            >
-              {t("groups.createGroup")}
-            </button>
+          </button>
+          <button
+            type="button"
+            className="group-action create groups-create-trigger"
+            onClick={openCreatePanel}
+          >
+            {t("groups.createCommunity", { defaultValue: "Create Community" })}
+          </button>
+        </div>
+      </div>
+
+      {status && <div className="status-text">{status}</div>}
+      {!status && filteredGroups.length === 0 && <div className="status-text">{t("groups.noGroupsFound")}</div>}
+
+      {filteredGroups.length > 0 && (
+        <div className="groups-sections">
+          {joinedInSelectedSubcategory.length > 0 && (
+            <section className="groups-section" aria-label={t("groups.joinedGroups")}>
+              <div className="groups-section-head">
+                <div>
+                  <h3>{t("groups.joinedCommunities", { defaultValue: "Joined communities" })}</h3>
+                  <p>{t("groups.joinedGroupsHint")}</p>
+                </div>
+              </div>
+              <div className="conversations-list">{joinedInSelectedSubcategory.map(renderGroupCard)}</div>
+            </section>
+          )}
+
+          {discoverInSelectedSubcategory.length > 0 && (
+            <section className="groups-section" aria-label={t("groups.discoverGroups")}>
+              <div className="groups-section-head">
+                <div>
+                  <h3>{joinedInSelectedSubcategory.length > 0 ? t("groups.discoverMore") : t("groups.communityRooms")}</h3>
+                  <p>{t("groups.discoverHint")}</p>
+                </div>
+              </div>
+              <div className="conversations-list">{discoverInSelectedSubcategory.map(renderGroupCard)}</div>
+            </section>
+          )}
+        </div>
+      )}
+    </>
+  );
+
+  const pageTitle = selectedSubcategory
+    ? selectedSubcategory.label
+    : selectedMainCategory
+      ? selectedMainCategory.label
+      : t("groups.communitiesTitle", { defaultValue: "Communities" });
+  const pageCopy = selectedSubcategory
+    ? t("groups.communityListCopy", {
+        defaultValue: "Join public communities in {{subcategory}}, or apply when approval is required.",
+        subcategory: selectedSubcategory.label,
+      })
+    : selectedMainCategory
+      ? t("groups.subcategoryPageCopy", {
+          defaultValue: "Choose a sub-category to find the right community lane.",
+        })
+      : t("groups.categoryPageCopy", {
+          defaultValue: "Choose a category first. Private groups stay hidden and invite-only.",
+        });
+
+  return (
+    <div className="groups-page">
+      <div className="conversations-shell">
+        <header className="conversations-header">
+          <div className="conversations-title-wrap">
+            <p className="eyebrow">{heroName}</p>
+            <h1 className="page-title">{pageTitle}</h1>
+            <p className="page-copy">{pageCopy}</p>
           </div>
+        </header>
+
+        <div className="community-breadcrumbs" aria-label={t("groups.categoryTrail", { defaultValue: "Category trail" })}>
+          <button type="button" onClick={() => navigate("/groups")}>
+            {t("groups.communitiesTitle", { defaultValue: "Communities" })}
+          </button>
+          {selectedMainCategory && (
+            <button type="button" onClick={() => navigate(buildCategoryPath(selectedMainCategory.id))}>
+              {selectedMainCategory.label}
+            </button>
+          )}
+          {selectedSubcategory && <span>{selectedSubcategory.label}</span>}
         </div>
 
-        {status && <div className="status-text">{status}</div>}
-
-        {!status && filteredGroups.length === 0 && <div className="status-text">{t("groups.noGroupsFound")}</div>}
-
-        {filteredGroups.length > 0 && (
-          <div className="groups-sections">
-            {joinedGroups.length > 0 && (
-              <section className="groups-section" aria-label={t("groups.joinedGroups")}>
-                <div className="groups-section-head">
-                  <div>
-                    <h3>{t("groups.joinedGroups")}</h3>
-                    <p>{t("groups.joinedGroupsHint")}</p>
-                  </div>
-                </div>
-                <div className="conversations-list">{joinedGroups.map(renderGroupCard)}</div>
-              </section>
-            )}
-
-            {discoverGroups.length > 0 && (
-              <section className="groups-section" aria-label={t("groups.discoverGroups")}>
-                <div className="groups-section-head">
-                  <div>
-                    <h3>{joinedGroups.length > 0 ? t("groups.discoverMore") : t("groups.communityRooms")}</h3>
-                    <p>{t("groups.discoverHint")}</p>
-                  </div>
-                </div>
-                <div className="conversations-list">{discoverGroups.map(renderGroupCard)}</div>
-              </section>
-            )}
-          </div>
-        )}
+        {!selectedMainCategory && renderMainCategories()}
+        {selectedMainCategory && !selectedSubcategory && renderSubcategories()}
+        {selectedMainCategory && selectedSubcategory && renderCommunityList()}
       </div>
-      {allJoinedGroups.length > 0 && (
-        <button
-          type="button"
-          className="group-action invite groups-fab"
-          aria-label={t("groups.invitePeople")}
-          onClick={openInvitePanel}
-        >
-          <span className="groups-fab-icon" aria-hidden="true">
-            <span />
-            <span />
-          </span>
-        </button>
+
+      {!selectedSubcategory && (
+        <div className="groups-floating-actions">
+          <button
+            type="button"
+            className="group-action invitations groups-invitations-trigger"
+            onClick={openInvitationsPanel}
+          >
+            {t("groups.invitationsButton")}
+            {invitationCount > 0 && (
+              <span className="groups-invitations-count">{invitationCount}</span>
+            )}
+          </button>
+          <button type="button" className="group-action create" onClick={openCreatePanel}>
+            {t("groups.createCommunity", { defaultValue: "Create Community" })}
+          </button>
+        </div>
       )}
+
       {isCreatePanelOpen && (
         <div className="groups-create-overlay" role="presentation" onClick={() => setIsCreatePanelOpen(false)}>
           <div
@@ -983,9 +979,9 @@ const GroupConversationPage = () => {
           >
             <div className="groups-create-head">
               <div>
-                <p className="eyebrow">{t("groups.newRoom")}</p>
-                <h3 id="create-group-title">{t("groups.createGroup")}</h3>
-                <p>{t("groups.createGroupHint")}</p>
+                <p className="eyebrow">{t("groups.newCommunity", { defaultValue: "New Community" })}</p>
+                <h3 id="create-group-title">{t("groups.createCommunity", { defaultValue: "Create Community" })}</h3>
+                <p>{t("groups.createCommunityHint", { defaultValue: "Pick the exact category before opening a public or approval-based community." })}</p>
               </div>
               <button
                 type="button"
@@ -998,6 +994,42 @@ const GroupConversationPage = () => {
             </div>
 
             <section className="group-create-panel">
+              <div className="group-create-category-grid">
+                <label className="group-create-field">
+                  <span>{t("groups.mainCategory", { defaultValue: "Main category" })}</span>
+                  <select
+                    value={newGroupMainCategoryId}
+                    onChange={(event) => {
+                      setNewGroupMainCategoryId(event.target.value);
+                      setNewGroupSubcategoryId("");
+                    }}
+                    disabled={isCreating}
+                  >
+                    <option value="">{t("groups.chooseMainCategory", { defaultValue: "Choose main category" })}</option>
+                    {COMMUNITY_CATEGORIES.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="group-create-field">
+                  <span>{t("groups.subCategory", { defaultValue: "Sub-category" })}</span>
+                  <select
+                    value={newGroupSubcategoryId}
+                    onChange={(event) => setNewGroupSubcategoryId(event.target.value)}
+                    disabled={isCreating || !newGroupMainCategoryId}
+                  >
+                    <option value="">{t("groups.chooseSubCategory", { defaultValue: "Choose sub-category" })}</option>
+                    {findCommunityCategory(newGroupMainCategoryId)?.subcategories.map((subcategory) => (
+                      <option key={subcategory.id} value={subcategory.id}>
+                        {subcategory.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
               <div className="group-create-grid">
                 <input
                   type="text"
@@ -1049,105 +1081,7 @@ const GroupConversationPage = () => {
           </div>
         </div>
       )}
-      {isInvitePanelOpen && (
-        <div className="groups-invite-overlay" role="presentation" onClick={() => setIsInvitePanelOpen(false)}>
-          <div
-            className="groups-invite-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="group-invite-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="groups-create-head">
-              <div>
-                <p className="eyebrow">{t("groups.inviteEyebrow")}</p>
-                <h3 id="group-invite-title">{t("groups.invitePeople")}</h3>
-                <p>{t("groups.invitePeopleHint")}</p>
-              </div>
-              <button
-                type="button"
-                className="group-action cancel"
-                onClick={() => setIsInvitePanelOpen(false)}
-                disabled={isSendingInvite}
-              >
-                {t("common.close")}
-              </button>
-            </div>
 
-            {allJoinedGroups.length === 0 ? (
-              <p className="groups-invite-empty">{t("groups.inviteNoJoinedGroups")}</p>
-            ) : (
-              <section className="groups-invite-panel">
-                <label className="groups-invite-field">
-                  <span>{t("groups.inviteGroupLabel")}</span>
-                  <select
-                    value={inviteGroupId}
-                    onChange={(event) => setInviteGroupId(event.target.value)}
-                    disabled={isSendingInvite}
-                  >
-                    {allJoinedGroups.map((group) => (
-                      <option key={group.id} value={group.id}>
-                        {group.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="groups-invite-field">
-                  <span>{t("groups.inviteSearchLabel")}</span>
-                  <input
-                    type="search"
-                    value={inviteQuery}
-                    onChange={(event) => {
-                      setInviteQuery(event.target.value);
-                      setInviteStatus("");
-                    }}
-                    placeholder={t("groups.inviteSearchPlaceholder")}
-                    disabled={isSendingInvite}
-                  />
-                </label>
-
-                <div className="groups-invite-results" aria-live="polite">
-                  {isSearchingInvitees ? (
-                    <p>{t("groups.inviteSearching")}</p>
-                  ) : inviteQuery.trim().length === 0 ? (
-                    <p>{t("groups.inviteSearchIdle")}</p>
-                  ) : inviteCandidates.length === 0 ? (
-                    <p>{t("groups.inviteSearchEmpty")}</p>
-                  ) : (
-                    <ul>
-                      {inviteCandidates.map((candidate) => (
-                        <li key={candidate.id}>
-                          <div className="groups-invite-user">
-                            <strong>@{candidate.cleanId}</strong>
-                            <span>{candidate.name || candidate.email}</span>
-                          </div>
-                          <button
-                            type="button"
-                            className="group-action invite"
-                            onClick={() => {
-                              void handleInviteCandidate(candidate);
-                            }}
-                            disabled={isSendingInvite}
-                          >
-                            {isSendingInvite ? t("groups.inviteSendingShort") : t("groups.invite")}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </section>
-            )}
-
-            {inviteStatus && (
-              <p className="groups-invite-status" role="status">
-                {inviteStatus}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
       {isInvitationPanelOpen && (
         <div className="groups-invitations-overlay" role="presentation" onClick={() => setIsInvitationPanelOpen(false)}>
           <div
@@ -1233,13 +1167,12 @@ const GroupConversationPage = () => {
           </div>
         </div>
       )}
+
       {pendingDeleteGroup && (
         <div className="groups-delete-overlay" role="presentation">
           <div className="groups-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-group-title">
             <h3 id="delete-group-title">{t("groups.deleteGroupTitle", { name: pendingDeleteGroup.name })}</h3>
-            <p>
-              {t("groups.deleteGroupHint")}
-            </p>
+            <p>{t("groups.deleteGroupHint")}</p>
             <div className="groups-delete-actions">
               <button
                 type="button"

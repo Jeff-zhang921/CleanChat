@@ -234,7 +234,7 @@ const resolveRootViewFromPath = (
   pathname: string,
   fallback: RootViewKey = 'conversations'
 ): RootViewKey => {
-  if (pathname === '/groups') return 'groups';
+  if (pathname === '/groups' || pathname.startsWith('/groups/')) return 'groups';
   if (pathname === '/discover') return 'discover';
   if (pathname === '/profile/settings') return 'settings';
   if (pathname.startsWith('/profile')) return 'profile';
@@ -258,7 +258,7 @@ const resolveDetailViewFromPath = (pathname: string): DetailViewKey => {
 
 const isKnownHybridPath = (pathname: string) => {
   if (pathname === '/conversations') return true;
-  if (pathname === '/groups') return true;
+  if (pathname === '/groups' || pathname.startsWith('/groups/')) return true;
   if (pathname === '/discover') return true;
   if (pathname === '/profile') return true;
   if (pathname === '/profile/settings') return true;

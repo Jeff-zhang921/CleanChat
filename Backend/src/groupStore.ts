@@ -61,10 +61,6 @@ export type CommunitySubcategoryId =
 const DEFAULT_COMMUNITY_CATEGORY = COMMUNITY_CATEGORIES[0];
 const DEFAULT_COMMUNITY_SUBCATEGORY = DEFAULT_COMMUNITY_CATEGORY.subcategories[0];
 
-const COMMUNITY_CATEGORY_BY_ID = new Map(
-  COMMUNITY_CATEGORIES.map((category) => [category.id, category]),
-);
-
 export const resolveCommunityCategorySelection = (
   rawMainCategoryId: unknown,
   rawSubcategoryId: unknown,
@@ -73,7 +69,9 @@ export const resolveCommunityCategorySelection = (
     typeof rawMainCategoryId === "string" ? rawMainCategoryId.trim() : "";
   const subcategoryId =
     typeof rawSubcategoryId === "string" ? rawSubcategoryId.trim() : "";
-  const category = COMMUNITY_CATEGORY_BY_ID.get(mainCategoryId);
+  const category = COMMUNITY_CATEGORIES.find(
+    (item) => item.id === mainCategoryId,
+  );
   if (!category) {
     return null;
   }

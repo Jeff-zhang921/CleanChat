@@ -158,6 +158,10 @@ const groups = [
       "Long-running product discussion with enough content to scroll.",
     avatarKey: "orbit",
     avatarUrl: groupAvatarUrl,
+    groupKind: "community",
+    creatorId: viewer.id,
+    mainCategoryId: "career",
+    subcategoryId: "frontend",
     joined: true,
     isOwner: true,
     memberCount: 18,
@@ -173,6 +177,10 @@ const groups = [
     description: "A discoverable room for smoke tests.",
     avatarKey: "pixel",
     avatarUrl: groupAvatarUrl,
+    groupKind: "community",
+    creatorId: partner.id,
+    mainCategoryId: "career",
+    subcategoryId: "frontend",
     joined: false,
     isOwner: false,
     memberCount: 9,
@@ -429,6 +437,11 @@ const handleBackendRoute = async (route: Route) => {
       },
       201,
     );
+    return;
+  }
+
+  if (/^\/chat\/groups\/[^/]+\/members\/\d+$/.test(path) && method === "DELETE") {
+    await routeJson(route, { ok: true, group: { ...groups[0], memberCount: 17 } });
     return;
   }
 
@@ -799,12 +812,16 @@ const pageTargets: PageTarget[] = [
     name: "groups",
     path: "/groups",
     authenticated: true,
-    readySelector: ".group-card",
+    readySelector: ".community-category-card",
     smoke: async (page) => {
       const activeRoot = page.locator(".hybrid-root-view.is-active");
       await expect(
         activeRoot.locator('.bottom-nav-link[href="/groups"] .bottom-nav-badge'),
       ).toHaveText("1");
+      await activeRoot.locator(".community-category-card", { hasText: "Career" }).click();
+      await expect(activeRoot.locator(".community-subcategory-card", { hasText: "Frontend" })).toBeVisible();
+      await activeRoot.locator(".community-subcategory-card", { hasText: "Frontend" }).click();
+      await expect(activeRoot.locator(".group-card").first()).toBeVisible();
       await activeRoot.locator(".search-launcher").click();
       await expect(
         activeRoot.locator(".search-input-wrap input"),
@@ -820,19 +837,14 @@ const pageTargets: PageTarget[] = [
       await page.locator(".groups-invitations-modal .group-action.cancel").click();
       await expect(page.locator(".groups-invitations-modal")).toBeHidden();
 
-      await activeRoot.locator(".group-action.invite:visible").first().click();
-      await expect(page.locator(".groups-invite-modal")).toBeVisible();
-      await page.locator(".groups-invite-field input[type='search']").fill("quiet");
-      await expect(page.locator(".groups-invite-results li")).toHaveCount(1);
-      await page.locator(".groups-invite-results .group-action.invite").click();
-      await expect(page.locator(".groups-invite-status")).toBeVisible();
-      await page.locator(".groups-invite-modal .group-action.cancel").click();
-      await expect(page.locator(".groups-invite-modal")).toBeHidden();
+      await expect(activeRoot.locator(".groups-invite-trigger")).toHaveCount(0);
 
       await activeRoot.locator(".group-action.create:visible").first().click();
       await expect(
         page.locator(".groups-create-modal .group-create-panel"),
       ).toBeVisible();
+      await expect(page.locator(".groups-create-modal select").first()).toHaveValue("career");
+      await expect(page.locator(".groups-create-modal select").nth(1)).toHaveValue("frontend");
       await page
         .locator(".groups-create-modal .group-action.cancel")
         .click({ force: true });
@@ -913,6 +925,15 @@ const pageTargets: PageTarget[] = [
       const muteSwitch = page.locator("[role='switch']").first();
       await expect(muteSwitch).toBeVisible();
       await muteSwitch.click();
+      await page.locator(".group-settings-invite-placeholder").click();
+      await expect(page.locator(".group-settings-invite-dialog")).toBeVisible();
+      await page.locator(".group-settings-invite-field input[type='search']").fill("quiet");
+      await expect(page.locator(".group-settings-invite-results li")).toHaveCount(1);
+      await page.locator(".group-settings-invite-send").click();
+      await expect(page.locator(".group-settings-invite-status")).toBeVisible();
+      await page.locator(".group-settings-invite-close").click();
+      await expect(page.locator(".group-settings-invite-dialog")).toBeHidden();
+      await expect(page.locator(".group-settings-kick-action").first()).toBeVisible();
     },
   },
   {

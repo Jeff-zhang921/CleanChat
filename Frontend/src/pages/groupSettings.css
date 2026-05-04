@@ -223,6 +223,13 @@
   gap: 0.78rem 0.64rem;
 }
 
+.group-settings-member-cell {
+  display: grid;
+  justify-items: center;
+  gap: 0.34rem;
+  min-width: 0;
+}
+
 .group-settings-member-item {
   border: 0;
   background: transparent;
@@ -267,6 +274,30 @@
   overflow: hidden;
 }
 
+.group-settings-kick-action {
+  border: 1px solid rgba(170, 80, 86, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 242, 243, 0.82);
+  color: rgba(139, 45, 54, 0.94);
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 720;
+  line-height: 1;
+  padding: 0.34rem 0.48rem;
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.group-settings-kick-action:hover:not(:disabled) {
+  border-color: rgba(150, 56, 65, 0.34);
+  background: rgba(255, 235, 237, 0.94);
+}
+
+.group-settings-kick-action:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .group-settings-invite-placeholder {
   width: min(3.25rem, 14vw);
   height: min(3.25rem, 14vw);
@@ -280,6 +311,19 @@
   font-weight: 500;
   justify-self: center;
   align-self: start;
+  cursor: pointer;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+.group-settings-invite-placeholder:hover:not(:disabled) {
+  border-color: rgba(55, 115, 83, 0.45);
+  background: rgba(238, 250, 243, 0.74);
+  transform: translateY(-1px);
+}
+
+.group-settings-invite-placeholder:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .group-settings-danger {
@@ -323,6 +367,176 @@
   position: fixed;
   inset: 0;
   z-index: 70;
+}
+
+.group-settings-invite-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 72;
+}
+
+.group-settings-invite-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(18, 24, 20, 0.34);
+}
+
+.group-settings-invite-dialog {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(92vw, 34rem);
+  border-radius: 1.06rem;
+  border: 1px solid rgba(92, 106, 97, 0.2);
+  background: rgba(255, 252, 247, 0.97);
+  box-shadow: 0 28px 44px rgba(18, 24, 20, 0.2);
+  padding: 1rem;
+  display: grid;
+  gap: 0.78rem;
+}
+
+.group-settings-invite-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.9rem;
+}
+
+.group-settings-invite-head p,
+.group-settings-invite-head h2,
+.group-settings-invite-head span {
+  margin: 0;
+}
+
+.group-settings-invite-head p {
+  color: rgba(35, 53, 42, 0.58);
+  font-size: 0.72rem;
+  font-weight: 780;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.group-settings-invite-head h2 {
+  margin-top: 0.22rem;
+  font-size: 1.12rem;
+  font-weight: 660;
+}
+
+.group-settings-invite-head span {
+  display: block;
+  margin-top: 0.16rem;
+  color: rgba(23, 33, 26, 0.72);
+  font-size: 0.84rem;
+}
+
+.group-settings-invite-close,
+.group-settings-invite-send {
+  border: 1px solid rgba(92, 106, 97, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #1f553c;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 720;
+  padding: 0.48rem 0.72rem;
+  cursor: pointer;
+}
+
+.group-settings-invite-field {
+  display: grid;
+  gap: 0.34rem;
+}
+
+.group-settings-invite-field span {
+  color: rgba(35, 49, 38, 0.72);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.group-settings-invite-field input {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid rgba(92, 106, 97, 0.22);
+  border-radius: 0.82rem;
+  background: rgba(255, 255, 255, 0.9);
+  color: #17211a;
+  font: inherit;
+  padding: 0.72rem 0.78rem;
+  box-sizing: border-box;
+}
+
+.group-settings-invite-field input:focus {
+  outline: none;
+  border-color: rgba(54, 122, 85, 0.44);
+  box-shadow: 0 0 0 3px rgba(54, 122, 85, 0.12);
+}
+
+.group-settings-invite-results {
+  border: 1px solid rgba(35, 49, 38, 0.08);
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.62);
+  padding: 0.48rem;
+  min-height: 5rem;
+  max-height: min(42dvh, 21rem);
+  overflow-y: auto;
+}
+
+.group-settings-invite-results p {
+  margin: 0;
+  color: rgba(23, 33, 26, 0.72);
+  line-height: 1.5;
+  padding: 0.62rem;
+}
+
+.group-settings-invite-results ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.42rem;
+}
+
+.group-settings-invite-results li {
+  border: 1px solid rgba(35, 49, 38, 0.08);
+  border-radius: 0.82rem;
+  background: rgba(255, 255, 255, 0.82);
+  padding: 0.58rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.group-settings-invite-user {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.group-settings-invite-user strong {
+  color: #17211a;
+  overflow-wrap: anywhere;
+}
+
+.group-settings-invite-user span {
+  color: rgba(23, 33, 26, 0.72);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.group-settings-invite-status {
+  margin: 0;
+  border: 1px solid rgba(57, 124, 89, 0.18);
+  border-radius: 0.82rem;
+  background: rgba(236, 250, 242, 0.72);
+  color: #1f553c;
+  padding: 0.62rem 0.7rem;
+  line-height: 1.45;
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
 }
 
 .group-settings-confirm-backdrop {
@@ -423,5 +637,31 @@
 
   .group-settings-confirm-actions {
     gap: 0.96rem;
+  }
+
+  .group-settings-invite-dialog {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    transform: none;
+    width: 100%;
+    max-height: min(84dvh, 44rem);
+    border-radius: 1.12rem 1.12rem 0 0;
+    padding:
+      0.95rem
+      0.9rem
+      max(calc(0.9rem + env(safe-area-inset-bottom, 0px)), 1rem);
+    overflow-y: auto;
+    box-sizing: border-box;
+  }
+
+  .group-settings-invite-results li {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .group-settings-invite-send {
+    width: 100%;
   }
 }

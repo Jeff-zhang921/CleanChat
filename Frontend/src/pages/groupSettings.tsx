@@ -31,6 +31,8 @@ type GroupSummary = {
   name: string;
   description: string;
   avatarUrl: string;
+  groupKind?: "community" | "private";
+  creatorId: number | null;
   joined: boolean;
   isOwner: boolean;
   memberCount: number;
@@ -92,6 +94,13 @@ const GroupSettingsPage = () => {
   const [isLeaving, setIsLeaving] = useState(false);
   const [mutedByMe, setMutedByMe] = useState(false);
   const [isUpdatingMute, setIsUpdatingMute] = useState(false);
+  const [isInvitePanelOpen, setIsInvitePanelOpen] = useState(false);
+  const [inviteQuery, setInviteQuery] = useState("");
+  const [inviteCandidates, setInviteCandidates] = useState<GroupMember[]>([]);
+  const [isSearchingInvitees, setIsSearchingInvitees] = useState(false);
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
+  const [inviteStatus, setInviteStatus] = useState("");
+  const [kickingMemberId, setKickingMemberId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!groupId) {
@@ -171,6 +180,11 @@ const GroupSettingsPage = () => {
               ? rawGroup.description
               : "",
           avatarUrl: rawGroup.avatarUrl,
+          groupKind: rawGroup.groupKind === "private" ? "private" : "community",
+          creatorId:
+            typeof rawGroup.creatorId === "number" && rawGroup.creatorId > 0
+              ? rawGroup.creatorId
+              : null,
           joined: rawGroup.joined !== false,
           isOwner: rawGroup.isOwner === true,
           memberCount:
@@ -203,6 +217,76 @@ const GroupSettingsPage = () => {
       isMounted = false;
     };
   }, [groupId, t]);
+
+  useEffect(() => {
+    if (!isInvitePanelOpen) {
+      return;
+    }
+
+    const normalizedQuery = inviteQuery.trim();
+    if (!normalizedQuery) {
+      setInviteCandidates([]);
+      setIsSearchingInvitees(false);
+      return;
+    }
+
+    let isMounted = true;
+    setIsSearchingInvitees(true);
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `${BACKEND_URL}/chat/users/search?q=${encodeURIComponent(normalizedQuery)}`,
+          { credentials: "include" },
+        );
+        const data = await response.json().catch(() => ({}));
+        if (!isMounted) return;
+        if (!response.ok) {
+          setInviteStatus(data.message || data.error || t("groups.inviteSearchFailed"));
+          setInviteCandidates([]);
+          return;
+        }
+        const users: unknown[] = Array.isArray(data.users) ? data.users : [];
+        setInviteCandidates(
+          users.reduce<GroupMember[]>((acc, item) => {
+            if (!item || typeof item !== "object") return acc;
+            const candidate = item as Partial<GroupMember>;
+            if (
+              typeof candidate.id !== "number" ||
+              !Number.isInteger(candidate.id) ||
+              candidate.id <= 0 ||
+              typeof candidate.cleanId !== "string" ||
+              typeof candidate.email !== "string"
+            ) {
+              return acc;
+            }
+            acc.push({
+              id: candidate.id,
+              name: typeof candidate.name === "string" ? candidate.name : null,
+              cleanId: candidate.cleanId,
+              email: candidate.email,
+              avatar: normalizeAvatarKey(candidate.avatar),
+              gender: typeof candidate.gender === "string" ? candidate.gender : null,
+            });
+            return acc;
+          }, []),
+        );
+      } catch {
+        if (isMounted) {
+          setInviteStatus(t("groups.inviteSearchFailed"));
+          setInviteCandidates([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsSearchingInvitees(false);
+        }
+      }
+    }, 220);
+
+    return () => {
+      isMounted = false;
+      window.clearTimeout(timer);
+    };
+  }, [inviteQuery, isInvitePanelOpen, t]);
 
   const groupName =
     group?.name || locationState?.other || t("groups.groupFallback");
@@ -284,6 +368,88 @@ const GroupSettingsPage = () => {
       setStatus(t("groupSettings.muteUpdateFailed"));
     } finally {
       setIsUpdatingMute(false);
+    }
+  };
+
+  const openInvitePanel = () => {
+    setInviteQuery("");
+    setInviteCandidates([]);
+    setInviteStatus("");
+    setIsInvitePanelOpen(true);
+  };
+
+  const handleInviteCandidate = async (candidate: GroupMember) => {
+    if (!groupId || isSendingInvite) {
+      return;
+    }
+
+    setIsSendingInvite(true);
+    setInviteStatus(t("groups.inviteSending", { name: candidate.cleanId }));
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/chat/groups/${encodeURIComponent(groupId)}/invitations`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ targetUserId: candidate.id }),
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setInviteStatus(data.message || data.error || t("groups.inviteFailed"));
+        return;
+      }
+
+      setInviteCandidates((prev) => prev.filter((item) => item.id !== candidate.id));
+      setInviteQuery("");
+      setInviteStatus(
+        data.alreadyInvited
+          ? t("groups.inviteAlreadySent", { name: candidate.cleanId })
+          : t("groups.inviteSent", { name: candidate.cleanId, group: groupName }),
+      );
+    } catch {
+      setInviteStatus(t("groups.inviteFailed"));
+    } finally {
+      setIsSendingInvite(false);
+    }
+  };
+
+  const handleKickMember = async (member: GroupMember) => {
+    if (!groupId || !group?.isOwner || kickingMemberId !== null) {
+      return;
+    }
+
+    setKickingMemberId(member.id);
+    setStatus("");
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/chat/groups/${encodeURIComponent(groupId)}/members/${member.id}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        },
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatus(data.message || data.error || t("groupSettings.kickFailed", { defaultValue: "Failed to remove member." }));
+        return;
+      }
+
+      setMembers((prev) => prev.filter((item) => item.id !== member.id));
+      setGroup((current) =>
+        current
+          ? {
+              ...current,
+              memberCount: Math.max(0, current.memberCount - 1),
+            }
+          : current,
+      );
+      setStatus(t("groupSettings.kicked", { defaultValue: "Member removed." }));
+    } catch {
+      setStatus(t("groupSettings.kickFailed", { defaultValue: "Failed to remove member." }));
+    } finally {
+      setKickingMemberId(null);
     }
   };
 
@@ -421,34 +587,58 @@ const GroupSettingsPage = () => {
             {visibleMembers.map((member) => {
               const displayName =
                 member.name?.trim() || member.cleanId || member.email.split("@")[0] || t("common.user");
+              const canKickMember =
+                group.isOwner &&
+                member.id !== group.creatorId &&
+                kickingMemberId !== member.id;
 
               return (
-                <button
-                  type="button"
+                <div
                   key={member.id}
-                  className="group-settings-member-item"
-                  onClick={() => handleOpenMemberProfile(member)}
-                  title={displayName}
+                  className={`group-settings-member-cell ${group.isOwner ? "owner-view" : ""}`}
                 >
-                  <span className="group-settings-member-avatar" aria-hidden="true">
-                    <img
-                      className={getAvatarToneClass(member.avatar)}
-                      src={getAvatarUrl(member.avatar)}
-                      alt=""
-                    />
-                  </span>
-                  <span className="group-settings-member-name">{displayName}</span>
-                </button>
+                  <button
+                    type="button"
+                    className="group-settings-member-item"
+                    onClick={() => handleOpenMemberProfile(member)}
+                    title={displayName}
+                  >
+                    <span className="group-settings-member-avatar" aria-hidden="true">
+                      <img
+                        className={getAvatarToneClass(member.avatar)}
+                        src={getAvatarUrl(member.avatar)}
+                        alt=""
+                      />
+                    </span>
+                    <span className="group-settings-member-name">{displayName}</span>
+                  </button>
+                  {group.isOwner && member.id !== group.creatorId && (
+                    <button
+                      type="button"
+                      className="group-settings-kick-action"
+                      onClick={() => {
+                        void handleKickMember(member);
+                      }}
+                      disabled={!canKickMember || kickingMemberId !== null}
+                    >
+                      {kickingMemberId === member.id
+                        ? t("groupSettings.kicking", { defaultValue: "Removing..." })
+                        : t("groupSettings.kick", { defaultValue: "Kick" })}
+                    </button>
+                  )}
+                </div>
               );
             })}
 
-            <div
+            <button
+              type="button"
               className="group-settings-invite-placeholder"
-              role="img"
               aria-label={t("groupSettings.invitePlaceholder")}
+              onClick={openInvitePanel}
+              disabled={isSendingInvite}
             >
               <span>+</span>
-            </div>
+            </button>
           </div>
         </section>
 
@@ -469,6 +659,86 @@ const GroupSettingsPage = () => {
           </p>
         )}
       </main>
+
+      {isInvitePanelOpen && (
+        <div className="group-settings-invite-layer" role="presentation">
+          <button
+            type="button"
+            className="group-settings-invite-backdrop"
+            aria-label={t("common.close")}
+            onClick={() => setIsInvitePanelOpen(false)}
+            disabled={isSendingInvite}
+          />
+          <section className="group-settings-invite-dialog" role="dialog" aria-modal="true" aria-labelledby="group-settings-invite-title">
+            <div className="group-settings-invite-head">
+              <div>
+                <p>{group.groupKind === "private" ? t("groupSettings.privateGroup", { defaultValue: "Private Group" }) : t("groupSettings.community", { defaultValue: "Community" })}</p>
+                <h2 id="group-settings-invite-title">{t("groups.invitePeople")}</h2>
+                <span>{groupName}</span>
+              </div>
+              <button
+                type="button"
+                className="group-settings-invite-close"
+                onClick={() => setIsInvitePanelOpen(false)}
+                disabled={isSendingInvite}
+              >
+                {t("common.close")}
+              </button>
+            </div>
+
+            <label className="group-settings-invite-field">
+              <span>{t("groups.inviteSearchLabel")}</span>
+              <input
+                type="search"
+                value={inviteQuery}
+                onChange={(event) => {
+                  setInviteQuery(event.target.value);
+                  setInviteStatus("");
+                }}
+                placeholder={t("groups.inviteSearchPlaceholder")}
+                disabled={isSendingInvite}
+              />
+            </label>
+
+            <div className="group-settings-invite-results" aria-live="polite">
+              {isSearchingInvitees ? (
+                <p>{t("groups.inviteSearching")}</p>
+              ) : inviteQuery.trim().length === 0 ? (
+                <p>{t("groups.inviteSearchIdle")}</p>
+              ) : inviteCandidates.length === 0 ? (
+                <p>{t("groups.inviteSearchEmpty")}</p>
+              ) : (
+                <ul>
+                  {inviteCandidates.map((candidate) => (
+                    <li key={candidate.id}>
+                      <div className="group-settings-invite-user">
+                        <strong>@{candidate.cleanId}</strong>
+                        <span>{candidate.name || candidate.email}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="group-settings-invite-send"
+                        onClick={() => {
+                          void handleInviteCandidate(candidate);
+                        }}
+                        disabled={isSendingInvite}
+                      >
+                        {isSendingInvite ? t("groups.inviteSendingShort") : t("groups.invite")}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {inviteStatus && (
+              <p className="group-settings-invite-status" role="status">
+                {inviteStatus}
+              </p>
+            )}
+          </section>
+        </div>
+      )}
 
       {showLeaveConfirm && (
         <div className="group-settings-confirm-layer" role="presentation">
