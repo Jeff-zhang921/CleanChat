@@ -30,6 +30,7 @@ import {
   readDraftForTarget,
   writeDraftForTarget,
 } from "../utils/chatDraftStorage";
+import { dispatchConversationDeleted } from "../utils/conversationEvents";
 import { getSystemMessageText } from "../utils/systemMessages";
 import { clearGroupUnread, clearThreadUnread } from "../utils/unreadCounts";
 import "./chatPage.css";
@@ -40,6 +41,12 @@ type MessageRecallPayload = {
   groupId?: string;
   deletedBy?: number;
   recalledBy?: number;
+};
+
+type ThreadDeletedPayload = {
+  threadId?: number;
+  deletedBy?: number;
+  deletedAt?: string;
 };
 
 type ChatMode = "direct" | "group";
@@ -885,6 +892,40 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
 
     socket.on("message:recalled", handleDirectRecalled);
     socket.on("message:deleted", handleDirectRecalled);
+
+    const handleThreadDeleted = (payload: ThreadDeletedPayload) => {
+      const deletedThreadId = Number(payload?.threadId);
+      const activeThreadId = threadIdRef.current;
+      if (
+        !Number.isInteger(deletedThreadId) ||
+        deletedThreadId <= 0 ||
+        activeThreadId !== deletedThreadId
+      ) {
+        return;
+      }
+
+      dispatchConversationDeleted({
+        threadId: deletedThreadId,
+        toast: t("chatSettings.deletedToast"),
+        deletedBy: payload.deletedBy,
+        deletedAt: payload.deletedAt,
+      });
+      clearThreadUnread(deletedThreadId);
+      clearDraftForTarget({ chatType: "direct", threadId: deletedThreadId });
+      clearMessages();
+      setMessageBody("");
+      setQuoteDraft(null);
+      setStatus(t("chatSettings.deletedToast"));
+
+      if (onRequestClose) {
+        onRequestClose(fromPath);
+        return;
+      }
+
+      navigate(fromPath, { replace: true });
+    };
+
+    socket.on("thread:deleted", handleThreadDeleted);
 
     socket.on("group:message:new", (msg: ChatMessage) => {
       appendIncomingMessage(msg);

@@ -90,7 +90,9 @@ const buildThreads = () => {
   return [
     acceptedThread,
     ...Array.from({ length: 18 }, (_, index) => {
-      const partnerId = index + 2;
+      const basePartnerId = index + 2;
+      const partnerId =
+        basePartnerId >= targetUser.id ? basePartnerId + 1 : basePartnerId;
       const createdAt = new Date(
         Date.now() - (index + 2) * 120_000,
       ).toISOString();
@@ -357,8 +359,17 @@ const handleBackendRoute = async (route: Route) => {
     return;
   }
 
-  if (/^\/chat\/threads\/\d+$/.test(path) && method === "DELETE") {
-    await routeJson(route, { ok: true });
+  if (
+    (/^\/chat\/threads\/\d+$/.test(path) ||
+      /^\/(?:api\/)?conversations\/\d+$/.test(path)) &&
+    method === "DELETE"
+  ) {
+    const threadId = Number(path.match(/(\d+)$/)?.[1] ?? 0);
+    await routeJson(route, {
+      ok: true,
+      conversationId: threadId,
+      invalidatedRequests: 1,
+    });
     return;
   }
 
@@ -765,11 +776,22 @@ const pageTargets: PageTarget[] = [
       await expect(activeRoot.locator('[data-conversation-id="direct-77"]')).toContainText(
         /聊天请求已通过|Chat request accepted/i,
       );
+      await page.evaluate(() => {
+        window.dispatchEvent(
+          new CustomEvent("cleanchat:conversation-deleted", {
+            detail: { threadId: 77 },
+          }),
+        );
+      });
+      await expect(activeRoot.locator('[data-conversation-id="direct-77"]')).toHaveCount(0);
       await activeRoot.locator(".search-launcher").click();
       await expect(
         activeRoot.locator(".search-input-wrap input"),
       ).toBeVisible();
       await activeRoot.locator(".search-input-wrap input").fill("quiet");
+      await expect(activeRoot.locator('[data-conversation-user-id="7"]')).toContainText(
+        /请求聊天|Request to Chat/i,
+      );
       await activeRoot.locator(".search-dismiss").click();
     },
   },
@@ -869,6 +891,14 @@ const pageTargets: PageTarget[] = [
       const muteSwitch = page.locator("[role='switch']").first();
       await expect(muteSwitch).toBeVisible();
       await muteSwitch.click();
+      await page.locator(".chat-settings-danger-action").click();
+      const deleteDialog = page.locator(".chat-settings-confirm-dialog");
+      await expect(deleteDialog).toBeVisible();
+      await expect(deleteDialog).toContainText(
+        /重新请求验证|new request|新しいリクエスト|새 요청/i,
+      );
+      await page.locator(".chat-settings-confirm-delete").click();
+      await expect(page).toHaveURL(/\/conversations/);
     },
   },
   {

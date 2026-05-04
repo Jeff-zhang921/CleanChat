@@ -1,6 +1,8 @@
 export type ConversationDeletedDetail = {
   threadId: number;
   toast?: string;
+  deletedBy?: number;
+  deletedAt?: string;
 };
 
 export type GroupConversationLeftDetail = {

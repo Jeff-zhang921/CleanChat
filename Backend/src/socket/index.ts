@@ -204,6 +204,7 @@ export function initSocket(server: HTTPServer) {
       const acceptedRequest = await prisma.chatRequest.findFirst({
         where: {
           status: ChatRequestStatus.ACCEPTED,
+          acceptedThreadId: thread.id,
           OR: [
             { requesterId: senderId, recipientId },
             { requesterId: recipientId, recipientId: senderId },

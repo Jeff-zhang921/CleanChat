@@ -340,12 +340,12 @@
     "blockedNow": "已屏蔽该用户。",
     "unblockedNow": "已解除屏蔽。",
     "deleteChat": "删除聊天记录",
-    "deleteHint": "此操作将永久删除双方的沟通记录且不可撤销。",
+    "deleteHint": "此操作会永久删除双方的聊天记录。之后如需聊天，任一方都必须重新发送请求验证。",
     "deleting": "删除中...",
     "deleteFailed": "删除聊天失败。",
     "deletedToast": "会话已删除",
     "deleteConfirmTitle": "确定要永久抹除此会话吗？",
-    "deleteConfirmBody": "此操作将同时删除该用户的所有联系痕迹。",
+    "deleteConfirmBody": "此操作会同时删除双方聊天记录，并重置聊天权限。之后双方都不能直接聊天，必须重新请求验证。",
     "deleteConfirmAction": "确认删除"
   },
   "groupSettings": {

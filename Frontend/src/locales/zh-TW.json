@@ -325,12 +325,12 @@
     "blockedNow": "已封鎖該使用者。",
     "unblockedNow": "已解除封鎖。",
     "deleteChat": "刪除聊天紀錄",
-    "deleteHint": "此操作會永久刪除雙方的溝通紀錄且無法復原。",
+    "deleteHint": "此操作會永久刪除雙方的聊天紀錄。之後如需聊天，任一方都必須重新發送請求驗證。",
     "deleting": "刪除中...",
     "deleteFailed": "刪除聊天失敗。",
     "deletedToast": "會話已刪除",
     "deleteConfirmTitle": "確定要刪除聊天嗎？",
-    "deleteConfirmBody": "此操作會永久刪除雙方的溝通紀錄且無法復原。",
+    "deleteConfirmBody": "此操作會同時刪除雙方聊天紀錄，並重置聊天權限。之後雙方都不能直接聊天，必須重新請求驗證。",
     "deleteConfirmAction": "確認刪除"
   },
   "groupSettings": {

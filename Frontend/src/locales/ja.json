@@ -325,12 +325,12 @@
     "blockedNow": "ユーザーをブロックしました。",
     "unblockedNow": "ブロックを解除しました。",
     "deleteChat": "チャット履歴を削除",
-    "deleteHint": "この操作は双方の会話履歴を完全に削除し、元に戻せません。",
+    "deleteHint": "この操作は双方の会話履歴を完全に削除します。再びチャットするには、新しいリクエスト承認が必要です。",
     "deleting": "削除中...",
     "deleteFailed": "チャットの削除に失敗しました。",
     "deletedToast": "会話を削除しました。",
     "deleteConfirmTitle": "このチャットを削除しますか？",
-    "deleteConfirmBody": "この操作は双方の会話履歴を完全に削除し、元に戻せません。",
+    "deleteConfirmBody": "この操作は双方の会話履歴を完全に削除し、チャット権限をリセットします。再びチャットするには新しいリクエストが必要です。",
     "deleteConfirmAction": "完全に削除"
   },
   "groupSettings": {

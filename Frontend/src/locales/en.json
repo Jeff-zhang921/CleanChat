@@ -340,12 +340,12 @@
     "blockedNow": "User blocked.",
     "unblockedNow": "User unblocked.",
     "deleteChat": "Delete chat history",
-    "deleteHint": "This will permanently erase the thread for both sides and cannot be undone.",
+    "deleteHint": "This permanently erases the thread for both sides. To chat again, one of you must send a new request.",
     "deleting": "Deleting...",
     "deleteFailed": "Failed to delete chat.",
     "deletedToast": "Conversation deleted.",
     "deleteConfirmTitle": "Delete this chat?",
-    "deleteConfirmBody": "This action permanently deletes both sides' conversation history and cannot be undone.",
+    "deleteConfirmBody": "This action permanently deletes both sides' conversation history and resets chat permission. A new request is required before either side can chat again.",
     "deleteConfirmAction": "Delete permanently"
   },
   "groupSettings": {

@@ -808,9 +808,34 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     );
   };
 
-  const clearConversationUnread = (conversationId: string) => {
+  const clearConversationUnread = useCallback((conversationId: string) => {
     updateUnreadCounts((current) => clearUnreadCount(current, conversationId));
-  };
+  }, [updateUnreadCounts]);
+
+  const removeDeletedThread = useCallback(
+    (detail: ConversationDeletedDetail | null | undefined) => {
+      if (!detail || !Number.isInteger(detail.threadId) || detail.threadId <= 0) {
+        return;
+      }
+
+      setThreads((prev) => prev.filter((thread) => thread.id !== detail.threadId));
+      clearConversationUnread(getThreadUnreadKey(detail.threadId));
+      clearConversationMute(getThreadMuteKey(detail.threadId));
+
+      const toastMessage = detail.toast?.trim() || t("chatSettings.deletedToast");
+      setStatus(toastMessage);
+
+      if (statusToastTimeoutRef.current !== null) {
+        window.clearTimeout(statusToastTimeoutRef.current);
+      }
+
+      statusToastTimeoutRef.current = window.setTimeout(() => {
+        setStatus((current) => (current === toastMessage ? "" : current));
+        statusToastTimeoutRef.current = null;
+      }, 1400);
+    },
+    [clearConversationMute, clearConversationUnread, t],
+  );
 
   useEffect(() => {
     if (!me) return;
@@ -1259,6 +1284,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
 
       socket.on("inbox:new", handleIncomingMessage);
       socket.on("group:message:new", handleIncomingGroupMessage);
+      socket.on("thread:deleted", removeDeletedThread);
       socket.on("connect_error", (error) => {
         void handleConnectError(error as Error);
       });
@@ -1275,10 +1301,11 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       isDisposed = true;
       socket?.off("inbox:new", handleIncomingMessage);
       socket?.off("group:message:new", handleIncomingGroupMessage);
+      socket?.off("thread:deleted", removeDeletedThread);
       socket?.disconnect();
       socketRef.current = null;
     };
-  }, [me, t]);
+  }, [me, removeDeletedThread, t]);
 
   useEffect(() => {
     if (typeof window === "undefined" || import.meta.env.PROD) return;
@@ -1354,33 +1381,14 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   useEffect(() => {
     const handler = (event: Event) => {
       const customEvent = event as CustomEvent<ConversationDeletedDetail>;
-      const detail = customEvent.detail;
-      if (!detail || !Number.isInteger(detail.threadId) || detail.threadId <= 0) {
-        return;
-      }
-
-      setThreads((prev) => prev.filter((thread) => thread.id !== detail.threadId));
-      clearConversationUnread(getThreadUnreadKey(detail.threadId));
-      clearConversationMute(getThreadMuteKey(detail.threadId));
-
-      const toastMessage = detail.toast?.trim() || t("chatSettings.deletedToast");
-      setStatus(toastMessage);
-
-      if (statusToastTimeoutRef.current !== null) {
-        window.clearTimeout(statusToastTimeoutRef.current);
-      }
-
-      statusToastTimeoutRef.current = window.setTimeout(() => {
-        setStatus((current) => (current === toastMessage ? "" : current));
-        statusToastTimeoutRef.current = null;
-      }, 1400);
+      removeDeletedThread(customEvent.detail);
     };
 
     window.addEventListener(CONVERSATION_DELETED_EVENT, handler as EventListener);
     return () => {
       window.removeEventListener(CONVERSATION_DELETED_EVENT, handler as EventListener);
     };
-  }, [clearConversationMute, clearConversationUnread, t]);
+  }, [removeDeletedThread]);
 
   useEffect(() => {
     const handler = (event: Event) => {

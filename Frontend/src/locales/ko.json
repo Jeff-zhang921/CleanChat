@@ -325,12 +325,12 @@
     "blockedNow": "사용자를 차단했습니다.",
     "unblockedNow": "차단을 해제했습니다.",
     "deleteChat": "채팅 기록 삭제",
-    "deleteHint": "이 작업은 양측의 대화 기록을 영구 삭제하며 되돌릴 수 없습니다.",
+    "deleteHint": "이 작업은 양측의 대화 기록을 영구 삭제합니다. 다시 채팅하려면 새 요청 승인이 필요합니다.",
     "deleting": "삭제 중...",
     "deleteFailed": "채팅 삭제에 실패했습니다.",
     "deletedToast": "대화가 삭제되었습니다.",
     "deleteConfirmTitle": "채팅을 삭제할까요?",
-    "deleteConfirmBody": "이 작업은 양측의 대화 기록을 영구 삭제하며 되돌릴 수 없습니다.",
+    "deleteConfirmBody": "이 작업은 양측의 대화 기록을 영구 삭제하고 채팅 권한을 초기화합니다. 다시 채팅하려면 새 요청이 필요합니다.",
     "deleteConfirmAction": "영구 삭제"
   },
   "groupSettings": {

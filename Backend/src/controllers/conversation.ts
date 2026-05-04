@@ -1,9 +1,15 @@
 import type { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { ChatRequestStatus, PrismaClient } from "@prisma/client";
 import { clearThreadMuteForAllUsers } from "../muteStore";
 import { clearDirectReadCheckpointForAllUsers } from "../readCheckpointStore";
 
 const prisma = new PrismaClient();
+
+type SocketEmitter = {
+  to: (room: string) => {
+    emit: (event: string, payload: unknown) => void;
+  };
+};
 
 const ensureAuth = (
   sessionUserId: number | undefined,
@@ -49,24 +55,53 @@ export const deleteConversation = async (
     return;
   }
 
-  const deletedMessageCount = await prisma.$transaction(async (tx) => {
+  const deletedAt = new Date();
+  const transactionResult = await prisma.$transaction(async (tx) => {
     const deletedMessages = await tx.chatMessage.deleteMany({
       where: { threadId: conversationId },
+    });
+
+    const invalidatedRequests = await tx.chatRequest.updateMany({
+      where: {
+        status: ChatRequestStatus.ACCEPTED,
+        OR: [
+          { requesterId: thread.AID, recipientId: thread.BID },
+          { requesterId: thread.BID, recipientId: thread.AID },
+        ],
+      },
+      data: {
+        status: ChatRequestStatus.REJECTED,
+        acceptedThreadId: null,
+        resolvedAt: deletedAt,
+      },
     });
 
     await tx.chatThread.delete({
       where: { id: conversationId },
     });
 
-    return deletedMessages.count;
+    return {
+      deletedMessageCount: deletedMessages.count,
+      invalidatedRequestCount: invalidatedRequests.count,
+    };
   });
 
   clearThreadMuteForAllUsers(conversationId);
   clearDirectReadCheckpointForAllUsers(conversationId);
 
+  const payload = {
+    threadId: conversationId,
+    deletedBy: userId,
+    deletedAt: deletedAt.toISOString(),
+  };
+  const io = request.app.get("io") as SocketEmitter | undefined;
+  io?.to(`user:${thread.AID}`).emit("thread:deleted", payload);
+  io?.to(`user:${thread.BID}`).emit("thread:deleted", payload);
+
   response.status(200).json({
     conversationId,
-    deletedMessages: deletedMessageCount,
+    deletedMessages: transactionResult.deletedMessageCount,
+    invalidatedRequests: transactionResult.invalidatedRequestCount,
     irreversible: true,
     message: "Conversation permanently deleted.",
   });

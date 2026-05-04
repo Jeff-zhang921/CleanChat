@@ -247,6 +247,7 @@ const findAcceptedDirectRequest = async (userAId: number, userBId: number) =>
   prisma.chatRequest.findFirst({
     where: {
       status: ChatRequestStatus.ACCEPTED,
+      acceptedThreadId: { not: null },
       OR: [
         { requesterId: userAId, recipientId: userBId },
         { requesterId: userBId, recipientId: userAId },
