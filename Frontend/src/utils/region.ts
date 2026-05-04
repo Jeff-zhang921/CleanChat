@@ -29,7 +29,7 @@ cities: ["Kuala Lumpur", "George Town", "Johor Bahru", "Ipoh", "Shah Alam", "Pet
   },
   {
     country: "Hong Kong",
-    cities: [""],
+    cities: ["kowloon", "new territories", "hong kong island", "lantau island"],
   },
   {
     country: "Macau",
