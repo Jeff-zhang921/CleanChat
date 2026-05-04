@@ -802,6 +802,9 @@ const pageTargets: PageTarget[] = [
     readySelector: ".group-card",
     smoke: async (page) => {
       const activeRoot = page.locator(".hybrid-root-view.is-active");
+      await expect(
+        activeRoot.locator('.bottom-nav-link[href="/groups"] .bottom-nav-badge'),
+      ).toHaveText("1");
       await activeRoot.locator(".search-launcher").click();
       await expect(
         activeRoot.locator(".search-input-wrap input"),

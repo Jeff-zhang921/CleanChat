@@ -59,7 +59,11 @@ const NavIcon = ({ kind, active }: NavIconProps) => {
 
 const BottomNav = () => {
   const { t } = useTranslation();
-  const { totalUnreadMessages, pendingVerificationTotal } = useNotificationBadges();
+  const {
+    totalUnreadMessages,
+    pendingGroupInvitations,
+    pendingVerificationTotal,
+  } = useNotificationBadges();
 
   const items = [
     { to: "/conversations", label: t("nav.chats"), kind: "conversations" as const },
@@ -67,6 +71,12 @@ const BottomNav = () => {
     { to: "/discover", label: t("nav.discover"), kind: "discover" as const },
     { to: "/profile", label: t("nav.me"), kind: "profile" as const },
   ];
+  const getBadgeCount = (kind: NavIconProps["kind"]) => {
+    if (kind === "conversations") return totalUnreadMessages;
+    if (kind === "groups") return pendingGroupInvitations;
+    if (kind === "profile") return pendingVerificationTotal;
+    return 0;
+  };
 
   return (
     <nav className="bottom-nav" aria-label={t("nav.primaryNavigation")}>
@@ -84,22 +94,11 @@ const BottomNav = () => {
                 <span className="bottom-nav-icon-wrap">
                   <NavIcon kind={item.kind} active={isActive} />
                   <Badge
-                    count={
-                      item.kind === "conversations"
-                        ? totalUnreadMessages
-                        : item.kind === "profile"
-                          ? pendingVerificationTotal
-                          : 0
-                    }
+                    count={getBadgeCount(item.kind)}
                     size="compact"
                     className="bottom-nav-badge"
                     ariaLabel={t("conversations.unreadMessage", {
-                      count:
-                        item.kind === "conversations"
-                          ? totalUnreadMessages
-                          : item.kind === "profile"
-                            ? pendingVerificationTotal
-                            : 0,
+                      count: getBadgeCount(item.kind),
                     })}
                   />
                 </span>

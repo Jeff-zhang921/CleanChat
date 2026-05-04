@@ -7,8 +7,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { BACKEND_URL } from "../config";
-import { getAuthToken } from "../utils/auth";
+import { io, type Socket } from "socket.io-client";
+import { BACKEND_URL, SOCKET_URL } from "../config";
+import {
+  AUTH_TOKEN_UPDATED_EVENT,
+  getAuthToken,
+} from "../utils/auth";
 import {
   CONVERSATION_MUTES_UPDATED_EVENT,
   normalizeConversationMutes,
@@ -21,12 +25,18 @@ import {
   UNREAD_COUNTS_UPDATED_EVENT,
   type ConversationUnreadCounts,
 } from "../utils/unreadCounts";
+import {
+  dispatchGroupsRealtime,
+  type GroupsRealtimeDetail,
+  type GroupsRealtimeReason,
+} from "../utils/conversationEvents";
 
 type NotificationBadgeContextValue = {
   unreadCounts: ConversationUnreadCounts;
   totalUnreadMessages: number;
   pendingDirectRequests: number;
   pendingGroupRequests: number;
+  pendingGroupInvitations: number;
   pendingVerificationTotal: number;
   refreshPendingCounts: () => Promise<void>;
   syncUnreadFromStorage: () => void;
@@ -41,16 +51,54 @@ const NotificationBadgeContext = createContext<NotificationBadgeContextValue | n
 const isCountsRecord = (value: unknown): value is ConversationUnreadCounts =>
   Boolean(value) && typeof value === "object";
 
+const readStringField = (payload: unknown, key: string) => {
+  if (!payload || typeof payload !== "object" || !(key in payload)) {
+    return undefined;
+  }
+
+  const value = (payload as Record<string, unknown>)[key];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+};
+
+const readPositiveNumberField = (payload: unknown, key: string) => {
+  if (!payload || typeof payload !== "object" || !(key in payload)) {
+    return undefined;
+  }
+
+  const value = Number((payload as Record<string, unknown>)[key]);
+  return Number.isInteger(value) && value > 0 ? value : undefined;
+};
+
+const buildGroupsRealtimeDetail = (
+  reason: GroupsRealtimeReason,
+  payload: unknown,
+): GroupsRealtimeDetail => {
+  const detail: GroupsRealtimeDetail = { reason };
+  const groupId = readStringField(payload, "groupId");
+  const invitationId = readPositiveNumberField(payload, "invitationId");
+  const requesterId = readPositiveNumberField(payload, "requesterId");
+  const updatedAt = readStringField(payload, "updatedAt");
+
+  if (groupId) detail.groupId = groupId;
+  if (invitationId) detail.invitationId = invitationId;
+  if (requesterId) detail.requesterId = requesterId;
+  if (updatedAt) detail.updatedAt = updatedAt;
+
+  return detail;
+};
+
 export const NotificationBadgeProvider = ({
   children,
 }: NotificationBadgeProviderProps) => {
   const [unreadCounts, setUnreadCounts] = useState<ConversationUnreadCounts>(() =>
     readUnreadCounts(),
   );
+  const [authToken, setAuthToken] = useState(() => getAuthToken());
   const [mutedConversations, setMutedConversations] =
     useState<ConversationMuteMap>(() => readConversationMutes());
   const [pendingDirectRequests, setPendingDirectRequests] = useState(0);
   const [pendingGroupRequests, setPendingGroupRequests] = useState(0);
+  const [pendingGroupInvitations, setPendingGroupInvitations] = useState(0);
 
   const syncUnreadFromStorage = useCallback(() => {
     setUnreadCounts(readUnreadCounts());
@@ -61,18 +109,23 @@ export const NotificationBadgeProvider = ({
   }, []);
 
   const refreshPendingCounts = useCallback(async () => {
-    if (!getAuthToken()) {
+    if (!authToken) {
       setPendingDirectRequests(0);
       setPendingGroupRequests(0);
+      setPendingGroupInvitations(0);
       return;
     }
 
     try {
-      const [directResponse, groupsResponse] = await Promise.all([
+      const [directResponse, groupsResponse, invitationsResponse] =
+        await Promise.all([
         fetch(`${BACKEND_URL}/chat/requests/direct/received`, {
           credentials: "include",
         }),
         fetch(`${BACKEND_URL}/chat/groups`, {
+          credentials: "include",
+        }),
+        fetch(`${BACKEND_URL}/chat/groups/invitations/received`, {
           credentials: "include",
         }),
       ]);
@@ -105,11 +158,36 @@ export const NotificationBadgeProvider = ({
         }, 0);
       }
 
+      let nextPendingGroupInvitations = 0;
+      if (invitationsResponse.ok) {
+        const invitationsData = (await invitationsResponse.json().catch(() => ({}))) as {
+          invitations?: unknown;
+        };
+        if (Array.isArray(invitationsData.invitations)) {
+          nextPendingGroupInvitations = invitationsData.invitations.length;
+        }
+      }
+
       setPendingDirectRequests(nextPendingDirect);
       setPendingGroupRequests(nextPendingGroup);
+      setPendingGroupInvitations(nextPendingGroupInvitations);
     } catch {
       // Keep the existing badge state when refresh fails.
     }
+  }, [authToken]);
+
+  useEffect(() => {
+    const syncAuthToken = () => {
+      setAuthToken(getAuthToken());
+    };
+
+    window.addEventListener(AUTH_TOKEN_UPDATED_EVENT, syncAuthToken);
+    window.addEventListener("storage", syncAuthToken);
+
+    return () => {
+      window.removeEventListener(AUTH_TOKEN_UPDATED_EVENT, syncAuthToken);
+      window.removeEventListener("storage", syncAuthToken);
+    };
   }, []);
 
   useEffect(() => {
@@ -160,9 +238,10 @@ export const NotificationBadgeProvider = ({
   }, [syncMutesFromStorage, syncUnreadFromStorage]);
 
   useEffect(() => {
-    if (!getAuthToken()) {
+    if (!authToken) {
       setPendingDirectRequests(0);
       setPendingGroupRequests(0);
+      setPendingGroupInvitations(0);
       return;
     }
 
@@ -186,7 +265,57 @@ export const NotificationBadgeProvider = ({
       document.removeEventListener("visibilitychange", refreshWhenVisible);
       window.removeEventListener("focus", refreshWhenVisible);
     };
-  }, [refreshPendingCounts]);
+  }, [authToken, refreshPendingCounts]);
+
+  useEffect(() => {
+    if (!authToken) {
+      return;
+    }
+
+    const socket: Socket = io(SOCKET_URL, {
+      auth: { token: authToken },
+      transports: ["websocket", "polling"],
+      withCredentials: true,
+    });
+
+    const refreshBadges = () => {
+      void refreshPendingCounts();
+    };
+    const refreshBadgesAndGroups =
+      (reason: GroupsRealtimeReason) => (payload: unknown) => {
+        refreshBadges();
+        dispatchGroupsRealtime(buildGroupsRealtimeDetail(reason, payload));
+      };
+
+    const handleGroupCatalogUpdated =
+      refreshBadgesAndGroups("catalog-updated");
+    const handleGroupInvitationNew = refreshBadgesAndGroups("invitation-new");
+    const handleGroupInvitationResolved =
+      refreshBadgesAndGroups("invitation-resolved");
+    const handleGroupJoinRequestNew =
+      refreshBadgesAndGroups("join-request-new");
+    const handleGroupJoinRequestResolved =
+      refreshBadgesAndGroups("join-request-resolved");
+
+    socket.on("request:direct:new", refreshBadges);
+    socket.on("request:direct:resolved", refreshBadges);
+    socket.on("group:catalog-updated", handleGroupCatalogUpdated);
+    socket.on("group:invitation:new", handleGroupInvitationNew);
+    socket.on("group:invitation:resolved", handleGroupInvitationResolved);
+    socket.on("group:join-request:new", handleGroupJoinRequestNew);
+    socket.on("group:join-request:resolved", handleGroupJoinRequestResolved);
+
+    return () => {
+      socket.off("request:direct:new", refreshBadges);
+      socket.off("request:direct:resolved", refreshBadges);
+      socket.off("group:catalog-updated", handleGroupCatalogUpdated);
+      socket.off("group:invitation:new", handleGroupInvitationNew);
+      socket.off("group:invitation:resolved", handleGroupInvitationResolved);
+      socket.off("group:join-request:new", handleGroupJoinRequestNew);
+      socket.off("group:join-request:resolved", handleGroupJoinRequestResolved);
+      socket.disconnect();
+    };
+  }, [authToken, refreshPendingCounts]);
 
   const value = useMemo<NotificationBadgeContextValue>(
     () => ({
@@ -197,6 +326,7 @@ export const NotificationBadgeProvider = ({
       ),
       pendingDirectRequests,
       pendingGroupRequests,
+      pendingGroupInvitations,
       pendingVerificationTotal: pendingDirectRequests + pendingGroupRequests,
       refreshPendingCounts,
       syncUnreadFromStorage,
@@ -206,6 +336,7 @@ export const NotificationBadgeProvider = ({
       mutedConversations,
       pendingDirectRequests,
       pendingGroupRequests,
+      pendingGroupInvitations,
       refreshPendingCounts,
       syncUnreadFromStorage,
     ],

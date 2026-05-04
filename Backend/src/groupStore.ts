@@ -23,12 +23,90 @@ const buildGroupAvatarUrl = (avatarKey: GroupAvatarKey) =>
 export const isValidGroupAvatarKey = (raw: unknown): raw is GroupAvatarKey =>
   typeof raw === "string" && GROUP_AVATAR_KEY_SET.has(raw);
 
+export const COMMUNITY_CATEGORIES = [
+  {
+    id: "campus-life",
+    label: "Campus Life",
+    subcategories: [
+      { id: "study", label: "Study" },
+      { id: "events", label: "Events" },
+      { id: "housing", label: "Housing" },
+    ],
+  },
+  {
+    id: "interests",
+    label: "Interests",
+    subcategories: [
+      { id: "music", label: "Music" },
+      { id: "gaming", label: "Gaming" },
+      { id: "fitness", label: "Fitness" },
+    ],
+  },
+  {
+    id: "career",
+    label: "Career",
+    subcategories: [
+      { id: "frontend", label: "Frontend" },
+      { id: "backend", label: "Backend" },
+      { id: "design", label: "Design" },
+    ],
+  },
+] as const;
+
+export type GroupKind = "community" | "private";
+export type CommunityCategoryId = (typeof COMMUNITY_CATEGORIES)[number]["id"];
+export type CommunitySubcategoryId =
+  (typeof COMMUNITY_CATEGORIES)[number]["subcategories"][number]["id"];
+
+const DEFAULT_COMMUNITY_CATEGORY = COMMUNITY_CATEGORIES[0];
+const DEFAULT_COMMUNITY_SUBCATEGORY = DEFAULT_COMMUNITY_CATEGORY.subcategories[0];
+
+const COMMUNITY_CATEGORY_BY_ID = new Map(
+  COMMUNITY_CATEGORIES.map((category) => [category.id, category]),
+);
+
+export const resolveCommunityCategorySelection = (
+  rawMainCategoryId: unknown,
+  rawSubcategoryId: unknown,
+) => {
+  const mainCategoryId =
+    typeof rawMainCategoryId === "string" ? rawMainCategoryId.trim() : "";
+  const subcategoryId =
+    typeof rawSubcategoryId === "string" ? rawSubcategoryId.trim() : "";
+  const category = COMMUNITY_CATEGORY_BY_ID.get(mainCategoryId);
+  if (!category) {
+    return null;
+  }
+
+  const subcategory = category.subcategories.find(
+    (item) => item.id === subcategoryId,
+  );
+  if (!subcategory) {
+    return null;
+  }
+
+  return {
+    mainCategoryId: category.id,
+    mainCategoryLabel: category.label,
+    subcategoryId: subcategory.id,
+    subcategoryLabel: subcategory.label,
+  };
+};
+
+const getDefaultCommunityCategorySelection = () => ({
+  mainCategoryId: DEFAULT_COMMUNITY_CATEGORY.id,
+  subcategoryId: DEFAULT_COMMUNITY_SUBCATEGORY.id,
+});
+
 export type GroupDefinition = {
   id: string;
   name: string;
   description: string;
   avatarKey: GroupAvatarKey;
   avatarUrl: string;
+  groupKind: GroupKind;
+  mainCategoryId: CommunityCategoryId | null;
+  subcategoryId: CommunitySubcategoryId | null;
   requiresApproval: boolean;
   creatorId: number | null;
   createdAt: string;
@@ -80,6 +158,9 @@ let groups: GroupDefinition[] = [
     description: "UI ideas, React tricks, and CSS polishing.",
     avatarKey: "pixel",
     avatarUrl: buildGroupAvatarUrl("pixel"),
+    groupKind: "community",
+    mainCategoryId: "career",
+    subcategoryId: "frontend",
     requiresApproval: false,
     creatorId: null,
     createdAt: SYSTEM_GROUP_CREATED_AT,
@@ -90,6 +171,9 @@ let groups: GroupDefinition[] = [
     description: "API design, Prisma, auth, and deployment topics.",
     avatarKey: "orbit",
     avatarUrl: buildGroupAvatarUrl("orbit"),
+    groupKind: "community",
+    mainCategoryId: "career",
+    subcategoryId: "backend",
     requiresApproval: false,
     creatorId: null,
     createdAt: SYSTEM_GROUP_CREATED_AT,
@@ -100,6 +184,9 @@ let groups: GroupDefinition[] = [
     description: "Post issues, get help, and share root causes.",
     avatarKey: "flare",
     avatarUrl: buildGroupAvatarUrl("flare"),
+    groupKind: "community",
+    mainCategoryId: "interests",
+    subcategoryId: "gaming",
     requiresApproval: false,
     creatorId: null,
     createdAt: SYSTEM_GROUP_CREATED_AT,
@@ -276,6 +363,14 @@ export const hydrateGroupStore = (snapshot: unknown) => {
       const createdAt =
         toIsoString(rawGroup.createdAt) ?? new Date().toISOString();
       const creatorId = toPositiveInt(rawGroup.creatorId);
+      const groupKind = rawGroup.groupKind === "private" ? "private" : "community";
+      const categorySelection =
+        groupKind === "community"
+          ? resolveCommunityCategorySelection(
+              rawGroup.mainCategoryId,
+              rawGroup.subcategoryId,
+            ) ?? getDefaultCommunityCategorySelection()
+          : { mainCategoryId: null, subcategoryId: null };
 
       return {
         id: groupId,
@@ -283,7 +378,11 @@ export const hydrateGroupStore = (snapshot: unknown) => {
         description,
         avatarKey,
         avatarUrl: buildGroupAvatarUrl(avatarKey),
-        requiresApproval: rawGroup.requiresApproval === true,
+        groupKind,
+        mainCategoryId: categorySelection.mainCategoryId,
+        subcategoryId: categorySelection.subcategoryId,
+        requiresApproval:
+          groupKind === "community" && rawGroup.requiresApproval === true,
         creatorId,
         createdAt,
       } satisfies GroupDefinition;
@@ -477,6 +576,14 @@ const buildSummary = (group: GroupDefinition, userId: number): GroupSummary => {
   };
 };
 
+const canListGroupForUser = (group: GroupDefinition, userId: number) => {
+  if (group.groupKind === "community") {
+    return true;
+  }
+
+  return getOrCreateMembers(group.id).has(userId);
+};
+
 const removeGroupInvitationsFor = (groupId: string, targetUserId?: number) => {
   let didRemove = false;
   [...groupInvitations.entries()].forEach(([invitationId, invitation]) => {
@@ -492,8 +599,22 @@ const removeGroupInvitationsFor = (groupId: string, targetUserId?: number) => {
   return didRemove;
 };
 
-export const listGroupsForUser = (userId: number): GroupSummary[] => {
-  const summaries = groups.map((group) => buildSummary(group, userId));
+export const listGroupsForUser = (
+  userId: number,
+  options?: { scope?: "all" | "communities" | "joined" },
+): GroupSummary[] => {
+  const scope = options?.scope ?? "all";
+  const summaries = groups
+    .filter((group) => {
+      if (scope === "communities") {
+        return group.groupKind === "community";
+      }
+      if (scope === "joined") {
+        return getOrCreateMembers(group.id).has(userId);
+      }
+      return canListGroupForUser(group, userId);
+    })
+    .map((group) => buildSummary(group, userId));
   return summaries.sort((a, b) => {
     if (a.joined !== b.joined) return a.joined ? -1 : 1;
     const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
@@ -507,18 +628,34 @@ export const createGroup = (
   rawDescription: string,
   requiresApproval = false,
   avatarKey?: GroupAvatarKey,
+  options?: {
+    groupKind?: GroupKind;
+    mainCategoryId?: CommunityCategoryId;
+    subcategoryId?: CommunitySubcategoryId;
+  },
 ) => {
   const name = normalizeGroupName(rawName);
   const description = rawDescription.trim();
   const groupId = createUniqueGroupId(name);
   const createdAt = new Date().toISOString();
+  const groupKind = options?.groupKind ?? "community";
+  const categorySelection =
+    groupKind === "community"
+      ? resolveCommunityCategorySelection(
+          options?.mainCategoryId,
+          options?.subcategoryId,
+        ) ?? getDefaultCommunityCategorySelection()
+      : { mainCategoryId: null, subcategoryId: null };
   const group: GroupDefinition = {
     id: groupId,
     name,
     description: description || "No description yet.",
     avatarKey: avatarKey ?? "orbit",
     avatarUrl: buildGroupAvatarUrl(avatarKey ?? "orbit"),
-    requiresApproval,
+    groupKind,
+    mainCategoryId: categorySelection.mainCategoryId,
+    subcategoryId: categorySelection.subcategoryId,
+    requiresApproval: groupKind === "community" ? requiresApproval : false,
     creatorId,
     createdAt,
   };
@@ -561,6 +698,17 @@ export const joinGroup = (groupId: string, userId: number) => {
       alreadyJoined: true,
       pendingApproval: false,
       alreadyRequested: false,
+      inviteOnly: false,
+      summary: buildSummary(group, userId),
+    };
+  }
+
+  if (group.groupKind === "private") {
+    return {
+      alreadyJoined: false,
+      pendingApproval: false,
+      alreadyRequested: false,
+      inviteOnly: true,
       summary: buildSummary(group, userId),
     };
   }
@@ -575,6 +723,7 @@ export const joinGroup = (groupId: string, userId: number) => {
       alreadyJoined: false,
       pendingApproval: true,
       alreadyRequested,
+      inviteOnly: false,
       summary: buildSummary(group, userId),
     };
   }
@@ -588,6 +737,7 @@ export const joinGroup = (groupId: string, userId: number) => {
     alreadyJoined: false,
     pendingApproval: false,
     alreadyRequested: false,
+    inviteOnly: false,
     summary: buildSummary(group, userId),
   };
 };
@@ -621,6 +771,13 @@ export const listGroupJoinRequests = (
   }
   if (group.creatorId !== requestUserId) {
     return { ok: false as const, reason: "forbidden" as const };
+  }
+  if (group.groupKind === "private") {
+    return {
+      ok: true as const,
+      requests: [],
+      summary: buildSummary(group, requestUserId),
+    };
   }
 
   const requests = getOrCreateJoinRequests(groupId);
@@ -827,6 +984,9 @@ export const updateGroupJoinPolicy = (
   if (group.creatorId !== ownerUserId) {
     return { updated: false as const, reason: "forbidden" as const };
   }
+  if (group.groupKind === "private") {
+    return { updated: false as const, reason: "private_group" as const };
+  }
 
   const previousRequiresApproval = group.requiresApproval;
 
@@ -881,6 +1041,38 @@ export const updateGroupAvatar = (
   notifyGroupStoreStateChanged();
   return {
     updated: true as const,
+    summary: buildSummary(group, ownerUserId),
+  };
+};
+
+export const removeGroupMember = (
+  groupId: string,
+  ownerUserId: number,
+  targetUserId: number,
+) => {
+  const group = getGroupById(groupId);
+  if (!group) {
+    return { removed: false as const, reason: "not_found" as const };
+  }
+  if (group.creatorId !== ownerUserId) {
+    return { removed: false as const, reason: "forbidden" as const };
+  }
+  if (targetUserId === group.creatorId) {
+    return { removed: false as const, reason: "owner" as const };
+  }
+
+  const members = getOrCreateMembers(groupId);
+  const wasMember = members.delete(targetUserId);
+  getOrCreateJoinRequests(groupId).delete(targetUserId);
+  removeGroupInvitationsFor(groupId, targetUserId);
+
+  if (wasMember) {
+    notifyGroupStoreStateChanged();
+  }
+
+  return {
+    removed: true as const,
+    alreadyRemoved: !wasMember,
     summary: buildSummary(group, ownerUserId),
   };
 };

@@ -86,6 +86,7 @@ type DirectThreadRef = {
 };
 
 type SocketEmitter = {
+  emit?: (event: string, payload: unknown) => void;
   to: (room: string) => {
     emit: (event: string, payload: unknown) => void;
   };
@@ -114,6 +115,46 @@ const resolveDisplayLabel = (user: {
 
 const buildGroupMemberJoinedBody = (senderLabel: string) =>
   `${GROUP_MEMBER_JOINED_MESSAGE_PREFIX}${encodeURIComponent(senderLabel)}`;
+
+const buildRealtimePayload = (payload: Record<string, unknown>) => ({
+  ...payload,
+  updatedAt: new Date().toISOString(),
+});
+
+const emitToUser = (
+  req: Request,
+  userId: number | null | undefined,
+  event: string,
+  payload: Record<string, unknown>,
+) => {
+  if (!Number.isInteger(userId) || Number(userId) <= 0) {
+    return;
+  }
+
+  const io = req.app.get("io") as SocketEmitter | undefined;
+  if (!io) {
+    return;
+  }
+
+  io.to(`user:${userId}`).emit(event, buildRealtimePayload(payload));
+};
+
+const emitToAll = (
+  req: Request,
+  event: string,
+  payload: Record<string, unknown>,
+) => {
+  const io = req.app.get("io") as SocketEmitter | undefined;
+  if (!io) {
+    return;
+  }
+
+  if (typeof io.emit !== "function") {
+    return;
+  }
+
+  io.emit(event, buildRealtimePayload(payload));
+};
 
 const emitGroupMessage = (req: Request, groupId: string, payload: unknown) => {
   const io = req.app.get("io") as SocketEmitter | undefined;
@@ -1104,6 +1145,20 @@ router.post("/requests/direct", async (req, res) => {
       now,
     );
     emitDirectThreadMessage(req, ensured.thread, acceptedMessage);
+    emitToUser(req, sessionUserId, "request:direct:resolved", {
+      type: "accepted",
+      requestId: accepted.id,
+      requesterId: accepted.requesterId,
+      recipientId: accepted.recipientId,
+      threadId: ensured.thread.id,
+    });
+    emitToUser(req, targetUserId, "request:direct:resolved", {
+      type: "accepted",
+      requestId: accepted.id,
+      requesterId: accepted.requesterId,
+      recipientId: accepted.recipientId,
+      threadId: ensured.thread.id,
+    });
 
     res.json({
       autoAccepted: true,
@@ -1153,6 +1208,13 @@ router.post("/requests/direct", async (req, res) => {
       },
     });
 
+    emitToUser(req, targetUserId, "request:direct:new", {
+      type: "updated",
+      requestId: updated.id,
+      requesterId: sessionUserId,
+      recipientId: targetUserId,
+    });
+
     res.json({
       alreadyPending: true,
       request: serializeDirectRequest(updated, sessionUserId),
@@ -1179,6 +1241,14 @@ router.post("/requests/direct", async (req, res) => {
       updatedAt: true,
       resolvedAt: true,
     },
+  });
+
+  emitToUser(req, targetUserId, "request:direct:new", {
+    type: "created",
+    requestId: created.id,
+    requesterId: sessionUserId,
+    recipientId: targetUserId,
+    createdAt: created.createdAt,
   });
 
   res.status(201).json({
@@ -1277,6 +1347,20 @@ router.post("/requests/direct/:requestId/accept", async (req, res) => {
     now,
   );
   emitDirectThreadMessage(req, ensured.thread, acceptedMessage);
+  emitToUser(req, sessionUserId, "request:direct:resolved", {
+    type: "accepted",
+    requestId: acceptedRequest.id,
+    requesterId: acceptedRequest.requesterId,
+    recipientId: acceptedRequest.recipientId,
+    threadId: ensured.thread.id,
+  });
+  emitToUser(req, pendingRequest.requesterId, "request:direct:resolved", {
+    type: "accepted",
+    requestId: acceptedRequest.id,
+    requesterId: acceptedRequest.requesterId,
+    recipientId: acceptedRequest.recipientId,
+    threadId: ensured.thread.id,
+  });
 
   res.json({
     request: serializeDirectRequest(acceptedRequest, sessionUserId),
@@ -1339,6 +1423,19 @@ router.post("/requests/direct/:requestId/reject", async (req, res) => {
       updatedAt: true,
       resolvedAt: true,
     },
+  });
+
+  emitToUser(req, sessionUserId, "request:direct:resolved", {
+    type: "rejected",
+    requestId: rejected.id,
+    requesterId: rejected.requesterId,
+    recipientId: rejected.recipientId,
+  });
+  emitToUser(req, rejected.requesterId, "request:direct:resolved", {
+    type: "rejected",
+    requestId: rejected.id,
+    requesterId: rejected.requesterId,
+    recipientId: rejected.recipientId,
   });
 
   res.json({
@@ -1448,6 +1545,11 @@ router.post("/groups", async (req, res) => {
       ? rawAvatarKey
       : undefined,
   );
+  emitToAll(req, "group:catalog-updated", {
+    type: "created",
+    groupId: group.id,
+    actorUserId: sessionUserId,
+  });
   res.status(201).json({ group });
 });
 
@@ -1464,6 +1566,7 @@ router.post("/groups/:groupId/join", async (req, res) => {
     return;
   }
 
+  const targetGroup = getGroupById(groupId);
   const joined = joinGroup(groupId, sessionUserId);
   if (!joined) {
     res.status(404).json({ message: "Group not found." });
@@ -1471,6 +1574,13 @@ router.post("/groups/:groupId/join", async (req, res) => {
   }
 
   if (joined.pendingApproval) {
+    if (!joined.alreadyRequested) {
+      emitToUser(req, targetGroup?.creatorId, "group:join-request:new", {
+        type: "created",
+        groupId,
+        requesterId: sessionUserId,
+      });
+    }
     res.status(joined.alreadyRequested ? 200 : 202).json({
       group: joined.summary,
       pendingApproval: true,
@@ -1492,6 +1602,11 @@ router.post("/groups/:groupId/join", async (req, res) => {
       const message = appendGroupMessage(groupId, joiner, body);
       emitGroupMessage(req, groupId, message);
     }
+    emitToAll(req, "group:catalog-updated", {
+      type: "member-joined",
+      groupId,
+      actorUserId: sessionUserId,
+    });
   }
 
   res.status(joined.alreadyJoined ? 200 : 201).json({
@@ -1551,6 +1666,17 @@ router.post("/groups/:groupId/invitations", async (req, res) => {
     return;
   }
 
+  if (!invited.alreadyInvited) {
+    emitToUser(req, targetUserId, "group:invitation:new", {
+      type: "created",
+      groupId,
+      invitationId: invited.invitation.id,
+      inviterUserId: sessionUserId,
+      targetUserId,
+      createdAt: invited.invitation.createdAt,
+    });
+  }
+
   res.status(invited.alreadyInvited ? 200 : 201).json({
     group: invited.summary,
     invitation: invited.invitation,
@@ -1602,7 +1728,17 @@ router.post("/groups/invitations/:invitationId/accept", async (req, res) => {
       const message = appendGroupMessage(groupId, acceptedUser, body);
       emitGroupMessage(req, groupId, message);
     }
+    emitToAll(req, "group:catalog-updated", {
+      type: "invitation-accepted",
+      groupId,
+      actorUserId: sessionUserId,
+    });
   }
+  emitToUser(req, sessionUserId, "group:invitation:resolved", {
+    type: "accepted",
+    groupId: accepted.summary?.id ?? null,
+    invitationId,
+  });
 
   res.status(200).json({ group: accepted.summary });
 });
@@ -1629,6 +1765,12 @@ router.post("/groups/invitations/:invitationId/reject", async (req, res) => {
     res.status(404).json({ message: "Invitation not found." });
     return;
   }
+
+  emitToUser(req, sessionUserId, "group:invitation:resolved", {
+    type: "rejected",
+    groupId: rejected.summary?.id ?? null,
+    invitationId,
+  });
 
   res.status(200).json({ group: rejected.summary });
 });
@@ -1936,6 +2078,21 @@ router.post(
       const message = appendGroupMessage(groupId, approvedUser, body);
       emitGroupMessage(req, groupId, message);
     }
+    emitToUser(req, sessionUserId, "group:join-request:resolved", {
+      type: "approved",
+      groupId,
+      requesterId: targetUserId,
+    });
+    emitToUser(req, targetUserId, "group:catalog-updated", {
+      type: "join-approved",
+      groupId,
+      actorUserId: sessionUserId,
+    });
+    emitToAll(req, "group:catalog-updated", {
+      type: "member-joined",
+      groupId,
+      actorUserId: targetUserId,
+    });
 
     res.status(200).json({ group: approved.summary });
   },
@@ -1981,6 +2138,17 @@ router.post(
       return;
     }
 
+    emitToUser(req, sessionUserId, "group:join-request:resolved", {
+      type: "rejected",
+      groupId,
+      requesterId: targetUserId,
+    });
+    emitToUser(req, targetUserId, "group:catalog-updated", {
+      type: "join-rejected",
+      groupId,
+      actorUserId: sessionUserId,
+    });
+
     res.status(200).json({ group: rejected.summary });
   },
 );
@@ -2012,6 +2180,11 @@ router.delete("/groups/:groupId", async (req, res) => {
 
   clearGroupMuteForAllUsers(groupId);
   clearGroupReadCheckpointForAllUsers(groupId);
+  emitToAll(req, "group:catalog-updated", {
+    type: "deleted",
+    groupId,
+    actorUserId: sessionUserId,
+  });
 
   res.status(200).json({ message: "Group deleted." });
 });

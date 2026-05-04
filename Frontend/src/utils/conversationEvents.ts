@@ -10,9 +10,25 @@ export type GroupConversationLeftDetail = {
   toast?: string;
 };
 
+export type GroupsRealtimeReason =
+  | "catalog-updated"
+  | "invitation-new"
+  | "invitation-resolved"
+  | "join-request-new"
+  | "join-request-resolved";
+
+export type GroupsRealtimeDetail = {
+  reason: GroupsRealtimeReason;
+  groupId?: string;
+  invitationId?: number;
+  requesterId?: number;
+  updatedAt?: string;
+};
+
 export const CONVERSATION_DELETED_EVENT = "cleanchat:conversation-deleted";
 export const GROUP_CONVERSATION_LEFT_EVENT =
   "cleanchat:group-conversation-left";
+export const GROUPS_REALTIME_EVENT = "cleanchat:groups-realtime";
 
 export const dispatchConversationDeleted = (
   detail: ConversationDeletedDetail,
@@ -42,5 +58,17 @@ export const dispatchGroupConversationLeft = (
         detail,
       },
     ),
+  );
+};
+
+export const dispatchGroupsRealtime = (detail: GroupsRealtimeDetail) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent<GroupsRealtimeDetail>(GROUPS_REALTIME_EVENT, {
+      detail,
+    }),
   );
 };

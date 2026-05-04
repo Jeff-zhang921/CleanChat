@@ -1,10 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import BottomNav from "../components/BottomNav";
 import Badge from "../components/Badge";
 import { BACKEND_URL } from "../config";
 import { GROUP_AVATAR_OPTIONS, type GroupAvatarKey } from "../constants/groupAvatars";
+import { useNotificationBadges } from "../state/notificationBadgeContext";
+import {
+  GROUPS_REALTIME_EVENT,
+  type GroupsRealtimeDetail,
+} from "../utils/conversationEvents";
 import { getSystemMessageText } from "../utils/systemMessages";
 import "./GroupConversationPage.css";
 
@@ -74,6 +79,7 @@ const SearchGlyph = () => (
 const GroupConversationPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { refreshPendingCounts } = useNotificationBadges();
   const [me, setMe] = useState<SessionUser | null>(null);
   const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [status, setStatus] = useState(() => t("groups.loadingGroups"));
@@ -133,7 +139,7 @@ const GroupConversationPage = () => {
     return () => window.cancelAnimationFrame(frame);
   }, [isSearchExpanded]);
 
-  const refreshGroups = async () => {
+  const refreshGroups = useCallback(async () => {
     const response = await fetch(`${BACKEND_URL}/chat/groups`, {
       credentials: "include",
     });
@@ -147,9 +153,9 @@ const GroupConversationPage = () => {
     const incoming = Array.isArray(data.groups) ? data.groups : [];
     setGroups(incoming);
     setStatus("");
-  };
+  }, [t]);
 
-  const refreshGroupInvitations = async () => {
+  const refreshGroupInvitations = useCallback(async () => {
     setIsLoadingInvitations(true);
     try {
       const response = await fetch(`${BACKEND_URL}/chat/groups/invitations/received`, {
@@ -166,7 +172,7 @@ const GroupConversationPage = () => {
     } finally {
       setIsLoadingInvitations(false);
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     let isMounted = true;
@@ -202,7 +208,36 @@ const GroupConversationPage = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [refreshGroupInvitations, refreshGroups, t]);
+
+  useEffect(() => {
+    const handleGroupsRealtime = (event: Event) => {
+      const detail = (event as CustomEvent<GroupsRealtimeDetail>).detail;
+      if (!detail?.reason) {
+        return;
+      }
+
+      void refreshGroups();
+      if (
+        detail.reason === "invitation-new" ||
+        detail.reason === "invitation-resolved"
+      ) {
+        void refreshGroupInvitations();
+      }
+    };
+
+    window.addEventListener(
+      GROUPS_REALTIME_EVENT,
+      handleGroupsRealtime as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        GROUPS_REALTIME_EVENT,
+        handleGroupsRealtime as EventListener,
+      );
+    };
+  }, [refreshGroupInvitations, refreshGroups]);
 
   useEffect(() => {
     const joinedGroupIds = groups.filter((group) => group.joined).map((group) => group.id);
@@ -581,6 +616,7 @@ const GroupConversationPage = () => {
       }
 
       setGroupInvitations((prev) => prev.filter((item) => item.id !== invitation.id));
+      void refreshPendingCounts();
       if (action === "accept") {
         const acceptedGroup = data.group as GroupSummary | undefined;
         if (acceptedGroup) {

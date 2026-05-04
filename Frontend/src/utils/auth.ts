@@ -1,4 +1,17 @@
 export const AUTH_TOKEN_KEY = "cleanchat:auth-token";
+export const AUTH_TOKEN_UPDATED_EVENT = "cleanchat:auth-token-updated";
+
+const dispatchAuthTokenUpdated = (token: string) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(AUTH_TOKEN_UPDATED_EVENT, {
+      detail: { token },
+    }),
+  );
+};
 
 export const getAuthToken = () => {
   if (typeof window === "undefined") {
@@ -16,10 +29,12 @@ export const setAuthToken = (token: string) => {
   const normalizedToken = token.trim();
   if (normalizedToken) {
     window.localStorage.setItem(AUTH_TOKEN_KEY, normalizedToken);
+    dispatchAuthTokenUpdated(normalizedToken);
     return;
   }
 
   window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  dispatchAuthTokenUpdated("");
 };
 
 export const clearAuthToken = () => {
@@ -28,6 +43,7 @@ export const clearAuthToken = () => {
   }
 
   window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  dispatchAuthTokenUpdated("");
 };
 
 export const installAuthFetchInterceptor = () => {
