@@ -22,8 +22,18 @@ type ProfileUserInput = Omit<ProfileUser, "gender"> & {
 
 export type SpatialTransition = "push" | "pop";
 
+export type ProfileEditDraft = {
+  name: string;
+  cleanId: string;
+  avatar: AvatarKey;
+  gender: GenderValue;
+};
+
 export type ProfileRouteState = {
   user?: ProfileUser;
+  editDraft?: ProfileEditDraft;
+  selectedAvatar?: AvatarKey;
+  avatarPickerReturnTo?: "/profile" | "/profile/edit";
   spatialTransition?: SpatialTransition;
   focusClaim?: boolean;
   returnTo?: "/profile" | "/profile/settings";

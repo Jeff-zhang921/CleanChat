@@ -19,6 +19,7 @@ import GroupRequestPage from './pages/groupRequestPage'
 import ProfileSettingsPage from './pages/profileSettings'
 import FeedbackPage from './pages/feedback'
 import DiscoverPage from './pages/discover'
+import ProfileAvatarPage from './pages/profileAvatar'
 import { NotificationBadgeProvider } from './state/notificationBadgeContext';
 import { getAuthToken } from './utils/auth';
 
@@ -30,6 +31,7 @@ type DetailViewKey =
   | 'group-settings'
   | 'feedback'
   | 'profile-edit'
+  | 'profile-avatar'
   | 'profile-user'
   | 'send-chat-request'
   | 'user-requests'
@@ -245,6 +247,7 @@ const resolveDetailViewFromPath = (pathname: string): DetailViewKey => {
   if (pathname === '/chat/group/settings') return 'group-settings';
   if (pathname === '/chat' || pathname.startsWith('/chat/')) return 'chat';
   if (pathname === '/profile/feedback') return 'feedback';
+  if (pathname === '/profile/avatar') return 'profile-avatar';
   if (/^\/profile\/user\/\d+$/.test(pathname)) return 'profile-user';
   if (pathname === '/profile/request-chat') return 'send-chat-request';
   if (pathname === '/profile/requests/users') return 'user-requests';
@@ -260,6 +263,7 @@ const isKnownHybridPath = (pathname: string) => {
   if (pathname === '/profile') return true;
   if (pathname === '/profile/settings') return true;
   if (pathname === '/profile/feedback') return true;
+  if (pathname === '/profile/avatar') return true;
   if (pathname === '/profile/edit') return true;
   if (/^\/profile\/user\/\d+$/.test(pathname)) return true;
   if (pathname === '/profile/request-chat') return true;
@@ -347,6 +351,7 @@ const HybridAppShell = () => {
     if (
       detailView === 'feedback' ||
       detailView === 'profile-edit' ||
+      detailView === 'profile-avatar' ||
       detailView === 'user-requests' ||
       detailView === 'group-requests'
     ) {
@@ -447,6 +452,14 @@ const HybridAppShell = () => {
       return (
         <div className="hybrid-detail-surface" role="presentation">
           <ProfileEditPage />
+        </div>
+      );
+    }
+
+    if (detailView === 'profile-avatar') {
+      return (
+        <div className="hybrid-detail-surface" role="presentation">
+          <ProfileAvatarPage />
         </div>
       );
     }

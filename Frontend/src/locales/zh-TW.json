@@ -420,7 +420,7 @@
     "claimDetailClaimable": "可選擇任意未被占用的 1-20 位 CleanID。",
     "claimDetailClaimed": "目前帳戶已持有短標識。",
     "avatarLibrary": "頭像庫",
-    "avatarLibraryNote": "開啟頭像選擇器，再選擇極簡人物、石紋肖像或抽象光影。",
+    "avatarLibraryNote": "開啟頭像頁，先選擇風格大類，再從該類裡選擇頭像。",
     "currentMark": "目前使用",
     "availableNow": "立即可用",
     "saveIdentity": "儲存身份",
@@ -442,7 +442,7 @@
     "moderationMarks": "{{count}} 筆審核標記",
     "encryptionKeys": "加密密鑰",
     "claimWindow": "認領視窗",
-    "avatarPickerAction": "選擇頭像"
+    "avatarPickerAction": "更改頭像"
   },
   "profile": {
     "notFound": "找不到個人資料。",
@@ -481,7 +481,7 @@
     "cleanIdIntentShort": "短",
     "cleanIdIntentStandard": "標準",
     "avatarLibrary": "頭像庫",
-    "avatarLibraryNote": "開啟頭像選擇器，再挑選適合你的視覺風格。",
+    "avatarLibraryNote": "開啟頭像頁，先選擇視覺風格。",
     "open": "已開放",
     "currentMark": "目前使用",
     "availableNow": "立即可用",
@@ -506,7 +506,7 @@
     "noPendingRequests": "此群組目前沒有待處理申請。",
     "approve": "核准",
     "reject": "拒絕",
-    "avatarPickerAction": "選擇頭像"
+    "avatarPickerAction": "更改頭像"
   },
   "userProfile": {
     "title": "使用者資料",
@@ -581,5 +581,70 @@
     "loadGroupsFailed": "載入群組失敗。",
     "loadRequestsFailed": "載入入群申請失敗。",
     "updateFailed": "處理入群申請失敗。"
+  },
+  "feedback": {
+    "title": "反饋",
+    "heading": "告訴我們哪裡需要注意。",
+    "subtitle": "你的訊息會直接送到專案信箱。",
+    "threadLabel": "反饋對話",
+    "destinationLabel": "發送給",
+    "destinationEmail": "開發者",
+    "typeLabel": "反饋類型",
+    "types": {
+      "bug": {
+        "label": "問題",
+        "description": "功能出錯或表現不正常。"
+      },
+      "feature": {
+        "label": "功能建議",
+        "description": "建議新流程、工具或能力。"
+      },
+      "experience": {
+        "label": "體驗",
+        "description": "分享可用性、版面或行動端體驗反饋。"
+      },
+      "other": {
+        "label": "其他",
+        "description": "任何想讓開發者知道的事。"
+      }
+    },
+    "draftPlaceholder": "在下方寫下反饋。",
+    "messageLabel": "訊息",
+    "messagePlaceholder": "輸入你的反饋...",
+    "characterCount": "{{count}} / 1200",
+    "send": "發送",
+    "sending": "發送中...",
+    "messageRequired": "請先輸入反饋內容。",
+    "sendFailed": "發送反饋失敗。",
+    "sentEyebrow": "已發送",
+    "sentTitle": "感謝你送出反饋",
+    "sentCopy": "你的反饋已送出。我們會盡快查看，並盡快與你保持聯繫。"
+  },
+  "avatarPicker": {
+    "title": "更改頭像",
+    "heading": "先選擇一個風格。",
+    "subtitle": "進入風格大類後，再從該類裡選擇頭像。",
+    "loading": "正在載入頭像風格...",
+    "unavailable": "現在無法選擇頭像。",
+    "loadFailed": "無法載入頭像選擇頁。",
+    "styleLabel": "頭像風格",
+    "avatarLabel": "頭像選項",
+    "stylesBack": "風格",
+    "changeStyle": "更換風格",
+    "styleCount": "{{count}} 個頭像",
+    "styles": {
+      "character": {
+        "label": "極簡人物",
+        "description": "柔和配色與簡潔線條的人物頭像。"
+      },
+      "marble": {
+        "label": "石紋肖像",
+        "description": "安靜、古典的石雕感側面肖像。"
+      },
+      "ether": {
+        "label": "抽象光影",
+        "description": "深色玻璃質感與柔和發光的抽象頭像。"
+      }
+    }
   }
 }

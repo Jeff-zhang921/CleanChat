@@ -757,7 +757,10 @@ const pageTargets: PageTarget[] = [
       await page.locator(".feedback-composer button[type='submit']").click();
       await expect(page.getByRole("dialog")).toBeVisible();
       await expect(page.getByRole("dialog")).toContainText(
-        /反馈已发送|Feedback sent/i,
+        /\u611f\u8c22\u4f60\u53d1\u9001\u53cd\u9988|Thank you for sending this/i,
+      );
+      await expect(page.getByRole("dialog")).toContainText(
+        /\u5c3d\u5feb\u4e0e\u4f60\u4fdd\u6301\u8054\u7cfb|keep in touch/i,
       );
       await page.getByRole("dialog").getByRole("button").click();
       await expect(page.getByRole("dialog")).toBeHidden();
@@ -776,9 +779,13 @@ const pageTargets: PageTarget[] = [
       await expect(page.locator(".profile-edit-gender-drawer")).toBeHidden();
       await expect(page.locator(".profile-edit-page .profile-avatar-grid")).toHaveCount(0);
       await page.locator(".profile-avatar-picker-trigger").click();
-      await expect(page.locator(".profile-avatar-picker-dialog")).toBeVisible();
-      await page.locator(".profile-avatar-picker-dialog .profile-avatar-option").nth(1).click();
-      await expect(page.locator(".profile-avatar-picker-dialog")).toBeHidden();
+      await expect(page).toHaveURL(/\/profile\/avatar/);
+      await expect(page.locator(".profile-avatar-style-card")).toHaveCount(3);
+      await expect(page.locator(".profile-avatar-choice-grid")).toHaveCount(0);
+      await page.locator(".profile-avatar-style-card").first().click();
+      await expect(page.locator(".profile-avatar-choice-grid")).toBeVisible();
+      await page.locator(".profile-avatar-choice").nth(1).click();
+      await expect(page).toHaveURL(/\/profile\/edit/);
       await page.locator("#nickname").fill("Jeff Edited");
       await page.locator(".profile-edit-action-primary").click();
       await expect(page).toHaveURL(/\/profile/);
@@ -794,6 +801,20 @@ const pageTargets: PageTarget[] = [
       await expect(page.locator(".profile-claim-editor")).toBeVisible();
       await expect(page.locator(".profile-edit-page .profile-avatar-grid")).toHaveCount(0);
       await expect(page.locator(".profile-avatar-picker-trigger")).toBeVisible();
+    },
+  },
+  {
+    name: "profile-avatar",
+    path: "/profile/avatar",
+    authenticated: true,
+    readySelector: ".profile-avatar-page",
+    smoke: async (page) => {
+      await expect(page.locator(".profile-avatar-style-card")).toHaveCount(3);
+      await expect(page.locator(".profile-avatar-choice-grid")).toHaveCount(0);
+      await page.locator(".profile-avatar-style-card").nth(1).click();
+      await expect(page.locator(".profile-avatar-choice-grid")).toBeVisible();
+      await page.locator(".profile-avatar-style-return").click();
+      await expect(page.locator(".profile-avatar-choice-grid")).toHaveCount(0);
     },
   },
   {

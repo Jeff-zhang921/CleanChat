@@ -52,6 +52,13 @@ export type AvatarOption = {
   url: string;
 };
 
+export type AvatarStyleCategory = {
+  style: AvatarStyle;
+  family: string;
+  count: number;
+  sampleKeys: AvatarKey[];
+};
+
 type CharacterSeed = {
   key: AvatarKey;
   label: string;
@@ -94,6 +101,8 @@ const FAMILY_BY_STYLE: Record<AvatarStyle, string> = {
   marble: "Classical Marble Portraits",
   ether: "Ethereal Light Forms",
 };
+
+const AVATAR_STYLE_ORDER: AvatarStyle[] = ["character", "marble", "ether"];
 
 export const DEFAULT_AVATAR_KEY: AvatarKey = "AVATAR_LEO";
 
@@ -430,6 +439,23 @@ export const getAvatarUrl = (avatar?: AvatarKey | null) =>
   getAvatarOption(avatar ?? DEFAULT_AVATAR_KEY).url;
 
 export const getAvatarOptions = () => AVATAR_OPTIONS;
+
+export const isAvatarStyle = (style: unknown): style is AvatarStyle =>
+  typeof style === "string" && AVATAR_STYLE_ORDER.includes(style as AvatarStyle);
+
+export const getAvatarOptionsByStyle = (style: AvatarStyle) =>
+  AVATAR_OPTIONS.filter((option) => option.style === style);
+
+export const getAvatarStyleCategories = (): AvatarStyleCategory[] =>
+  AVATAR_STYLE_ORDER.map((style) => {
+    const options = getAvatarOptionsByStyle(style);
+    return {
+      style,
+      family: FAMILY_BY_STYLE[style],
+      count: options.length,
+      sampleKeys: options.slice(0, 3).map((option) => option.key),
+    };
+  });
 
 export const getAvatarToneClass = (avatar?: AvatarKey | null) => {
   const style = getAvatarStyle(avatar ?? DEFAULT_AVATAR_KEY);

@@ -5,10 +5,7 @@ import { useTranslation } from "react-i18next";
 import GenderLineIcon from "../components/GenderLineIcon";
 import GenderPicker from "../components/GenderPicker";
 import {
-  getAvatarOptions,
   getAvatarOption,
-  getAvatarToneClass,
-  getAvatarUrl,
   type AvatarKey,
 } from "../constants/avatarCatalog";
 import { BACKEND_URL } from "../config";
@@ -17,7 +14,12 @@ import {
   validateShortClaimInput,
 } from "../utils/cleanIdClaim";
 import { GENDER_ARIA_KEY_MAP, type GenderValue } from "../utils/gender";
-import { hydrateProfileUser, type ProfileRouteState, type ProfileUser } from "../utils/profileUser";
+import {
+  hydrateProfileUser,
+  type ProfileEditDraft,
+  type ProfileRouteState,
+  type ProfileUser,
+} from "../utils/profileUser";
 import "./profile.css";
 import "./profileEdit.css";
 
@@ -29,28 +31,37 @@ const ProfileEditPage = () => {
   const location = useLocation();
   const routeState = (location.state as ProfileRouteState | null) ?? null;
   const seededUser = routeState?.user ? hydrateProfileUser(routeState.user) : null;
+  const seededDraft = routeState?.editDraft ?? null;
 
   const [loading, setLoading] = useState(!seededUser);
   const [user, setUser] = useState<ProfileUser | null>(seededUser);
-  const [nickname, setNickname] = useState(seededUser?.name ?? "");
-  const [cleanId, setCleanId] = useState(seededUser?.cleanId ?? "");
-  const [avatar, setAvatar] = useState<AvatarKey>(seededUser?.avatar ?? "AVATAR_LEO");
-  const [gender, setGender] = useState<GenderValue>(seededUser?.gender ?? "hidden");
+  const [nickname, setNickname] = useState(seededDraft?.name ?? seededUser?.name ?? "");
+  const [cleanId, setCleanId] = useState(seededDraft?.cleanId ?? seededUser?.cleanId ?? "");
+  const [avatar, setAvatar] = useState<AvatarKey>(
+    seededDraft?.avatar ?? routeState?.selectedAvatar ?? seededUser?.avatar ?? "AVATAR_LEO"
+  );
+  const [gender, setGender] = useState<GenderValue>(seededDraft?.gender ?? seededUser?.gender ?? "hidden");
   const [status, setStatus] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [isGenderDrawerOpen, setIsGenderDrawerOpen] = useState<boolean>(() => false);
-  const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState<boolean>(() => false);
   const genderLabel = t(GENDER_ARIA_KEY_MAP[gender]);
   const cleanIdFieldRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!user) return;
-    setNickname(user.name ?? "");
-    setCleanId(user.cleanId ?? "");
-    setAvatar(user.avatar ?? "AVATAR_LEO");
-    setGender(user.gender);
-  }, [user]);
+    setNickname(routeState?.editDraft?.name ?? user.name ?? "");
+    setCleanId(routeState?.editDraft?.cleanId ?? user.cleanId ?? "");
+    setAvatar(routeState?.editDraft?.avatar ?? routeState?.selectedAvatar ?? user.avatar ?? "AVATAR_LEO");
+    setGender(routeState?.editDraft?.gender ?? user.gender);
+  }, [
+    routeState?.editDraft?.avatar,
+    routeState?.editDraft?.cleanId,
+    routeState?.editDraft?.gender,
+    routeState?.editDraft?.name,
+    routeState?.selectedAvatar,
+    user,
+  ]);
 
   useEffect(() => {
     if (seededUser) {
@@ -107,10 +118,6 @@ const ProfileEditPage = () => {
   };
 
   const handleBack = () => {
-    if (isAvatarPickerOpen) {
-      setIsAvatarPickerOpen(false);
-      return;
-    }
     if (isGenderDrawerOpen) {
       setIsGenderDrawerOpen(false);
       return;
@@ -135,23 +142,6 @@ const ProfileEditPage = () => {
       window.removeEventListener("keydown", handleEscape);
     };
   }, [isGenderDrawerOpen]);
-
-  useEffect(() => {
-    if (!isAvatarPickerOpen) {
-      return;
-    }
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsAvatarPickerOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleEscape);
-    return () => {
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [isAvatarPickerOpen]);
 
   useEffect(() => {
     if (!routeState?.focusClaim || !user) return;
@@ -200,12 +190,28 @@ const ProfileEditPage = () => {
       ? t("identityVault.claimDetailClaimed")
       : t("identityVault.claimDetailClaimable");
 
-  const avatarOptions = getAvatarOptions().map((item) => ({
-    ...item,
-    isSelected: avatar === item.key,
-    isCurrent: user?.avatar === item.key,
-  }));
   const selectedAvatarOption = getAvatarOption(avatar);
+
+  const openAvatarPage = () => {
+    if (!user) return;
+    setStatus("");
+    const editDraft: ProfileEditDraft = {
+      name: nickname,
+      cleanId,
+      avatar,
+      gender,
+    };
+    navigate("/profile/avatar", {
+      state: {
+        user,
+        editDraft,
+        selectedAvatar: avatar,
+        spatialTransition: "push",
+        returnTo: backTarget,
+        avatarPickerReturnTo: "/profile/edit",
+      } satisfies ProfileRouteState,
+    });
+  };
 
   const genderDrawer =
     isGenderDrawerOpen && typeof document !== "undefined"
@@ -241,73 +247,6 @@ const ProfileEditPage = () => {
                 {t("common.close")}
               </button>
             </aside>
-          </div>,
-          document.body,
-        )
-      : null;
-
-  const avatarPicker =
-    isAvatarPickerOpen && typeof document !== "undefined"
-      ? createPortal(
-          <div className="profile-avatar-picker-layer is-open" aria-hidden={false}>
-            <button
-              type="button"
-              className="profile-avatar-picker-backdrop"
-              onClick={() => setIsAvatarPickerOpen(false)}
-              tabIndex={0}
-              aria-label={t("common.close")}
-            />
-            <section
-              className="profile-avatar-picker-dialog"
-              role="dialog"
-              aria-modal="true"
-              aria-label={t("identityVault.avatarLibrary")}
-            >
-              <header className="profile-avatar-picker-head">
-                <p className="profile-edit-eyebrow">{t("identityVault.avatarLibrary")}</p>
-                <h2>{t("identityVault.avatarPickerAction")}</h2>
-                <p>{t("identityVault.avatarLibraryNote")}</p>
-              </header>
-              <div className="profile-avatar-grid profile-avatar-picker-grid">
-                {avatarOptions.map((item) => (
-                  <label
-                    key={item.key}
-                    className={`profile-avatar-option ${item.isSelected ? "active" : ""} ${item.isCurrent ? "current" : ""}`}
-                  >
-                    <input
-                      type="radio"
-                      name="avatar"
-                      value={item.key}
-                      checked={avatar === item.key}
-                      onChange={() => {
-                        setAvatar(item.key);
-                        setIsAvatarPickerOpen(false);
-                      }}
-                      disabled={isSaving}
-                    />
-                    <img
-                      className={getAvatarToneClass(item.key)}
-                      src={getAvatarUrl(item.key)}
-                      alt={item.label}
-                    />
-                    <span>{item.label}</span>
-                    <em>
-                      {item.isCurrent
-                        ? t("identityVault.currentMark")
-                        : t("identityVault.availableNow")}
-                    </em>
-                  </label>
-                ))}
-              </div>
-              <button
-                type="button"
-                className="profile-edit-action profile-edit-action-primary profile-avatar-picker-close"
-                onClick={() => setIsAvatarPickerOpen(false)}
-                disabled={isSaving}
-              >
-                {t("common.close")}
-              </button>
-            </section>
           </div>,
           document.body,
         )
@@ -574,7 +513,7 @@ const ProfileEditPage = () => {
             <button
               type="button"
               className="profile-avatar-picker-trigger"
-              onClick={() => setIsAvatarPickerOpen(true)}
+              onClick={openAvatarPage}
               disabled={isSaving}
             >
               <span className="profile-avatar-picker-trigger-copy">
@@ -618,7 +557,6 @@ const ProfileEditPage = () => {
       </main>
 
       {genderDrawer}
-      {avatarPicker}
     </div>
   );
 };

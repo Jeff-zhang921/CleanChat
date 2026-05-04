@@ -435,7 +435,7 @@
     "claimDetailClaimable": "可选择任意未被占用的 1-20 位 CleanID。",
     "claimDetailClaimed": "当前账户已持有短标识。",
     "avatarLibrary": "头像库",
-    "avatarLibraryNote": "打开头像选择器，再选择极简人物、石纹肖像或抽象光影。",
+    "avatarLibraryNote": "打开头像页，先选择风格大类，再从该类里选择头像。",
     "currentMark": "当前使用",
     "availableNow": "立即可用",
     "saveIdentity": "保存身份",
@@ -457,7 +457,7 @@
     "moderationMarks": "{{count}} 条审核标记",
     "encryptionKeys": "加密密钥",
     "claimWindow": "认领窗口",
-    "avatarPickerAction": "选择头像"
+    "avatarPickerAction": "更改头像"
   },
   "profile": {
     "notFound": "未找到资料。",
@@ -498,7 +498,7 @@
     "cleanIdIntentShort": "短",
     "cleanIdIntentStandard": "标准",
     "avatarLibrary": "头像库",
-    "avatarLibraryNote": "打开头像选择器，再挑选适合你的视觉风格。",
+    "avatarLibraryNote": "打开头像页，先选择视觉风格。",
     "open": "已开放",
     "currentMark": "当前使用",
     "availableNow": "立即可用",
@@ -523,11 +523,11 @@
     "noPendingRequests": "该群组当前没有待处理申请。",
     "approve": "批准",
     "reject": "拒绝",
-    "avatarPickerAction": "选择头像"
+    "avatarPickerAction": "更改头像"
   },
   "feedback": {
     "title": "反馈",
-    "heading": "告诉我们需要改进的地方。",
+    "heading": "告诉我们哪里需要关注。",
     "subtitle": "你的消息会直接发送到项目邮箱。",
     "threadLabel": "反馈对话",
     "destinationLabel": "发送给",
@@ -535,33 +535,33 @@
     "typeLabel": "反馈类型",
     "types": {
       "bug": {
-        "label": "问题反馈",
-        "description": "报告无法正常使用或异常行为。"
+        "label": "问题",
+        "description": "功能出错或表现不正常。"
       },
       "feature": {
         "label": "功能建议",
-        "description": "建议新的流程、工具或能力。"
+        "description": "建议新流程、工具或能力。"
       },
       "experience": {
-        "label": "体验优化",
-        "description": "反馈可用性、布局或手机端体验。"
+        "label": "体验",
+        "description": "分享可用性、布局或移动端体验反馈。"
       },
       "other": {
         "label": "其他",
-        "description": "其他想让开发者知道的内容。"
+        "description": "任何想让开发者知道的事。"
       }
     },
-    "draftPlaceholder": "在下方输入反馈。",
+    "draftPlaceholder": "在下方写下反馈。",
     "messageLabel": "消息",
     "messagePlaceholder": "输入你的反馈...",
     "characterCount": "{{count}} / 1200",
     "send": "发送",
     "sending": "发送中...",
     "messageRequired": "请先输入反馈内容。",
-    "sendFailed": "反馈发送失败。",
+    "sendFailed": "发送反馈失败。",
     "sentEyebrow": "已发送",
-    "sentTitle": "反馈已发送",
-    "sentCopy": "你的反馈已发送。"
+    "sentTitle": "感谢你发送反馈",
+    "sentCopy": "你的反馈已发送。我们会尽快查看，并尽快与你保持联系。"
   },
   "userProfile": {
     "title": "用户资料",
@@ -636,5 +636,32 @@
     "loadGroupsFailed": "加载群组失败。",
     "loadRequestsFailed": "加载入群申请失败。",
     "updateFailed": "处理入群申请失败。"
+  },
+  "avatarPicker": {
+    "title": "更改头像",
+    "heading": "先选择一个风格。",
+    "subtitle": "进入风格大类后，再从该类里选择头像。",
+    "loading": "正在加载头像风格...",
+    "unavailable": "现在无法选择头像。",
+    "loadFailed": "无法加载头像选择页。",
+    "styleLabel": "头像风格",
+    "avatarLabel": "头像选项",
+    "stylesBack": "风格",
+    "changeStyle": "更换风格",
+    "styleCount": "{{count}} 个头像",
+    "styles": {
+      "character": {
+        "label": "极简人物",
+        "description": "柔和配色与简洁线条的人物头像。"
+      },
+      "marble": {
+        "label": "石纹肖像",
+        "description": "安静、古典的石雕感侧面肖像。"
+      },
+      "ether": {
+        "label": "抽象光影",
+        "description": "深色玻璃质感与柔和发光的抽象头像。"
+      }
+    }
   }
 }

@@ -306,72 +306,6 @@
   font-weight: 800;
 }
 
-.profile-avatar-picker-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 72;
-  display: grid;
-  place-items: center;
-  padding: max(1rem, env(safe-area-inset-top, 0px))
-    max(1rem, env(safe-area-inset-right, 0px))
-    max(1rem, env(safe-area-inset-bottom, 0px))
-    max(1rem, env(safe-area-inset-left, 0px));
-  isolation: isolate;
-}
-
-.profile-avatar-picker-backdrop {
-  position: absolute;
-  inset: 0;
-  border: 0;
-  background: rgba(18, 25, 22, 0.46);
-  backdrop-filter: blur(12px) saturate(0.92);
-  -webkit-backdrop-filter: blur(12px) saturate(0.92);
-  z-index: 0;
-}
-
-.profile-avatar-picker-dialog {
-  position: relative;
-  z-index: 1;
-  width: min(100%, 38rem);
-  max-height: calc(100dvh - 2rem);
-  border: 1px solid rgba(54, 72, 58, 0.16);
-  border-radius: 1.12rem;
-  background: #fffdf8;
-  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.22);
-  padding: clamp(1rem, 3vw, 1.18rem);
-  display: grid;
-  gap: 0.82rem;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.profile-avatar-picker-head {
-  display: grid;
-  gap: 0.42rem;
-}
-
-.profile-avatar-picker-head h2 {
-  margin: 0;
-  font-size: 1.12rem;
-  line-height: 1.25;
-  font-weight: 800;
-  color: #1d2a22;
-}
-
-.profile-avatar-picker-head p:last-child {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.55;
-}
-
-.profile-avatar-picker-grid {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.profile-avatar-picker-close {
-  justify-self: stretch;
-}
-
 .profile-avatar-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1206,10 +1140,6 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .profile-avatar-picker-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
   .profile-entry-card {
     grid-template-columns: 1fr;
   }
@@ -1292,21 +1222,6 @@
 
   .profile-avatar-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .profile-avatar-picker-layer {
-    align-items: end;
-    padding: max(0.75rem, env(safe-area-inset-top, 0px)) 0 0;
-  }
-
-  .profile-avatar-picker-dialog {
-    width: 100%;
-    max-height: calc(92dvh - env(safe-area-inset-top, 0px));
-    border-right: 0;
-    border-bottom: 0;
-    border-left: 0;
-    border-radius: 1.2rem 1.2rem 0 0;
-    padding: 1rem 1rem max(1.2rem, env(safe-area-inset-bottom, 0px));
   }
 
   .profile-join-request-item {

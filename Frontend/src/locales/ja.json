@@ -420,7 +420,7 @@
     "claimDetailClaimable": "利用可能な1-20文字の CleanID を選択できます。",
     "claimDetailClaimed": "このアカウントはすでに短縮ハンドルを保有しています。",
     "avatarLibrary": "アバターライブラリ",
-    "avatarLibraryNote": "アバター選択を開いて、ミニマルキャラクター、大理石ポートレート、抽象ライトフォームから選んでください。",
+    "avatarLibraryNote": "アバターページを開き、まずスタイルを選んでからそのコレクション内のアバターを選びます。",
     "currentMark": "現在使用中",
     "availableNow": "今すぐ利用可能",
     "saveIdentity": "アイデンティティを保存",
@@ -442,7 +442,7 @@
     "moderationMarks": "モデレーション記録 {{count}} 件",
     "encryptionKeys": "暗号化キー",
     "claimWindow": "クレーム範囲",
-    "avatarPickerAction": "アバターを選択"
+    "avatarPickerAction": "アバターを変更"
   },
   "profile": {
     "notFound": "プロフィールが見つかりません。",
@@ -481,7 +481,7 @@
     "cleanIdIntentShort": "短",
     "cleanIdIntentStandard": "標準",
     "avatarLibrary": "アバターライブラリ",
-    "avatarLibraryNote": "アバター選択を開いて、プロフィールに合う視覚スタイルを選んでください。",
+    "avatarLibraryNote": "アバターページを開き、まず視覚スタイルを選びます。",
     "open": "開放",
     "currentMark": "現在使用中",
     "availableNow": "今すぐ利用可能",
@@ -506,7 +506,7 @@
     "noPendingRequests": "このグループに保留申請はありません。",
     "approve": "承認",
     "reject": "拒否",
-    "avatarPickerAction": "アバターを選択"
+    "avatarPickerAction": "アバターを変更"
   },
   "userProfile": {
     "title": "ユーザープロフィール",
@@ -581,5 +581,70 @@
     "loadGroupsFailed": "グループの読み込みに失敗しました。",
     "loadRequestsFailed": "参加申請の読み込みに失敗しました。",
     "updateFailed": "参加申請の処理に失敗しました。"
+  },
+  "feedback": {
+    "title": "フィードバック",
+    "heading": "気になる点をお知らせください。",
+    "subtitle": "メッセージはプロジェクトのメールボックスに直接送信されます。",
+    "threadLabel": "フィードバック会話",
+    "destinationLabel": "送信先",
+    "destinationEmail": "開発者",
+    "typeLabel": "種類",
+    "types": {
+      "bug": {
+        "label": "不具合",
+        "description": "機能が壊れている、または正しく動きません。"
+      },
+      "feature": {
+        "label": "機能リクエスト",
+        "description": "新しいフローや機能の提案。"
+      },
+      "experience": {
+        "label": "体験",
+        "description": "使いやすさ、レイアウト、モバイル体験のフィードバック。"
+      },
+      "other": {
+        "label": "その他",
+        "description": "開発者に伝えたいその他の内容。"
+      }
+    },
+    "draftPlaceholder": "下にフィードバックを書いてください。",
+    "messageLabel": "メッセージ",
+    "messagePlaceholder": "フィードバックを入力...",
+    "characterCount": "{{count}} / 1200",
+    "send": "送信",
+    "sending": "送信中...",
+    "messageRequired": "送信前にフィードバックを入力してください。",
+    "sendFailed": "フィードバックの送信に失敗しました。",
+    "sentEyebrow": "送信済み",
+    "sentTitle": "送信ありがとうございます",
+    "sentCopy": "フィードバックは送信されました。できるだけ早く確認し、必要に応じて連絡します。"
+  },
+  "avatarPicker": {
+    "title": "アバターを変更",
+    "heading": "まずスタイルを選択。",
+    "subtitle": "スタイルを開いてから、そのコレクションのアバターを選びます。",
+    "loading": "アバタースタイルを読み込み中...",
+    "unavailable": "現在アバターを選択できません。",
+    "loadFailed": "アバター選択を読み込めません。",
+    "styleLabel": "アバタースタイル",
+    "avatarLabel": "アバター選択肢",
+    "stylesBack": "スタイル",
+    "changeStyle": "スタイルを変更",
+    "styleCount": "{{count}} 個のアバター",
+    "styles": {
+      "character": {
+        "label": "ミニマルキャラクター",
+        "description": "落ち着いた色とシンプルな線のポートレート。"
+      },
+      "marble": {
+        "label": "マーブルポートレート",
+        "description": "静かで古典的な石像風のプロフィール。"
+      },
+      "ether": {
+        "label": "ライトフォーム",
+        "description": "ダークガラスと柔らかな光の抽象アバター。"
+      }
+    }
   }
 }

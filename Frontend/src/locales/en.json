@@ -435,7 +435,7 @@
     "claimDetailClaimable": "Choose any available 1-20 character CleanID.",
     "claimDetailClaimed": "This account already holds a short handle.",
     "avatarLibrary": "Avatar library",
-    "avatarLibraryNote": "Open the avatar picker to choose a minimalist character, marble portrait, or abstract light-form.",
+    "avatarLibraryNote": "Open the avatar page, choose a style first, then pick an avatar from that collection.",
     "currentMark": "Current mark",
     "availableNow": "Available now",
     "saveIdentity": "Save Identity",
@@ -457,7 +457,7 @@
     "moderationMarks": "{{count}} moderation marks",
     "encryptionKeys": "Encryption keys",
     "claimWindow": "Claim window",
-    "avatarPickerAction": "Choose avatar"
+    "avatarPickerAction": "Change avatar"
   },
   "profile": {
     "notFound": "Profile not found.",
@@ -498,7 +498,7 @@
     "cleanIdIntentShort": "Short",
     "cleanIdIntentStandard": "Standard",
     "avatarLibrary": "Avatar Library",
-    "avatarLibraryNote": "Open the avatar picker to choose a visual style.",
+    "avatarLibraryNote": "Open the avatar page and choose a visual style first.",
     "open": "Open",
     "currentMark": "Current mark",
     "availableNow": "Available now",
@@ -523,7 +523,7 @@
     "noPendingRequests": "No pending requests for this group.",
     "approve": "Approve",
     "reject": "Reject",
-    "avatarPickerAction": "Choose avatar"
+    "avatarPickerAction": "Change avatar"
   },
   "feedback": {
     "title": "Feedback",
@@ -560,8 +560,8 @@
     "messageRequired": "Please enter feedback before sending.",
     "sendFailed": "Failed to send feedback.",
     "sentEyebrow": "Sent",
-    "sentTitle": "Feedback sent",
-    "sentCopy": "Your feedback has been sent."
+    "sentTitle": "Thank you for sending this",
+    "sentCopy": "Your feedback was sent. We will review it and keep in touch as soon as possible."
   },
   "userProfile": {
     "title": "User Profile",
@@ -636,5 +636,32 @@
     "loadGroupsFailed": "Failed to load groups.",
     "loadRequestsFailed": "Failed to load join requests.",
     "updateFailed": "Failed to process join request."
+  },
+  "avatarPicker": {
+    "title": "Change avatar",
+    "heading": "Choose a style first.",
+    "subtitle": "Pick a style family, then choose an avatar from that collection.",
+    "loading": "Loading avatar styles...",
+    "unavailable": "Avatar selection is unavailable right now.",
+    "loadFailed": "Unable to load avatar selection.",
+    "styleLabel": "Avatar styles",
+    "avatarLabel": "Avatar choices",
+    "stylesBack": "Styles",
+    "changeStyle": "Change style",
+    "styleCount": "{{count}} avatars",
+    "styles": {
+      "character": {
+        "label": "Minimalist Characters",
+        "description": "Soft portrait avatars with calm color and simple line work."
+      },
+      "marble": {
+        "label": "Marble Portraits",
+        "description": "Classical stone profiles with quiet sculptural detail."
+      },
+      "ether": {
+        "label": "Light Forms",
+        "description": "Abstract luminous avatars with dark glass and soft glow."
+      }
+    }
   }
 }

@@ -1,10 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import BottomNav from "../components/BottomNav";
 import {
-  getAvatarOptions,
   getAvatarOption,
   getAvatarToneClass,
   getAvatarUrl,
@@ -24,7 +22,12 @@ import {
   isIOSDevice,
   isStandalonePwa,
 } from "../utils/notifications";
-import { hydrateProfileUser, type ProfileRouteState, type ProfileUser } from "../utils/profileUser";
+import {
+  hydrateProfileUser,
+  type ProfileEditDraft,
+  type ProfileRouteState,
+  type ProfileUser,
+} from "../utils/profileUser";
 import "./profile.css";
 
 type OwnedGroupSummary = {
@@ -107,7 +110,6 @@ const ProfilePage = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteConfirming, setIsDeleteConfirming] = useState(false);
-  const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState(false);
   const [showGroupAccess, setShowGroupAccess] = useState(false);
   const [ownedGroups, setOwnedGroups] = useState<OwnedGroupSummary[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
@@ -260,26 +262,29 @@ const ProfilePage = () => {
     resetFormToUser();
     setStatus("");
     setIsDeleteConfirming(false);
-    setIsAvatarPickerOpen(false);
     setIsEditing(false);
   };
 
-  useEffect(() => {
-    if (!isAvatarPickerOpen) {
-      return;
-    }
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsAvatarPickerOpen(false);
-      }
+  const openAvatarPage = () => {
+    if (!user) return;
+    setStatus("");
+    const editDraft: ProfileEditDraft = {
+      name: nickname,
+      cleanId,
+      avatar,
+      gender: user.gender,
     };
-
-    window.addEventListener("keydown", handleEscape);
-    return () => {
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [isAvatarPickerOpen]);
+    navigate("/profile/avatar", {
+      state: {
+        user,
+        editDraft,
+        selectedAvatar: avatar,
+        spatialTransition: "push",
+        returnTo: "/profile",
+        avatarPickerReturnTo: "/profile/edit",
+      } satisfies ProfileRouteState,
+    });
+  };
 
   const handleSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -623,11 +628,6 @@ const ProfilePage = () => {
   const activeName = user ? (isEditing ? nickname : user.name) : "";
   const activeCleanId = user ? (isEditing ? cleanId : user.cleanId) : "";
   const selectedOwnedGroup = ownedGroups.find((group) => group.id === selectedGroupId) ?? null;
-  const avatarOptions = getAvatarOptions().map((item) => ({
-    ...item,
-    isSelected: avatar === item.key,
-    isCurrent: user?.avatar === item.key,
-  }));
   const activeAvatarOption = getAvatarOption(activeAvatar);
   const selectedAvatarOption = getAvatarOption(avatar);
   const activeShortIdClaim = user?.shortIdClaim ?? FALLBACK_SHORT_ID_CLAIM;
@@ -646,69 +646,6 @@ const ProfilePage = () => {
           currentCleanId: user.cleanId,
         })
       : null;
-  const avatarPicker =
-    isAvatarPickerOpen && typeof document !== "undefined"
-      ? createPortal(
-          <div className="profile-avatar-picker-layer is-open" aria-hidden={false}>
-            <button
-              type="button"
-              className="profile-avatar-picker-backdrop"
-              onClick={() => setIsAvatarPickerOpen(false)}
-              tabIndex={0}
-              aria-label={t("common.close")}
-            />
-            <section
-              className="profile-avatar-picker-dialog"
-              role="dialog"
-              aria-modal="true"
-              aria-label={t("profile.avatarLibrary")}
-            >
-              <header className="profile-avatar-picker-head">
-                <p className="profile-entry-kicker">{t("profile.avatarLibrary")}</p>
-                <h2>{t("profile.avatarPickerAction")}</h2>
-                <p>{t("profile.avatarLibraryNote")}</p>
-              </header>
-              <div className="profile-avatar-grid profile-avatar-picker-grid">
-                {avatarOptions.map((item) => (
-                  <label
-                    key={item.key}
-                    className={`profile-avatar-option ${item.isSelected ? "active" : ""} ${item.isCurrent ? "current" : ""}`}
-                  >
-                    <input
-                      type="radio"
-                      name="avatar"
-                      value={item.key}
-                      checked={avatar === item.key}
-                      onChange={() => {
-                        setAvatar(item.key);
-                        setIsAvatarPickerOpen(false);
-                      }}
-                      disabled={isSaving}
-                    />
-                    <img className={getAvatarToneClass(item.key)} src={item.url} alt={item.label} />
-                    <span>{item.label}</span>
-                    <em>
-                      {item.isCurrent
-                        ? t("profile.currentMark")
-                        : t("profile.availableNow")}
-                    </em>
-                  </label>
-                ))}
-              </div>
-              <button
-                type="button"
-                className="profile-primary-btn profile-avatar-picker-close"
-                onClick={() => setIsAvatarPickerOpen(false)}
-                disabled={isSaving}
-              >
-                {t("common.close")}
-              </button>
-            </section>
-          </div>,
-          document.body,
-        )
-      : null;
-
   return (
     <div className="profile-shell">
       <main className="profile-card">
@@ -811,7 +748,7 @@ const ProfilePage = () => {
                   <button
                     type="button"
                     className="profile-avatar-picker-trigger"
-                    onClick={() => setIsAvatarPickerOpen(true)}
+                    onClick={openAvatarPage}
                     disabled={isSaving}
                   >
                     <span className="profile-avatar-picker-trigger-copy">
@@ -1008,7 +945,6 @@ const ProfilePage = () => {
         )}
       </main>
       <BottomNav />
-      {avatarPicker}
     </div>
   );
 };

@@ -43,7 +43,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("profile edit contains CleanID claim controls and unlocked avatars", async ({ page }) => {
+test("profile edit contains CleanID claim controls and style-first avatars", async ({ page }) => {
   await page.goto("/profile");
   await expect(page.locator(".profile-shell")).toBeVisible();
 
@@ -54,6 +54,12 @@ test("profile edit contains CleanID claim controls and unlocked avatars", async 
   await expect(page.locator(".profile-claim-editor")).toBeVisible();
   await expect(page.locator(".profile-edit-page .profile-avatar-grid")).toHaveCount(0);
   await page.locator(".profile-avatar-picker-trigger").click();
-  await expect(page.locator(".profile-avatar-picker-dialog")).toBeVisible();
-  await expect(page.locator(".profile-avatar-picker-dialog .profile-avatar-grid")).toBeVisible();
+  await expect(page).toHaveURL(/\/profile\/avatar/);
+  await expect(page.locator(".profile-avatar-page")).toBeVisible();
+  await expect(page.locator(".profile-avatar-style-card")).toHaveCount(3);
+  await expect(page.locator(".profile-avatar-choice-grid")).toHaveCount(0);
+  await page.locator(".profile-avatar-style-card").first().click();
+  await expect(page.locator(".profile-avatar-choice-grid")).toBeVisible();
+  await page.locator(".profile-avatar-choice").nth(1).click();
+  await expect(page).toHaveURL(/\/profile\/edit/);
 });
