@@ -13,6 +13,7 @@ type MessageItemProps = {
   isSelectableText: boolean;
   isDeletingMessage: boolean;
   isRecalled: boolean;
+  bodyText: string;
   imageUrl: string | null;
   quoteSender: string | null;
   quotePreview: string | null;
@@ -42,6 +43,7 @@ const MessageItem = ({
   isSelectableText,
   isDeletingMessage,
   isRecalled,
+  bodyText,
   imageUrl,
   quoteSender,
   quotePreview,
@@ -130,7 +132,7 @@ const MessageItem = ({
               />
             </button>
           ) : (
-            <p className="chat-message-content">{message.body}</p>
+            <p className="chat-message-content">{bodyText}</p>
           )}
 
           {hasQuoteContent && (

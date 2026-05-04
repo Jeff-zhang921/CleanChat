@@ -52,6 +52,8 @@ const ProfileEditPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [isGenderDrawerOpen, setIsGenderDrawerOpen] = useState<boolean>(() => false);
+  const [isRegionDrawerOpen, setIsRegionDrawerOpen] = useState<boolean>(() => false);
+  const [regionStep, setRegionStep] = useState<"country" | "city">("country");
   const genderLabel = t(GENDER_ARIA_KEY_MAP[gender]);
   const cleanIdFieldRef = useRef<HTMLInputElement | null>(null);
 
@@ -135,18 +137,23 @@ const ProfileEditPage = () => {
       setIsGenderDrawerOpen(false);
       return;
     }
+    if (isRegionDrawerOpen) {
+      setIsRegionDrawerOpen(false);
+      return;
+    }
     if (isSaving) return;
     leave(user);
   };
 
   useEffect(() => {
-    if (!isGenderDrawerOpen) {
+    if (!isGenderDrawerOpen && !isRegionDrawerOpen) {
       return;
     }
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsGenderDrawerOpen(false);
+        setIsRegionDrawerOpen(false);
       }
     };
 
@@ -154,7 +161,7 @@ const ProfileEditPage = () => {
     return () => {
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [isGenderDrawerOpen]);
+  }, [isGenderDrawerOpen, isRegionDrawerOpen]);
 
   useEffect(() => {
     if (!routeState?.focusClaim || !user) return;
@@ -204,6 +211,51 @@ const ProfileEditPage = () => {
       : t("identityVault.claimDetailClaimable");
 
   const selectedAvatarOption = getAvatarOption(avatar);
+  const normalizedCountry = country.trim();
+  const normalizedCity = city.trim();
+  const countryOptions = useMemo(
+    () => mergeSelectOptions(country, getRegionCountries()),
+    [country],
+  );
+  const cityOptions = useMemo(
+    () =>
+      normalizedCountry
+        ? mergeSelectOptions(city, getRegionCitiesForCountry(normalizedCountry))
+        : [],
+    [city, normalizedCountry],
+  );
+  const regionValue = normalizedCountry
+    ? normalizedCity
+      ? `${normalizedCountry}, ${normalizedCity}`
+      : normalizedCountry
+    : t("profileEdit.regionPlaceholder");
+  const regionAriaLabel = `${t("profileEdit.editRegion")}: ${regionValue}`;
+
+  const openRegionDrawer = () => {
+    setRegionStep(normalizedCountry ? "city" : "country");
+    setIsRegionDrawerOpen(true);
+  };
+
+  const handleRegionCountrySelect = (nextCountry: string) => {
+    setCountry(nextCountry);
+    const allowedCities = getRegionCitiesForCountry(nextCountry);
+    if (!nextCountry || !allowedCities.includes(city.trim())) {
+      setCity("");
+    }
+    setRegionStep("city");
+  };
+
+  const handleRegionCitySelect = (nextCity: string) => {
+    setCity(nextCity);
+    setIsRegionDrawerOpen(false);
+  };
+
+  const clearRegion = () => {
+    setCountry("");
+    setCity("");
+    setRegionStep("country");
+    setIsRegionDrawerOpen(false);
+  };
 
   const openAvatarPage = () => {
     if (!user) return;
@@ -261,6 +313,119 @@ const ProfileEditPage = () => {
               >
                 {t("common.close")}
               </button>
+            </aside>
+          </div>,
+          document.body,
+        )
+      : null;
+
+  const regionDrawer =
+    isRegionDrawerOpen && typeof document !== "undefined"
+      ? createPortal(
+          <div className="profile-edit-region-drawer-layer is-open" aria-hidden={false}>
+            <button
+              type="button"
+              className="profile-edit-region-drawer-backdrop"
+              onClick={() => setIsRegionDrawerOpen(false)}
+              tabIndex={0}
+              aria-label={t("common.close")}
+            />
+            <aside
+              className="profile-edit-region-drawer"
+              role="dialog"
+              aria-modal="true"
+              aria-label={t("profileEdit.editRegion")}
+            >
+              <header className="profile-edit-region-drawer-head">
+                <p className="profile-edit-eyebrow">{t("profileEdit.editRegion")}</p>
+                <h2>{t("profileEdit.region")}</h2>
+                <span className="profile-edit-region-current">{regionValue}</span>
+              </header>
+
+              <div className="profile-edit-region-tabs" role="tablist" aria-label={t("profileEdit.region")}>
+                <button
+                  type="button"
+                  className={`profile-edit-region-tab ${regionStep === "country" ? "is-active" : ""}`}
+                  onClick={() => setRegionStep("country")}
+                  role="tab"
+                  aria-selected={regionStep === "country"}
+                >
+                  {t("profileEdit.country")}
+                </button>
+                <button
+                  type="button"
+                  className={`profile-edit-region-tab ${regionStep === "city" ? "is-active" : ""}`}
+                  onClick={() => normalizedCountry && setRegionStep("city")}
+                  disabled={!normalizedCountry}
+                  role="tab"
+                  aria-selected={regionStep === "city"}
+                >
+                  {t("profileEdit.city")}
+                </button>
+              </div>
+
+              <div className="profile-edit-region-panel">
+                {regionStep === "country" ? (
+                  <div className="profile-edit-region-grid" role="listbox" aria-label={t("profileEdit.country")}>
+                    {countryOptions.map((option) => {
+                      const isSelected = option === normalizedCountry;
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          className={`profile-edit-region-option ${isSelected ? "is-selected" : ""}`}
+                          onClick={() => handleRegionCountrySelect(option)}
+                          disabled={isSaving}
+                          role="option"
+                          aria-selected={isSelected}
+                        >
+                          {option}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : cityOptions.length > 0 ? (
+                  <div className="profile-edit-region-grid" role="listbox" aria-label={t("profileEdit.city")}>
+                    {cityOptions.map((option) => {
+                      const isSelected = option === normalizedCity;
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          className={`profile-edit-region-option ${isSelected ? "is-selected" : ""}`}
+                          onClick={() => handleRegionCitySelect(option)}
+                          disabled={isSaving}
+                          role="option"
+                          aria-selected={isSelected}
+                        >
+                          {option}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="profile-edit-region-empty">{t("profileEdit.cityPlaceholderDisabled")}</p>
+                )}
+              </div>
+
+              <div className="profile-edit-region-actions">
+                <button
+                  type="button"
+                  className="profile-edit-action profile-edit-action-secondary"
+                  onClick={clearRegion}
+                  disabled={isSaving || (!normalizedCountry && !normalizedCity)}
+                >
+                  {t("profileEdit.clearRegion")}
+                </button>
+                <button
+                  type="button"
+                  className="profile-edit-action profile-edit-action-primary"
+                  onClick={() => setIsRegionDrawerOpen(false)}
+                  disabled={isSaving}
+                >
+                  {t("common.close")}
+                </button>
+              </div>
             </aside>
           </div>,
           document.body,
@@ -547,59 +712,21 @@ const ProfileEditPage = () => {
             </span>
           </button>
 
-          <label className="profile-edit-field" htmlFor="profile-country">
-            <span className="profile-edit-label">{t("profileEdit.country")}</span>
-            <select
-              id="profile-country"
-              className="profile-edit-select"
-              value={country}
-              onChange={(event) => {
-                const nextCountry = event.target.value;
-                setCountry(nextCountry);
-
-                if (!nextCountry) {
-                  setCity("");
-                  return;
-                }
-
-                const allowedCities = getRegionCitiesForCountry(nextCountry);
-                const normalizedCity = city.trim();
-                if (allowedCities.length > 0 && normalizedCity && !allowedCities.includes(normalizedCity)) {
-                  setCity("");
-                }
-              }}
-              disabled={isSaving}
-            >
-              <option value="">{t("profileEdit.countryPlaceholder")}</option>
-              {mergeSelectOptions(country, getRegionCountries()).map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="profile-edit-field" htmlFor="profile-city">
-            <span className="profile-edit-label">{t("profileEdit.city")}</span>
-            <select
-              id="profile-city"
-              className="profile-edit-select"
-              value={city}
-              onChange={(event) => setCity(event.target.value)}
-              disabled={isSaving || !country.trim()}
-            >
-              <option value="">
-                {country.trim()
-                  ? t("profileEdit.cityPlaceholder")
-                  : t("profileEdit.cityPlaceholderDisabled")}
-              </option>
-              {mergeSelectOptions(city, getRegionCitiesForCountry(country)).map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
+          <button
+            type="button"
+            className={`profile-edit-region-trigger ${normalizedCountry ? "has-value" : ""}`}
+            onClick={openRegionDrawer}
+            disabled={isSaving}
+            aria-label={regionAriaLabel}
+          >
+            <span className="profile-edit-region-trigger-copy">
+              <span className="profile-edit-label">{t("profileEdit.region")}</span>
+              <span className="profile-edit-region-value">{regionValue}</span>
+            </span>
+            <span className="profile-edit-region-chevron" aria-hidden="true">
+              {"\u2192"}
+            </span>
+          </button>
 
           <section className="profile-avatars" aria-label={t("identityVault.avatarLibrary")}>
             <div className="profile-avatar-head">
@@ -652,6 +779,7 @@ const ProfileEditPage = () => {
       </main>
 
       {genderDrawer}
+      {regionDrawer}
     </div>
   );
 };

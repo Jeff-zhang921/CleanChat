@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import { ChatRequestStatus, PrismaClient } from "@prisma/client";
 import multer from "multer";
 import { UTApi, UTFile } from "uploadthing/server";
@@ -72,9 +72,23 @@ const GROUP_NAME_MIN_LENGTH = 2;
 const GROUP_NAME_MAX_LENGTH = 48;
 const GROUP_DESCRIPTION_MAX_LENGTH = 180;
 const DIRECT_REQUEST_NOTE_MAX_LENGTH = 180;
+const CHAT_REQUEST_ACCEPTED_MESSAGE_BODY =
+  "__CLEANCHAT_CHAT_REQUEST_ACCEPTED__";
 
 const directUnreadKey = (threadId: number) => `direct-${threadId}`;
 const groupUnreadKey = (groupId: string) => `group-${groupId}`;
+
+type DirectThreadRef = {
+  id: number;
+  AID: number;
+  BID: number;
+};
+
+type SocketEmitter = {
+  to: (room: string) => {
+    emit: (event: string, payload: unknown) => void;
+  };
+};
 
 const readLatestDirectMessageId = async (threadId: number) => {
   const latest = await prisma.chatMessage.findFirst({
@@ -290,6 +304,61 @@ const ensureDirectThread = async (userAId: number, userBId: number) => {
     select: { id: true, AID: true, BID: true },
   });
   return { thread: created, alreadyExisted: false };
+};
+
+const emitDirectThreadMessage = (
+  req: Request,
+  thread: DirectThreadRef,
+  messagePayload: {
+    id: number;
+    threadId: number;
+    body: string;
+    senderId: number;
+    createdAt: Date;
+  },
+) => {
+  const io = req.app.get("io") as SocketEmitter | undefined;
+  if (!io) {
+    return;
+  }
+
+  io.to(`thread:${thread.id}`).emit("message:new", messagePayload);
+  io.to(`user:${thread.AID}`).emit("inbox:new", messagePayload);
+  io.to(`user:${thread.BID}`).emit("inbox:new", messagePayload);
+};
+
+const createChatRequestAcceptedMessage = async (
+  thread: DirectThreadRef,
+  senderId: number,
+  createdAt: Date,
+) => {
+  const message = await prisma.chatMessage.create({
+    data: {
+      threadId: thread.id,
+      senderId,
+      body: CHAT_REQUEST_ACCEPTED_MESSAGE_BODY,
+      createdAt,
+    },
+    select: {
+      id: true,
+      body: true,
+      senderId: true,
+      createdAt: true,
+    },
+  });
+
+  await prisma.chatThread.update({
+    where: { id: thread.id },
+    data: { lastMessageAt: message.createdAt },
+  });
+
+  return {
+    id: message.id,
+    threadId: thread.id,
+    body: message.body,
+    senderId: message.senderId,
+    createdAt: message.createdAt,
+  };
 };
 
 const ensurePairNotBlocked = async (userAId: number, userBId: number) => {
@@ -991,6 +1060,12 @@ router.post("/requests/direct", async (req, res) => {
         resolvedAt: true,
       },
     });
+    const acceptedMessage = await createChatRequestAcceptedMessage(
+      ensured.thread,
+      sessionUserId,
+      now,
+    );
+    emitDirectThreadMessage(req, ensured.thread, acceptedMessage);
 
     res.json({
       autoAccepted: true,
@@ -1158,6 +1233,12 @@ router.post("/requests/direct/:requestId/accept", async (req, res) => {
       resolvedAt: now,
     },
   });
+  const acceptedMessage = await createChatRequestAcceptedMessage(
+    ensured.thread,
+    sessionUserId,
+    now,
+  );
+  emitDirectThreadMessage(req, ensured.thread, acceptedMessage);
 
   res.json({
     request: serializeDirectRequest(acceptedRequest, sessionUserId),

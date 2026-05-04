@@ -63,6 +63,7 @@ import {
   setConversationMuted,
   type ConversationMuteMap,
 } from "../utils/conversationMutes";
+import { getSystemMessageText } from "../utils/systemMessages";
 import "./ConversationPage.css";
 
 type UserSummary = {
@@ -306,14 +307,26 @@ const getConversationPreview = (
   labels: {
     noMessages: string;
     photo: string;
+    chatRequestAccepted: string;
   },
 ) => {
   if (!body) return labels.noMessages;
+  const systemMessage = getSystemMessageText(body, labels);
+  if (systemMessage) return systemMessage;
   return isImageMessageBody(body) ? labels.photo : body;
 };
 
-const getNotificationBody = (body: string, sentPhotoLabel: string) =>
-  isImageMessageBody(body) ? sentPhotoLabel : body;
+const getNotificationBody = (
+  body: string,
+  labels: {
+    sentPhoto: string;
+    chatRequestAccepted: string;
+  },
+) => {
+  const systemMessage = getSystemMessageText(body, labels);
+  if (systemMessage) return systemMessage;
+  return isImageMessageBody(body) ? labels.sentPhoto : body;
+};
 
 const FLIP_LAYOUT_TRANSITION = {
   layout: {
@@ -1144,7 +1157,10 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         return;
       }
 
-      showMessageNotification(senderName, getNotificationBody(message.body, t("conversations.sentPhoto")), {
+      showMessageNotification(senderName, getNotificationBody(message.body, {
+        sentPhoto: t("conversations.sentPhoto"),
+        chatRequestAccepted: t("chat.requestAcceptedSystem"),
+      }), {
         tag: `thread-${message.threadId}`,
         target: {
           chatType: "direct",
@@ -1200,7 +1216,10 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         return;
       }
 
-      showMessageNotification(groupName, `${senderName}: ${getNotificationBody(message.body, t("conversations.sentPhoto"))}`, {
+      showMessageNotification(groupName, `${senderName}: ${getNotificationBody(message.body, {
+        sentPhoto: t("conversations.sentPhoto"),
+        chatRequestAccepted: t("chat.requestAcceptedSystem"),
+      })}`, {
         tag: `group-${message.groupId}`,
         target: {
           chatType: "group",
@@ -1474,6 +1493,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         preview: getConversationPreview(latestMessage?.body, {
           noMessages: t("conversations.noMessages"),
           photo: t("conversations.photo"),
+          chatRequestAccepted: t("chat.requestAcceptedSystem"),
         }),
         time: formatTime(lastActivityTime, i18n.language, t("conversations.new")),
         sortAt: lastActivityTime,
@@ -1499,6 +1519,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         preview: getConversationPreview(group.lastMessagePreview, {
           noMessages: t("conversations.noMessages"),
           photo: t("conversations.photo"),
+          chatRequestAccepted: t("chat.requestAcceptedSystem"),
         }),
         time: formatTime(group.lastMessageAt || undefined, i18n.language, t("conversations.new")),
         sortAt: group.lastMessageAt,

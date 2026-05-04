@@ -30,6 +30,7 @@ import {
   readDraftForTarget,
   writeDraftForTarget,
 } from "../utils/chatDraftStorage";
+import { getSystemMessageText } from "../utils/systemMessages";
 import { clearGroupUnread, clearThreadUnread } from "../utils/unreadCounts";
 import "./chatPage.css";
 
@@ -586,6 +587,13 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       return msg.senderId === me?.id ? t("chat.recalledBySelf") : t("chat.recalledByOther");
     }
 
+    const systemMessage = getSystemMessageText(msg.body, {
+      chatRequestAccepted: t("chat.requestAcceptedSystem"),
+    });
+    if (systemMessage) {
+      return systemMessage;
+    }
+
     const imageUrl = getImageUrlFromMessage(msg.body);
     if (imageUrl) {
       return imageUrl;
@@ -596,6 +604,13 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
   const getMessagePreviewText = (msg: ChatMessage) => {
     if (isRecalledMessageBody(msg.body)) {
       return t("chat.quoteFallbackPreview");
+    }
+
+    const systemMessage = getSystemMessageText(msg.body, {
+      chatRequestAccepted: t("chat.requestAcceptedSystem"),
+    });
+    if (systemMessage) {
+      return systemMessage;
     }
 
     const imageUrl = getImageUrlFromMessage(msg.body);
@@ -1949,6 +1964,10 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
                 const imageUrl = getImageUrlFromMessage(msg.body);
                 const isDeletingMessage = deletingMessageIds.includes(msg.id);
                 const isRecalled = isRecalledMessageBody(msg.body);
+                const bodyText =
+                  getSystemMessageText(msg.body, {
+                    chatRequestAccepted: t("chat.requestAcceptedSystem"),
+                  }) ?? msg.body;
                 const quoteSender =
                   msg.quotedContent?.senderName ?? msg.quoteSenderName ?? null;
                 const quotePreview =
@@ -1966,6 +1985,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
                       isSelectableText={selectableMessageId === msg.id}
                       isDeletingMessage={isDeletingMessage}
                       isRecalled
+                      bodyText={bodyText}
                       imageUrl={imageUrl}
                       quoteSender={quoteSender}
                       quotePreview={quotePreview}
@@ -1998,6 +2018,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
                     isSelectableText={selectableMessageId === msg.id}
                     isDeletingMessage={isDeletingMessage}
                     isRecalled={false}
+                    bodyText={bodyText}
                     imageUrl={imageUrl}
                     quoteSender={quoteSender}
                     quotePreview={quotePreview}

@@ -176,6 +176,81 @@
   flex-shrink: 0;
 }
 
+.profile-edit-region-trigger {
+  border: 1px solid rgba(99, 109, 103, 0.2);
+  border-radius: 1rem;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.34)),
+    rgba(242, 247, 242, 0.46);
+  min-height: 3.35rem;
+  width: 100%;
+  padding: 0.78rem 0.82rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  color: #17211a;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 220ms ease,
+    background-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease;
+}
+
+.profile-edit-region-trigger:hover:not(:disabled) {
+  border-color: rgba(63, 104, 81, 0.34);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.44)),
+    rgba(236, 244, 237, 0.56);
+  box-shadow: 0 14px 24px rgba(18, 23, 20, 0.08);
+  transform: translateY(-1px);
+}
+
+.profile-edit-region-trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(63, 104, 81, 0.2);
+}
+
+.profile-edit-region-trigger:disabled {
+  opacity: 0.56;
+  cursor: default;
+}
+
+.profile-edit-region-trigger-copy {
+  min-width: 0;
+  display: grid;
+  justify-items: start;
+  gap: 0.22rem;
+}
+
+.profile-edit-region-value {
+  max-width: 100%;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  color: rgba(23, 33, 26, 0.58);
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+
+.profile-edit-region-trigger.has-value .profile-edit-region-value {
+  color: rgba(23, 33, 26, 0.78);
+}
+
+.profile-edit-region-chevron {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: rgba(23, 33, 26, 0.66);
+  background: rgba(255, 255, 255, 0.54);
+  box-shadow: inset 0 0 0 1px rgba(23, 33, 26, 0.08);
+}
+
 .profile-edit-gender-drawer-layer {
   position: fixed;
   inset: 0;
@@ -260,6 +335,204 @@
   justify-self: stretch;
 }
 
+.profile-edit-region-drawer-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 62;
+  isolation: isolate;
+}
+
+.profile-edit-region-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(18, 25, 22, 0.42);
+  backdrop-filter: blur(12px) saturate(0.92);
+  -webkit-backdrop-filter: blur(12px) saturate(0.92);
+  opacity: 0;
+  transition: opacity 240ms ease;
+  z-index: 0;
+}
+
+.profile-edit-region-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100dvh;
+  max-height: 100dvh;
+  width: min(33rem, 100%);
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 1rem;
+  padding: max(1rem, env(safe-area-inset-top, 0px)) clamp(1rem, 3vw, 1.3rem)
+    max(1.15rem, env(safe-area-inset-bottom, 0px));
+  border-left: 1px solid rgba(91, 106, 96, 0.2);
+  background: #fbf8f2;
+  box-shadow: -20px 0 40px rgba(16, 22, 18, 0.12);
+  transform: translateX(104%);
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+  overscroll-behavior: contain;
+  z-index: 1;
+}
+
+.profile-edit-region-drawer-layer.is-open {
+  pointer-events: auto;
+}
+
+.profile-edit-region-drawer-layer.is-open .profile-edit-region-drawer-backdrop {
+  opacity: 1;
+}
+
+.profile-edit-region-drawer-layer.is-open .profile-edit-region-drawer {
+  transform: translateX(0);
+}
+
+.profile-edit-region-drawer-head {
+  display: grid;
+  gap: 0.58rem;
+}
+
+.profile-edit-region-drawer-head h2 {
+  margin: 0;
+  font-size: clamp(1.55rem, 5vw, 2rem);
+  line-height: 1.1;
+  font-weight: 300;
+  letter-spacing: 0.04em;
+}
+
+.profile-edit-region-current {
+  min-height: 2.35rem;
+  padding: 0.64rem 0.76rem;
+  border-radius: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  color: rgba(23, 33, 26, 0.76);
+  background: rgba(255, 255, 255, 0.56);
+  box-shadow: inset 0 0 0 1px rgba(91, 106, 96, 0.14);
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+
+.profile-edit-region-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem;
+  padding: 0.32rem;
+  border-radius: 999px;
+  background: rgba(221, 226, 218, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(91, 106, 96, 0.12);
+}
+
+.profile-edit-region-tab {
+  min-height: 2.45rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(23, 33, 26, 0.58);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition:
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    color 180ms ease;
+}
+
+.profile-edit-region-tab.is-active {
+  background: rgba(255, 255, 255, 0.78);
+  color: #17211a;
+  box-shadow: 0 8px 18px rgba(20, 27, 23, 0.08);
+}
+
+.profile-edit-region-tab:disabled {
+  opacity: 0.46;
+  cursor: default;
+}
+
+.profile-edit-region-tab:focus-visible,
+.profile-edit-region-option:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(63, 104, 81, 0.2);
+}
+
+.profile-edit-region-panel {
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 0.1rem;
+}
+
+.profile-edit-region-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.58rem;
+  align-content: start;
+  padding-bottom: 0.2rem;
+}
+
+.profile-edit-region-option {
+  min-height: 3rem;
+  border: 1px solid rgba(91, 106, 96, 0.16);
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.5);
+  color: rgba(23, 33, 26, 0.78);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  line-height: 1.25;
+  padding: 0.64rem 0.72rem;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.profile-edit-region-option:hover:not(:disabled) {
+  border-color: rgba(63, 104, 81, 0.3);
+  background: rgba(255, 255, 255, 0.72);
+  transform: translateY(-1px);
+}
+
+.profile-edit-region-option.is-selected {
+  border-color: rgba(63, 104, 81, 0.48);
+  background: rgba(228, 239, 230, 0.78);
+  color: #17211a;
+  box-shadow: inset 0 0 0 1px rgba(63, 104, 81, 0.12);
+}
+
+.profile-edit-region-option:disabled {
+  opacity: 0.56;
+  cursor: default;
+}
+
+.profile-edit-region-empty {
+  margin: 0;
+  padding: 1rem 0.2rem;
+  color: rgba(23, 33, 26, 0.56);
+  font-size: 0.94rem;
+  line-height: 1.65;
+  letter-spacing: 0.03em;
+}
+
+.profile-edit-region-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.72rem;
+  padding-top: 0.2rem;
+}
+
 .profile-edit-label {
   font-size: 0.74rem;
   font-weight: 500;
@@ -295,42 +568,6 @@
   outline: none;
   border-color: rgba(23, 33, 26, 0.34);
   box-shadow: inset 0 -12px 22px rgba(255, 255, 255, 0.22);
-}
-
-.profile-edit-select {
-  width: 100%;
-  border: 1px solid rgba(99, 109, 103, 0.2);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.46);
-  min-height: 3.15rem;
-  padding: 0.74rem 0.82rem;
-  color: #17211a;
-  font: inherit;
-  font-size: 0.98rem;
-  letter-spacing: 0.03em;
-  cursor: pointer;
-  transition:
-    border-color 220ms ease,
-    background-color 220ms ease,
-    box-shadow 220ms ease,
-    transform 220ms ease;
-}
-
-.profile-edit-select:hover:not(:disabled) {
-  border-color: rgba(99, 109, 103, 0.36);
-  background: rgba(255, 255, 255, 0.58);
-  box-shadow: 0 14px 24px rgba(18, 23, 20, 0.08);
-  transform: translateY(-1px);
-}
-
-.profile-edit-select:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(63, 104, 81, 0.2);
-}
-
-.profile-edit-select:disabled {
-  opacity: 0.56;
-  cursor: default;
 }
 
 .profile-edit-actions {
@@ -443,5 +680,33 @@
 
   .profile-edit-gender-drawer-layer.is-open .profile-edit-gender-drawer {
     transform: translateY(0);
+  }
+
+  .profile-edit-region-drawer {
+    top: auto;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: auto;
+    max-height: min(90dvh, 42rem);
+    border-left: 0;
+    border-top: 1px solid rgba(91, 106, 96, 0.2);
+    border-radius: 1.2rem 1.2rem 0 0;
+    transform: translateY(105%);
+    box-shadow: 0 -20px 36px rgba(16, 22, 18, 0.14);
+    padding-bottom: max(1.2rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .profile-edit-region-drawer-layer.is-open .profile-edit-region-drawer {
+    transform: translateY(0);
+  }
+
+  .profile-edit-region-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profile-edit-region-actions {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

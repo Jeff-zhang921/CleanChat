@@ -120,7 +120,8 @@ if (require.main === module) {
     await initializeRuntimeStatePersistence();
 
     const server = http.createServer(app);
-    initSocket(server);
+    const io = initSocket(server);
+    app.set("io", io);
 
     let shuttingDown = false;
     const shutdown = async (signal: string) => {

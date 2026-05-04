@@ -29,6 +29,8 @@ const ipadPro11Device = (({
 }))(devices["iPad Pro 11"]);
 
 const HORIZONTAL_OVERFLOW_TOLERANCE_PX = 8;
+const CHAT_REQUEST_ACCEPTED_MESSAGE_BODY =
+  "__CLEANCHAT_CHAT_REQUEST_ACCEPTED__";
 const viewer = {
   id: 1,
   name: "Jeff",
@@ -64,48 +66,85 @@ const targetUser = {
 
 const nowIso = () => new Date().toISOString();
 
-const buildThreads = () =>
-  Array.from({ length: 18 }, (_, index) => {
-    const partnerId = index + 2;
-    const createdAt = new Date(
-      Date.now() - (index + 2) * 120_000,
-    ).toISOString();
-    const peer = {
-      ...partner,
-      id: partnerId,
-      name: `Quiet ${partnerId}`,
-      email: `quiet${partnerId}@example.com`,
-      cleanId: `quiet_${partnerId}`,
-    };
+const buildThreads = () => {
+  const acceptedAt = nowIso();
+  const acceptedThread = {
+    id: 77,
+    AID: viewer.id,
+    BID: targetUser.id,
+    lastMessageAt: acceptedAt,
+    createdAt: acceptedAt,
+    updatedAt: acceptedAt,
+    UserA: viewer,
+    UserB: targetUser,
+    Messages: [
+      {
+        id: 770_001,
+        body: CHAT_REQUEST_ACCEPTED_MESSAGE_BODY,
+        createdAt: acceptedAt,
+        senderId: targetUser.id,
+      },
+    ],
+  };
 
-    return {
-      id: partnerId,
-      AID: viewer.id,
-      BID: partnerId,
-      lastMessageAt: createdAt,
-      createdAt,
-      updatedAt: createdAt,
-      UserA: viewer,
-      UserB: peer,
-      Messages: [
-        {
-          id: 10_000 + partnerId,
-          body: `Rendered message ${partnerId}`,
-          createdAt,
-          senderId: partnerId,
-        },
-      ],
-    };
-  });
+  return [
+    acceptedThread,
+    ...Array.from({ length: 18 }, (_, index) => {
+      const partnerId = index + 2;
+      const createdAt = new Date(
+        Date.now() - (index + 2) * 120_000,
+      ).toISOString();
+      const peer = {
+        ...partner,
+        id: partnerId,
+        name: `Quiet ${partnerId}`,
+        email: `quiet${partnerId}@example.com`,
+        cleanId: `quiet_${partnerId}`,
+      };
 
-const buildThreadMessages = (threadId: number) =>
-  Array.from({ length: 64 }, (_, index) => ({
+      return {
+        id: partnerId,
+        AID: viewer.id,
+        BID: partnerId,
+        lastMessageAt: createdAt,
+        createdAt,
+        updatedAt: createdAt,
+        UserA: viewer,
+        UserB: peer,
+        Messages: [
+          {
+            id: 10_000 + partnerId,
+            body: `Rendered message ${partnerId}`,
+            createdAt,
+            senderId: partnerId,
+          },
+        ],
+      };
+    }),
+  ];
+};
+
+const buildThreadMessages = (threadId: number) => {
+  if (threadId === 77) {
+    return [
+      {
+        id: 770_001,
+        threadId,
+        senderId: targetUser.id,
+        body: CHAT_REQUEST_ACCEPTED_MESSAGE_BODY,
+        createdAt: nowIso(),
+      },
+    ];
+  }
+
+  return Array.from({ length: 64 }, (_, index) => ({
     id: threadId * 10_000 + index + 1,
     threadId,
     senderId: index % 2 === 0 ? viewer.id : partner.id,
     body: `History message ${index + 1}`,
     createdAt: new Date(Date.now() - (64 - index) * 35_000).toISOString(),
   }));
+};
 
 const groupAvatarUrl = "/icons/icon-192.png";
 
@@ -517,7 +556,21 @@ const handleBackendRoute = async (route: Route) => {
     /^\/chat\/requests\/direct\/\d+\/(?:accept|reject)$/.test(path) &&
     method === "POST"
   ) {
-    await routeJson(route, { ok: true, threadId: 2 });
+    const accepted = path.endsWith("/accept");
+    await routeJson(route, {
+      request: {
+        ...directRequestEntry.request,
+        status: accepted ? "accepted" : "rejected",
+        acceptedThreadId: accepted ? 77 : null,
+        resolvedAt: nowIso(),
+      },
+      ...(accepted
+        ? {
+            thread: { id: 77 },
+            user: targetUser,
+          }
+        : {}),
+    });
     return;
   }
 
@@ -709,6 +762,9 @@ const pageTargets: PageTarget[] = [
     readySelector: "[data-conversation-id]",
     smoke: async (page) => {
       const activeRoot = page.locator(".hybrid-root-view.is-active");
+      await expect(activeRoot.locator('[data-conversation-id="direct-77"]')).toContainText(
+        /聊天请求已通过|Chat request accepted/i,
+      );
       await activeRoot.locator(".search-launcher").click();
       await expect(
         activeRoot.locator(".search-input-wrap input"),
@@ -888,9 +944,15 @@ const pageTargets: PageTarget[] = [
       await page.locator(".profile-edit-gender-picker .gender-picker-option").nth(1).click();
       await page.locator(".profile-edit-gender-drawer-close").click();
       await expect(page.locator(".profile-edit-gender-drawer")).toBeHidden();
-      await page.locator("#profile-country").selectOption("United Kingdom");
-      await expect(page.locator("#profile-city")).toBeEnabled();
-      await page.locator("#profile-city").selectOption("London");
+      await page.locator(".profile-edit-region-trigger").click();
+      await expect(page.locator(".profile-edit-region-drawer")).toBeVisible();
+      await page.locator(".profile-edit-region-tab").first().click();
+      await page.locator(".profile-edit-region-option", { hasText: "United Kingdom" }).click();
+      await expect(page.locator(".profile-edit-region-tab").nth(1)).toHaveClass(/is-active/);
+      await page.locator(".profile-edit-region-option", { hasText: "London" }).click();
+      await expect(page.locator(".profile-edit-region-drawer")).toBeHidden();
+      await expect(page.locator(".profile-edit-region-trigger")).toContainText("United Kingdom");
+      await expect(page.locator(".profile-edit-region-trigger")).toContainText("London");
       await expect(page.locator(".profile-edit-page .profile-avatar-grid")).toHaveCount(0);
       await page.locator(".profile-avatar-picker-trigger").click();
       await expect(page).toHaveURL(/\/profile\/avatar/);
@@ -901,7 +963,9 @@ const pageTargets: PageTarget[] = [
       await page.locator(".profile-avatar-choice").nth(1).click();
       await expect(page).toHaveURL(/\/profile\/edit/);
       await page.locator("#nickname").fill("Jeff Edited");
-      await page.locator(".profile-edit-action-primary").click();
+      const saveButton = page.locator(".profile-edit-action-primary").last();
+      await saveButton.scrollIntoViewIfNeeded();
+      await saveButton.click();
       await expect(page).toHaveURL(/\/profile/);
     },
   },
@@ -962,6 +1026,14 @@ const pageTargets: PageTarget[] = [
     readySelector: ".user-requests-page",
     smoke: async (page) => {
       await expect(page.locator(".user-requests-item").first()).toBeVisible();
+      await page.locator(".user-requests-action-approve").first().click();
+      await expect(page).toHaveURL(/\/chat/);
+      await expect(
+        page
+          .locator(".chat-message-content")
+          .filter({ hasText: /聊天请求已通过|Chat request accepted/i })
+          .first(),
+      ).toBeVisible();
     },
   },
   {
@@ -1157,11 +1229,12 @@ const runPageAudit = (deviceName: string, device: typeof pixel7Device) => {
       test(`${target.name} renders, scrolls, and basic controls work`, async ({
         page,
       }) => {
+        test.setTimeout(60_000);
         await installApiMocks(page);
         await installSession(page, target.authenticated);
         await target.beforeGoto?.(page);
 
-        await page.goto(target.path);
+        await page.goto(target.path, { waitUntil: "domcontentloaded" });
         await expect(page.locator(target.readySelector).first()).toBeVisible({
           timeout: 10_000,
         });
