@@ -256,6 +256,7 @@
     "noGroupMessages": "グループメッセージはまだありません。",
     "startConversation": "会話を始める",
     "requestAcceptedSystem": "チャットリクエストが承認されました。会話を開始できます。",
+    "memberJoined": "{{name}}さんがグループチャットに参加しました",
     "sharedImage": "共有画像",
     "preview": "プレビュー",
     "uploadingImage": "画像をアップロード中...",

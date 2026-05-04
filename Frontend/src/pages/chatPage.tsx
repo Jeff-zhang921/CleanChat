@@ -31,7 +31,7 @@ import {
   writeDraftForTarget,
 } from "../utils/chatDraftStorage";
 import { dispatchConversationDeleted } from "../utils/conversationEvents";
-import { getSystemMessageText } from "../utils/systemMessages";
+import { getSystemMessageText, parseGroupMemberJoinedSystemMessage } from "../utils/systemMessages";
 import { clearGroupUnread, clearThreadUnread } from "../utils/unreadCounts";
 import "./chatPage.css";
 
@@ -596,6 +596,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
 
     const systemMessage = getSystemMessageText(msg.body, {
       chatRequestAccepted: t("chat.requestAcceptedSystem"),
+      groupMemberJoined: (name) => t("chat.memberJoined", { name }),
     });
     if (systemMessage) {
       return systemMessage;
@@ -615,6 +616,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
 
     const systemMessage = getSystemMessageText(msg.body, {
       chatRequestAccepted: t("chat.requestAcceptedSystem"),
+      groupMemberJoined: (name) => t("chat.memberJoined", { name }),
     });
     if (systemMessage) {
       return systemMessage;
@@ -2001,6 +2003,14 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
                 }
 
                 const msg = item.message;
+                const joinedName = parseGroupMemberJoinedSystemMessage(msg.body);
+                if (joinedName) {
+                  return (
+                    <div className="chat-virtuoso-item chat-virtuoso-temporal-item">
+                      <div className="chat-temporal-separator">{t("chat.memberJoined", { name: joinedName })}</div>
+                    </div>
+                  );
+                }
                 const isMe = msg.senderId === me?.id;
                 const imageUrl = getImageUrlFromMessage(msg.body);
                 const isDeletingMessage = deletingMessageIds.includes(msg.id);
@@ -2008,6 +2018,7 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
                 const bodyText =
                   getSystemMessageText(msg.body, {
                     chatRequestAccepted: t("chat.requestAcceptedSystem"),
+                    groupMemberJoined: (name) => t("chat.memberJoined", { name }),
                   }) ?? msg.body;
                 const quoteSender =
                   msg.quotedContent?.senderName ?? msg.quoteSenderName ?? null;

@@ -271,6 +271,7 @@
     "noGroupMessages": "No group messages yet.",
     "startConversation": "Start a conversation",
     "requestAcceptedSystem": "Chat request accepted. You can start chatting now.",
+    "memberJoined": "{{name}} joined the group chat",
     "sharedImage": "Shared image",
     "preview": "Preview",
     "uploadingImage": "Uploading image...",

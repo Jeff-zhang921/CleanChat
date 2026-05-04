@@ -256,6 +256,7 @@
     "noGroupMessages": "群組尚無訊息。",
     "startConversation": "開始對話",
     "requestAcceptedSystem": "聊天請求已通過，可以開始聊天了。",
+    "memberJoined": "{{name}}加入了群聊",
     "sharedImage": "分享圖片",
     "preview": "預覽",
     "uploadingImage": "上傳圖片中...",

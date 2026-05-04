@@ -5,6 +5,7 @@ import { UTApi, UTFile } from "uploadthing/server";
 import {
   acceptGroupInvitation,
   approveGroupJoinRequest,
+  appendGroupMessage,
   createGroup,
   deleteGroup,
   GROUP_AVATAR_KEYS,
@@ -88,6 +89,42 @@ type SocketEmitter = {
   to: (room: string) => {
     emit: (event: string, payload: unknown) => void;
   };
+};
+
+const GROUP_MEMBER_JOINED_MESSAGE_PREFIX = "__CLEANCHAT_GROUP_MEMBER_JOINED__:";
+
+const resolveDisplayLabel = (user: {
+  name: string | null;
+  cleanId: string;
+  email: string;
+}) => {
+  const resolvedName = user.name?.trim();
+  if (resolvedName) {
+    return resolvedName;
+  }
+
+  const resolvedCleanId = user.cleanId?.trim();
+  if (resolvedCleanId) {
+    return resolvedCleanId;
+  }
+
+  const fallback = user.email.split("@")[0]?.trim();
+  return fallback || "User";
+};
+
+const buildGroupMemberJoinedBody = (senderLabel: string) =>
+  `${GROUP_MEMBER_JOINED_MESSAGE_PREFIX}${encodeURIComponent(senderLabel)}`;
+
+const emitGroupMessage = (req: Request, groupId: string, payload: unknown) => {
+  const io = req.app.get("io") as SocketEmitter | undefined;
+  if (!io) {
+    return;
+  }
+
+  const memberIds = listGroupMemberIds(groupId);
+  memberIds.forEach((memberId) => {
+    io.to(`user:${memberId}`).emit("group:message:new", payload);
+  });
 };
 
 const readLatestDirectMessageId = async (threadId: number) => {
@@ -1445,6 +1482,18 @@ router.post("/groups/:groupId/join", async (req, res) => {
     return;
   }
 
+  if (!joined.alreadyJoined) {
+    const joiner = await prisma.user.findUnique({
+      where: { id: sessionUserId },
+      select: { id: true, email: true, name: true, cleanId: true },
+    });
+    if (joiner) {
+      const body = buildGroupMemberJoinedBody(resolveDisplayLabel(joiner));
+      const message = appendGroupMessage(groupId, joiner, body);
+      emitGroupMessage(req, groupId, message);
+    }
+  }
+
   res.status(joined.alreadyJoined ? 200 : 201).json({
     group: joined.summary,
     pendingApproval: false,
@@ -1538,6 +1587,21 @@ router.post("/groups/invitations/:invitationId/accept", async (req, res) => {
     }
     res.status(404).json({ message: "Invitation not found." });
     return;
+  }
+
+  if (!accepted.alreadyMember && accepted.summary) {
+    const groupId = accepted.summary.id;
+    const acceptedUser = await prisma.user.findUnique({
+      where: { id: sessionUserId },
+      select: { id: true, email: true, name: true, cleanId: true },
+    });
+    if (acceptedUser) {
+      const body = buildGroupMemberJoinedBody(
+        resolveDisplayLabel(acceptedUser),
+      );
+      const message = appendGroupMessage(groupId, acceptedUser, body);
+      emitGroupMessage(req, groupId, message);
+    }
   }
 
   res.status(200).json({ group: accepted.summary });
@@ -1859,6 +1923,18 @@ router.post(
       }
       res.status(404).json({ message: "Group not found." });
       return;
+    }
+
+    const approvedUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true, email: true, name: true, cleanId: true },
+    });
+    if (approvedUser) {
+      const body = buildGroupMemberJoinedBody(
+        resolveDisplayLabel(approvedUser),
+      );
+      const message = appendGroupMessage(groupId, approvedUser, body);
+      emitGroupMessage(req, groupId, message);
     }
 
     res.status(200).json({ group: approved.summary });

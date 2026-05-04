@@ -308,6 +308,7 @@ const getConversationPreview = (
     noMessages: string;
     photo: string;
     chatRequestAccepted: string;
+    groupMemberJoined?: (name: string) => string;
   },
 ) => {
   if (!body) return labels.noMessages;
@@ -321,6 +322,7 @@ const getNotificationBody = (
   labels: {
     sentPhoto: string;
     chatRequestAccepted: string;
+    groupMemberJoined?: (name: string) => string;
   },
 ) => {
   const systemMessage = getSystemMessageText(body, labels);
@@ -1185,6 +1187,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       showMessageNotification(senderName, getNotificationBody(message.body, {
         sentPhoto: t("conversations.sentPhoto"),
         chatRequestAccepted: t("chat.requestAcceptedSystem"),
+        groupMemberJoined: (name) => t("chat.memberJoined", { name }),
       }), {
         tag: `thread-${message.threadId}`,
         target: {
@@ -1244,6 +1247,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       showMessageNotification(groupName, `${senderName}: ${getNotificationBody(message.body, {
         sentPhoto: t("conversations.sentPhoto"),
         chatRequestAccepted: t("chat.requestAcceptedSystem"),
+        groupMemberJoined: (name) => t("chat.memberJoined", { name }),
       })}`, {
         tag: `group-${message.groupId}`,
         target: {
@@ -1502,6 +1506,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
           noMessages: t("conversations.noMessages"),
           photo: t("conversations.photo"),
           chatRequestAccepted: t("chat.requestAcceptedSystem"),
+          groupMemberJoined: (name) => t("chat.memberJoined", { name }),
         }),
         time: formatTime(lastActivityTime, i18n.language, t("conversations.new")),
         sortAt: lastActivityTime,
@@ -1528,6 +1533,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
           noMessages: t("conversations.noMessages"),
           photo: t("conversations.photo"),
           chatRequestAccepted: t("chat.requestAcceptedSystem"),
+          groupMemberJoined: (name) => t("chat.memberJoined", { name }),
         }),
         time: formatTime(group.lastMessageAt || undefined, i18n.language, t("conversations.new")),
         sortAt: group.lastMessageAt,

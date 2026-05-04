@@ -5,6 +5,7 @@ import BottomNav from "../components/BottomNav";
 import Badge from "../components/Badge";
 import { BACKEND_URL } from "../config";
 import { GROUP_AVATAR_OPTIONS, type GroupAvatarKey } from "../constants/groupAvatars";
+import { getSystemMessageText } from "../utils/systemMessages";
 import "./GroupConversationPage.css";
 
 type SessionUser = {
@@ -617,6 +618,11 @@ const GroupConversationPage = () => {
     const avatarLabel = isWorking && workingAction === "avatar" ? t("groups.saving") : t("groups.avatar");
     const canOpenByCard = group.joined && !isWorking && !isCreating;
     const pendingRequestCount = group.isOwner ? group.pendingRequestCount : 0;
+    const previewText =
+      getSystemMessageText(group.lastMessagePreview, {
+        chatRequestAccepted: t("chat.requestAcceptedSystem"),
+        groupMemberJoined: (name) => t("chat.memberJoined", { name }),
+      }) ?? group.lastMessagePreview;
 
     return (
       <article
@@ -651,7 +657,7 @@ const GroupConversationPage = () => {
             </p>
             <span className="time">{formatTime(group.lastMessageAt, t("groups.newTag"))}</span>
           </div>
-          <p className="preview">{group.lastMessagePreview}</p>
+          <p className="preview">{previewText}</p>
           <p className="conversation-subline">
             {t("groups.groupMetaLine", {
               members: t("groups.members", { count: group.memberCount }),

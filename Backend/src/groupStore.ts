@@ -712,7 +712,8 @@ export const inviteUserToGroup = (
 
   const existingInvitation = [...groupInvitations.values()].find(
     (invitation) =>
-      invitation.groupId === groupId && invitation.targetUserId === targetUserId,
+      invitation.groupId === groupId &&
+      invitation.targetUserId === targetUserId,
   );
   if (existingInvitation) {
     return {
@@ -780,6 +781,7 @@ export const acceptGroupInvitation = (
   }
 
   const members = getOrCreateMembers(invitation.groupId);
+  const alreadyMember = members.has(targetUserId);
   members.add(targetUserId);
   getOrCreateJoinRequests(invitation.groupId).delete(targetUserId);
   groupInvitations.delete(invitationId);
@@ -787,6 +789,7 @@ export const acceptGroupInvitation = (
 
   return {
     accepted: true as const,
+    alreadyMember,
     summary: buildSummary(group, targetUserId),
   };
 };
