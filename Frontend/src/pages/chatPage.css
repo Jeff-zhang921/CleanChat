@@ -607,7 +607,7 @@
   color: rgba(21, 28, 21, 0.92);
 }
 
-.chat-quote-preview-clear {
+.chat-quote-preview-remove {
   width: 1.54rem;
   height: 1.54rem;
   border: 0;
@@ -621,14 +621,14 @@
   cursor: pointer;
 }
 
-.chat-quote-preview-clear svg {
+.chat-quote-preview-remove svg {
   width: 0.82rem;
   height: 0.82rem;
   display: block;
 }
 
-.chat-quote-preview-clear:hover,
-.chat-quote-preview-clear:focus-visible {
+.chat-quote-preview-remove:hover,
+.chat-quote-preview-remove:focus-visible {
   background: rgba(21, 29, 21, 0.09);
   outline: none;
 }

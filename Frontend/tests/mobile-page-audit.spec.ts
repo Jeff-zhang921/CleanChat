@@ -774,6 +774,11 @@ const pageTargets: PageTarget[] = [
       await page.locator(".profile-edit-gender-picker .gender-picker-option").nth(1).click();
       await page.locator(".profile-edit-gender-drawer-close").click();
       await expect(page.locator(".profile-edit-gender-drawer")).toBeHidden();
+      await expect(page.locator(".profile-edit-page .profile-avatar-grid")).toHaveCount(0);
+      await page.locator(".profile-avatar-picker-trigger").click();
+      await expect(page.locator(".profile-avatar-picker-dialog")).toBeVisible();
+      await page.locator(".profile-avatar-picker-dialog .profile-avatar-option").nth(1).click();
+      await expect(page.locator(".profile-avatar-picker-dialog")).toBeHidden();
       await page.locator("#nickname").fill("Jeff Edited");
       await page.locator(".profile-edit-action-primary").click();
       await expect(page).toHaveURL(/\/profile/);
@@ -787,7 +792,8 @@ const pageTargets: PageTarget[] = [
     smoke: async (page) => {
       await expect(page).toHaveURL(/\/profile\/edit/);
       await expect(page.locator(".profile-claim-editor")).toBeVisible();
-      await expect(page.locator(".profile-avatar-grid").first()).toBeVisible();
+      await expect(page.locator(".profile-edit-page .profile-avatar-grid")).toHaveCount(0);
+      await expect(page.locator(".profile-avatar-picker-trigger")).toBeVisible();
     },
   },
   {

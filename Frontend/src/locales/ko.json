@@ -262,13 +262,13 @@
     "recallToast": "취소됨",
     "recalledBySelf": "메시지를 취소했습니다",
     "recalledByOther": "상대방이 메시지를 취소했습니다",
-    "clearQuote": "인용 취소",
     "photoPreview": "[사진]",
     "you": "나",
     "quoteFallbackSender": "인용 메시지",
     "quoteFallbackPreview": "원본 메시지를 찾을 수 없습니다",
     "deleting": "삭제 중...",
-    "openSettings": "채팅 설정 열기"
+    "openSettings": "채팅 설정 열기",
+    "removeQuote": "인용 취소"
   },
   "chatSettings": {
     "loading": "채팅 설정 불러오는 중...",
@@ -420,7 +420,7 @@
     "claimDetailClaimable": "사용 가능한 1-20자 CleanID를 선택할 수 있습니다.",
     "claimDetailClaimed": "이 계정은 이미 짧은 핸들을 보유하고 있습니다.",
     "avatarLibrary": "아바타 라이브러리",
-    "avatarLibraryNote": "모든 아바타를 바로 선택할 수 있습니다. 프로필에 맞는 시각 스타일을 고르세요.",
+    "avatarLibraryNote": "아바타 선택기를 열어 미니멀 캐릭터, 대리석 초상, 추상 빛 형태 중에서 선택하세요.",
     "currentMark": "현재 사용",
     "availableNow": "지금 사용 가능",
     "saveIdentity": "신원 저장",
@@ -441,7 +441,8 @@
     "noDisturbanceMarks": "이상 기록 없음",
     "moderationMarks": "중재 기록 {{count}}개",
     "encryptionKeys": "암호화 키",
-    "claimWindow": "클레임 범위"
+    "claimWindow": "클레임 범위",
+    "avatarPickerAction": "아바타 선택"
   },
   "profile": {
     "notFound": "프로필을 찾을 수 없습니다.",
@@ -480,7 +481,7 @@
     "cleanIdIntentShort": "단축",
     "cleanIdIntentStandard": "표준",
     "avatarLibrary": "아바타 라이브러리",
-    "avatarLibraryNote": "모든 아바타 스타일을 사용할 수 있습니다. 미니멀 캐릭터, 대리석 초상, 추상 빛 형태 중에서 선택하세요.",
+    "avatarLibraryNote": "아바타 선택기를 열어 프로필에 맞는 시각 스타일을 고르세요.",
     "open": "열림",
     "currentMark": "현재 사용",
     "availableNow": "지금 사용 가능",
@@ -504,7 +505,8 @@
     "loadingRequests": "요청 불러오는 중...",
     "noPendingRequests": "이 그룹에는 대기 요청이 없습니다.",
     "approve": "승인",
-    "reject": "거절"
+    "reject": "거절",
+    "avatarPickerAction": "아바타 선택"
   },
   "userProfile": {
     "title": "사용자 프로필",

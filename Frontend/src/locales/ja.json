@@ -262,13 +262,13 @@
     "recallToast": "取り消し完了",
     "recalledBySelf": "メッセージを取り消しました",
     "recalledByOther": "相手がメッセージを取り消しました",
-    "clearQuote": "引用を解除",
     "photoPreview": "[画像]",
     "you": "あなた",
     "quoteFallbackSender": "引用メッセージ",
     "quoteFallbackPreview": "元メッセージを表示できません",
     "deleting": "削除中...",
-    "openSettings": "チャット設定を開く"
+    "openSettings": "チャット設定を開く",
+    "removeQuote": "引用を解除"
   },
   "chatSettings": {
     "loading": "チャット設定を読み込み中...",
@@ -420,7 +420,7 @@
     "claimDetailClaimable": "利用可能な1-20文字の CleanID を選択できます。",
     "claimDetailClaimed": "このアカウントはすでに短縮ハンドルを保有しています。",
     "avatarLibrary": "アバターライブラリ",
-    "avatarLibraryNote": "すべてのアバターを最初から選べます。プロフィールに合う視覚スタイルを選択してください。",
+    "avatarLibraryNote": "アバター選択を開いて、ミニマルキャラクター、大理石ポートレート、抽象ライトフォームから選んでください。",
     "currentMark": "現在使用中",
     "availableNow": "今すぐ利用可能",
     "saveIdentity": "アイデンティティを保存",
@@ -441,7 +441,8 @@
     "noDisturbanceMarks": "異常記録なし",
     "moderationMarks": "モデレーション記録 {{count}} 件",
     "encryptionKeys": "暗号化キー",
-    "claimWindow": "クレーム範囲"
+    "claimWindow": "クレーム範囲",
+    "avatarPickerAction": "アバターを選択"
   },
   "profile": {
     "notFound": "プロフィールが見つかりません。",
@@ -480,7 +481,7 @@
     "cleanIdIntentShort": "短",
     "cleanIdIntentStandard": "標準",
     "avatarLibrary": "アバターライブラリ",
-    "avatarLibraryNote": "すべてのアバタースタイルを利用できます。ミニマルキャラクター、大理石ポートレート、抽象ライトフォームから選択できます。",
+    "avatarLibraryNote": "アバター選択を開いて、プロフィールに合う視覚スタイルを選んでください。",
     "open": "開放",
     "currentMark": "現在使用中",
     "availableNow": "今すぐ利用可能",
@@ -504,7 +505,8 @@
     "loadingRequests": "申請を読み込み中...",
     "noPendingRequests": "このグループに保留申請はありません。",
     "approve": "承認",
-    "reject": "拒否"
+    "reject": "拒否",
+    "avatarPickerAction": "アバターを選択"
   },
   "userProfile": {
     "title": "ユーザープロフィール",

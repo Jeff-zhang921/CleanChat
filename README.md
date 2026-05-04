@@ -66,7 +66,7 @@ The main risk pattern is a single long-lived JWT stored in localStorage. It crea
 
 1. Returned to a single-token architecture: Bearer JWT only, with no Refresh Token or cookie rotation flow.
 2. Unified frontend auth behavior: both fetch and axios inject the same Authorization header.
-3. Login page startup restore now checks local token plus /auth/me only; on 401/403 it clears token and returns to login.
+3. Login page startup restore now checks local token plus /auth/me only; on 401/403 it removes token and returns to login.
 4. Socket authentication uses local JWT only; if Not authenticated is returned, session is treated as expired immediately.
 5. Backend refresh-session model and routes were removed; production now requires only JWT_SECRET.
 
@@ -88,7 +88,7 @@ sequenceDiagram
     Auth-->>App: 200 authenticated
   else token invalid/expired
     Auth-->>App: 401 unauthorized
-    App->>App: clear local token
+    App->>App: remove local token
     App->>API: /auth/email/start (re-login)
   end
 ```

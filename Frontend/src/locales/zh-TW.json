@@ -262,13 +262,13 @@
     "recallToast": "撤回成功",
     "recalledBySelf": "你撤回了一則訊息",
     "recalledByOther": "對方撤回了一則訊息",
-    "clearQuote": "取消引用",
     "photoPreview": "[圖片]",
     "you": "我",
     "quoteFallbackSender": "引用訊息",
     "quoteFallbackPreview": "原訊息不可用",
     "deleting": "刪除中...",
-    "openSettings": "開啟聊天設定"
+    "openSettings": "開啟聊天設定",
+    "removeQuote": "取消引用"
   },
   "chatSettings": {
     "loading": "載入聊天設定中...",
@@ -420,7 +420,7 @@
     "claimDetailClaimable": "可選擇任意未被占用的 1-20 位 CleanID。",
     "claimDetailClaimed": "目前帳戶已持有短標識。",
     "avatarLibrary": "頭像庫",
-    "avatarLibraryNote": "所有頭像現在都可直接選擇，挑一個適合你的視覺風格即可。",
+    "avatarLibraryNote": "開啟頭像選擇器，再選擇極簡人物、石紋肖像或抽象光影。",
     "currentMark": "目前使用",
     "availableNow": "立即可用",
     "saveIdentity": "儲存身份",
@@ -441,7 +441,8 @@
     "noDisturbanceMarks": "無擾動標記",
     "moderationMarks": "{{count}} 筆審核標記",
     "encryptionKeys": "加密密鑰",
-    "claimWindow": "認領視窗"
+    "claimWindow": "認領視窗",
+    "avatarPickerAction": "選擇頭像"
   },
   "profile": {
     "notFound": "找不到個人資料。",
@@ -480,7 +481,7 @@
     "cleanIdIntentShort": "短",
     "cleanIdIntentStandard": "標準",
     "avatarLibrary": "頭像庫",
-    "avatarLibraryNote": "所有頭像風格現在都可使用，可選擇極簡人物、石紋肖像或抽象光影。",
+    "avatarLibraryNote": "開啟頭像選擇器，再挑選適合你的視覺風格。",
     "open": "已開放",
     "currentMark": "目前使用",
     "availableNow": "立即可用",
@@ -504,7 +505,8 @@
     "loadingRequests": "載入申請中...",
     "noPendingRequests": "此群組目前沒有待處理申請。",
     "approve": "核准",
-    "reject": "拒絕"
+    "reject": "拒絕",
+    "avatarPickerAction": "選擇頭像"
   },
   "userProfile": {
     "title": "使用者資料",
@@ -562,7 +564,7 @@
   "groupRequests": {
     "title": "群組請求",
     "heading": "群組驗證中心",
-    "subtitle": "按群組分流審核入群申請，管理更清晰。",
+    "subtitle": "按群組分流審核入群申請，管理更簡單。",
     "groupsTitle": "我管理的群組",
     "noOwnedGroups": "你目前沒有可審核的群組。",
     "pendingCount": "{{count}} 筆待處理",

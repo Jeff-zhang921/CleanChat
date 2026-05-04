@@ -6,6 +6,7 @@ import GenderLineIcon from "../components/GenderLineIcon";
 import GenderPicker from "../components/GenderPicker";
 import {
   getAvatarOptions,
+  getAvatarOption,
   getAvatarToneClass,
   getAvatarUrl,
   type AvatarKey,
@@ -39,6 +40,7 @@ const ProfileEditPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [isGenderDrawerOpen, setIsGenderDrawerOpen] = useState<boolean>(() => false);
+  const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState<boolean>(() => false);
   const genderLabel = t(GENDER_ARIA_KEY_MAP[gender]);
   const cleanIdFieldRef = useRef<HTMLInputElement | null>(null);
 
@@ -105,6 +107,10 @@ const ProfileEditPage = () => {
   };
 
   const handleBack = () => {
+    if (isAvatarPickerOpen) {
+      setIsAvatarPickerOpen(false);
+      return;
+    }
     if (isGenderDrawerOpen) {
       setIsGenderDrawerOpen(false);
       return;
@@ -129,6 +135,23 @@ const ProfileEditPage = () => {
       window.removeEventListener("keydown", handleEscape);
     };
   }, [isGenderDrawerOpen]);
+
+  useEffect(() => {
+    if (!isAvatarPickerOpen) {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsAvatarPickerOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [isAvatarPickerOpen]);
 
   useEffect(() => {
     if (!routeState?.focusClaim || !user) return;
@@ -182,6 +205,7 @@ const ProfileEditPage = () => {
     isSelected: avatar === item.key,
     isCurrent: user?.avatar === item.key,
   }));
+  const selectedAvatarOption = getAvatarOption(avatar);
 
   const genderDrawer =
     isGenderDrawerOpen && typeof document !== "undefined"
@@ -217,6 +241,73 @@ const ProfileEditPage = () => {
                 {t("common.close")}
               </button>
             </aside>
+          </div>,
+          document.body,
+        )
+      : null;
+
+  const avatarPicker =
+    isAvatarPickerOpen && typeof document !== "undefined"
+      ? createPortal(
+          <div className="profile-avatar-picker-layer is-open" aria-hidden={false}>
+            <button
+              type="button"
+              className="profile-avatar-picker-backdrop"
+              onClick={() => setIsAvatarPickerOpen(false)}
+              tabIndex={0}
+              aria-label={t("common.close")}
+            />
+            <section
+              className="profile-avatar-picker-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-label={t("identityVault.avatarLibrary")}
+            >
+              <header className="profile-avatar-picker-head">
+                <p className="profile-edit-eyebrow">{t("identityVault.avatarLibrary")}</p>
+                <h2>{t("identityVault.avatarPickerAction")}</h2>
+                <p>{t("identityVault.avatarLibraryNote")}</p>
+              </header>
+              <div className="profile-avatar-grid profile-avatar-picker-grid">
+                {avatarOptions.map((item) => (
+                  <label
+                    key={item.key}
+                    className={`profile-avatar-option ${item.isSelected ? "active" : ""} ${item.isCurrent ? "current" : ""}`}
+                  >
+                    <input
+                      type="radio"
+                      name="avatar"
+                      value={item.key}
+                      checked={avatar === item.key}
+                      onChange={() => {
+                        setAvatar(item.key);
+                        setIsAvatarPickerOpen(false);
+                      }}
+                      disabled={isSaving}
+                    />
+                    <img
+                      className={getAvatarToneClass(item.key)}
+                      src={getAvatarUrl(item.key)}
+                      alt={item.label}
+                    />
+                    <span>{item.label}</span>
+                    <em>
+                      {item.isCurrent
+                        ? t("identityVault.currentMark")
+                        : t("identityVault.availableNow")}
+                    </em>
+                  </label>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="profile-edit-action profile-edit-action-primary profile-avatar-picker-close"
+                onClick={() => setIsAvatarPickerOpen(false)}
+                disabled={isSaving}
+              >
+                {t("common.close")}
+              </button>
+            </section>
           </div>,
           document.body,
         )
@@ -476,41 +567,25 @@ const ProfileEditPage = () => {
             </span>
           </button>
 
-          <fieldset className="profile-avatars" aria-label={t("identityVault.avatarLibrary")}>
-            <legend>{t("identityVault.avatarLibrary")}</legend>
+          <section className="profile-avatars" aria-label={t("identityVault.avatarLibrary")}>
             <div className="profile-avatar-head">
               <p className="profile-hint">{t("identityVault.avatarLibraryNote")}</p>
             </div>
-
-            <div className="profile-avatar-grid">
-              {avatarOptions.map((item) => (
-                <label
-                  key={item.key}
-                  className={`profile-avatar-option ${item.isSelected ? "active" : ""} ${item.isCurrent ? "current" : ""}`}
-                >
-                  <input
-                    type="radio"
-                    name="avatar"
-                    value={item.key}
-                    checked={avatar === item.key}
-                    onChange={() => setAvatar(item.key)}
-                    disabled={isSaving}
-                  />
-                  <img
-                    className={getAvatarToneClass(item.key)}
-                    src={getAvatarUrl(item.key)}
-                    alt={item.label}
-                  />
-                  <span>{item.label}</span>
-                  <em>
-                    {item.isCurrent
-                      ? t("identityVault.currentMark")
-                      : t("identityVault.availableNow")}
-                  </em>
-                </label>
-              ))}
-            </div>
-          </fieldset>
+            <button
+              type="button"
+              className="profile-avatar-picker-trigger"
+              onClick={() => setIsAvatarPickerOpen(true)}
+              disabled={isSaving}
+            >
+              <span className="profile-avatar-picker-trigger-copy">
+                <span className="profile-edit-label">{t("identityVault.avatarLibrary")}</span>
+                <strong>{selectedAvatarOption.label}</strong>
+              </span>
+              <span className="profile-avatar-picker-trigger-action">
+                {t("identityVault.avatarPickerAction")}
+              </span>
+            </button>
+          </section>
 
           <p className="profile-edit-caption">
             {t("profileEdit.caption")}
@@ -543,6 +618,7 @@ const ProfileEditPage = () => {
       </main>
 
       {genderDrawer}
+      {avatarPicker}
     </div>
   );
 };

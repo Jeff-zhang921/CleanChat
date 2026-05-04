@@ -277,13 +277,13 @@
     "recallToast": "Recalled",
     "recalledBySelf": "You recalled a message",
     "recalledByOther": "The other person recalled a message",
-    "clearQuote": "Clear quote",
     "photoPreview": "[Photo]",
     "you": "You",
     "quoteFallbackSender": "Quoted message",
     "quoteFallbackPreview": "Message unavailable",
     "deleting": "Deleting...",
-    "openSettings": "Open chat settings"
+    "openSettings": "Open chat settings",
+    "removeQuote": "Remove quote"
   },
   "chatSettings": {
     "loading": "Loading chat settings...",
@@ -435,7 +435,7 @@
     "claimDetailClaimable": "Choose any available 1-20 character CleanID.",
     "claimDetailClaimed": "This account already holds a short handle.",
     "avatarLibrary": "Avatar library",
-    "avatarLibraryNote": "Every avatar is available. Pick the visual style that fits your profile.",
+    "avatarLibraryNote": "Open the avatar picker to choose a minimalist character, marble portrait, or abstract light-form.",
     "currentMark": "Current mark",
     "availableNow": "Available now",
     "saveIdentity": "Save Identity",
@@ -456,7 +456,8 @@
     "noDisturbanceMarks": "No disturbance marks",
     "moderationMarks": "{{count}} moderation marks",
     "encryptionKeys": "Encryption keys",
-    "claimWindow": "Claim window"
+    "claimWindow": "Claim window",
+    "avatarPickerAction": "Choose avatar"
   },
   "profile": {
     "notFound": "Profile not found.",
@@ -497,7 +498,7 @@
     "cleanIdIntentShort": "Short",
     "cleanIdIntentStandard": "Standard",
     "avatarLibrary": "Avatar Library",
-    "avatarLibraryNote": "All avatar styles are available now. Choose any minimalist character, marble portrait, or abstract light-form.",
+    "avatarLibraryNote": "Open the avatar picker to choose a visual style.",
     "open": "Open",
     "currentMark": "Current mark",
     "availableNow": "Available now",
@@ -521,7 +522,8 @@
     "loadingRequests": "Loading requests...",
     "noPendingRequests": "No pending requests for this group.",
     "approve": "Approve",
-    "reject": "Reject"
+    "reject": "Reject",
+    "avatarPickerAction": "Choose avatar"
   },
   "feedback": {
     "title": "Feedback",

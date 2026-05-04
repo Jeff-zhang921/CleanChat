@@ -277,13 +277,13 @@
     "recallToast": "撤回成功",
     "recalledBySelf": "你撤回了一条消息",
     "recalledByOther": "对方撤回了一条消息",
-    "clearQuote": "取消引用",
     "photoPreview": "[图片]",
     "you": "我",
     "quoteFallbackSender": "引用消息",
     "quoteFallbackPreview": "原消息不可用",
     "deleting": "删除中...",
-    "openSettings": "打开聊天设置"
+    "openSettings": "打开聊天设置",
+    "removeQuote": "取消引用"
   },
   "chatSettings": {
     "loading": "正在加载聊天设置...",
@@ -435,7 +435,7 @@
     "claimDetailClaimable": "可选择任意未被占用的 1-20 位 CleanID。",
     "claimDetailClaimed": "当前账户已持有短标识。",
     "avatarLibrary": "头像库",
-    "avatarLibraryNote": "所有头像现在都可直接选择，挑一个适合你的视觉风格即可。",
+    "avatarLibraryNote": "打开头像选择器，再选择极简人物、石纹肖像或抽象光影。",
     "currentMark": "当前使用",
     "availableNow": "立即可用",
     "saveIdentity": "保存身份",
@@ -456,7 +456,8 @@
     "noDisturbanceMarks": "无扰动标记",
     "moderationMarks": "{{count}} 条审核标记",
     "encryptionKeys": "加密密钥",
-    "claimWindow": "认领窗口"
+    "claimWindow": "认领窗口",
+    "avatarPickerAction": "选择头像"
   },
   "profile": {
     "notFound": "未找到资料。",
@@ -497,7 +498,7 @@
     "cleanIdIntentShort": "短",
     "cleanIdIntentStandard": "标准",
     "avatarLibrary": "头像库",
-    "avatarLibraryNote": "所有头像风格现在都可使用，可选择极简人物、石纹肖像或抽象光影。",
+    "avatarLibraryNote": "打开头像选择器，再挑选适合你的视觉风格。",
     "open": "已开放",
     "currentMark": "当前使用",
     "availableNow": "立即可用",
@@ -521,7 +522,8 @@
     "loadingRequests": "正在加载申请...",
     "noPendingRequests": "该群组当前没有待处理申请。",
     "approve": "批准",
-    "reject": "拒绝"
+    "reject": "拒绝",
+    "avatarPickerAction": "选择头像"
   },
   "feedback": {
     "title": "反馈",
@@ -617,7 +619,7 @@
   "groupRequests": {
     "title": "群组请求",
     "heading": "群组验证中心",
-    "subtitle": "分组审核入群申请，管理更清晰。",
+    "subtitle": "分组审核入群申请，管理更简单。",
     "groupsTitle": "我管理的群组",
     "noOwnedGroups": "你还没有可审核的群组。",
     "pendingCount": "{{count}} 条待处理",

@@ -52,5 +52,8 @@ test("profile edit contains CleanID claim controls and unlocked avatars", async 
   await expect(page.locator(".profile-edit-page")).toBeVisible();
 
   await expect(page.locator(".profile-claim-editor")).toBeVisible();
-  await expect(page.locator(".profile-avatar-grid").first()).toBeVisible();
+  await expect(page.locator(".profile-edit-page .profile-avatar-grid")).toHaveCount(0);
+  await page.locator(".profile-avatar-picker-trigger").click();
+  await expect(page.locator(".profile-avatar-picker-dialog")).toBeVisible();
+  await expect(page.locator(".profile-avatar-picker-dialog .profile-avatar-grid")).toBeVisible();
 });

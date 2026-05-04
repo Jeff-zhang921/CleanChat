@@ -829,14 +829,6 @@ button.conversation-card {
   line-height: 1.55;
 }
 
-.conversations-empty-state-clear {
-  border-color: rgba(20, 84, 59, 0.16);
-}
-
-.conversations-empty-state-fragile {
-  border-color: rgba(145, 128, 95, 0.18);
-}
-
 .conversations-empty-mark {
   display: flex;
   align-items: center;

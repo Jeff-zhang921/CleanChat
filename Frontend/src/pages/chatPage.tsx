@@ -2036,8 +2036,8 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
               </div>
               <button
                 type="button"
-                className="chat-quote-preview-clear"
-                aria-label={t("chat.clearQuote")}
+                className="chat-quote-preview-remove"
+                aria-label={t("chat.removeQuote")}
                 onClick={() => setQuoteDraft(null)}
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
