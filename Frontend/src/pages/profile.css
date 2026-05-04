@@ -180,6 +180,11 @@
   color: var(--accent);
 }
 
+.profile-region {
+  color: rgba(24, 34, 24, 0.76);
+  font-weight: 600;
+}
+
 .profile-entry-card {
   border: 1px solid var(--line);
   border-radius: 1.3rem;

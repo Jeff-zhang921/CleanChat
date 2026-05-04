@@ -68,6 +68,8 @@ const loadCurrentUser = (userId: number) =>
       cleanId: true,
       avatar: true,
       gender: true,
+      country: true,
+      city: true,
     },
   });
 
@@ -289,6 +291,39 @@ router.patch("/me", async (req, res) => {
   const gender = parseGender(genderRaw);
   const genderProvided = typeof genderRaw === "string";
 
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const hasCountryField = Object.prototype.hasOwnProperty.call(body, "country");
+  const hasCityField = Object.prototype.hasOwnProperty.call(body, "city");
+
+  const parseRegionField = (fieldName: "country" | "city") => {
+    const raw = body[fieldName];
+    if (raw === null) {
+      return null;
+    }
+    if (typeof raw !== "string") {
+      return undefined;
+    }
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return null;
+    }
+    if (trimmed.length > 80) {
+      return undefined;
+    }
+    return trimmed;
+  };
+
+  const country = hasCountryField ? parseRegionField("country") : undefined;
+  const city = hasCityField ? parseRegionField("city") : undefined;
+
+  if (hasCountryField && country === undefined) {
+    return res.status(400).json({ error: "Invalid country." });
+  }
+
+  if (hasCityField && city === undefined) {
+    return res.status(400).json({ error: "Invalid city." });
+  }
+
   if (avatarProvided && avatar === null) {
     return res.status(400).json({
       error: "Unsupported avatar value.",
@@ -303,7 +338,13 @@ router.patch("/me", async (req, res) => {
     });
   }
 
-  const updates: { name?: string; avatar?: Avatar; gender?: GenderValue } = {};
+  const updates: {
+    name?: string;
+    avatar?: Avatar;
+    gender?: GenderValue;
+    country?: string | null;
+    city?: string | null;
+  } = {};
   if (name !== null) {
     updates.name = name;
   }
@@ -314,8 +355,29 @@ router.patch("/me", async (req, res) => {
     updates.gender = gender;
   }
 
+  if (hasCountryField) {
+    updates.country = country;
+
+    if (country === null) {
+      updates.city = null;
+    } else if (!hasCityField && country !== sessionUser.country) {
+      updates.city = null;
+    }
+  }
+
+  if (hasCityField) {
+    const effectiveCountry = hasCountryField ? country : sessionUser.country;
+    if (city !== null && !effectiveCountry) {
+      return res
+        .status(400)
+        .json({ error: "Cannot set city without selecting a country." });
+    }
+
+    updates.city = city;
+  }
+
   if (Object.keys(updates).length === 0) {
-    return res.status(400).json({ error: "Invalid name, avatar, or gender" });
+    return res.status(400).json({ error: "Invalid profile update." });
   }
 
   try {
@@ -329,6 +391,8 @@ router.patch("/me", async (req, res) => {
         cleanId: true,
         avatar: true,
         gender: true,
+        country: true,
+        city: true,
       },
     });
     res.json({
@@ -490,6 +554,8 @@ router.patch("/clean-id", async (req, res) => {
       cleanId: true,
       avatar: true,
       gender: true,
+      country: true,
+      city: true,
     },
   });
   res.json({

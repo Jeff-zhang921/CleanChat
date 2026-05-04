@@ -11,6 +11,7 @@ import {
 import { BACKEND_URL } from "../config";
 import { GENDER_ARIA_KEY_MAP, normalizeGender, type GenderValue } from "../utils/gender";
 import { dispatchConversationDeleted } from "../utils/conversationEvents";
+import { formatRegion } from "../utils/region";
 import {
   getThreadMuteKey,
   persistConversationMutes,
@@ -35,6 +36,8 @@ type ChatSettingsResponse = {
     cleanId: string;
     avatar: AvatarKey;
     gender?: string | null;
+    country?: string | null;
+    city?: string | null;
   };
   blockedByMe: boolean;
   blockedMe: boolean;
@@ -132,6 +135,7 @@ const ChatSettingsPage = () => {
   }, [threadId, t]);
 
   const resolvedGender: GenderValue = normalizeGender(otherUser?.gender);
+  const regionLabel = formatRegion(otherUser?.country, otherUser?.city);
   const displayName =
     (otherUser?.name && otherUser.name.trim()) ||
     otherUser?.cleanId ||
@@ -332,9 +336,12 @@ const ChatSettingsPage = () => {
             <strong>{displayName}</strong>
             <span>@{otherUser.cleanId}</span>
           </div>
-          <span className="chat-settings-peer-gender" role="img" aria-label={t(GENDER_ARIA_KEY_MAP[resolvedGender])}>
-            <GenderLineIcon gender={resolvedGender} size={18} />
-          </span>
+          <div className="chat-settings-peer-meta">
+            {regionLabel && <span className="chat-settings-peer-region">{regionLabel}</span>}
+            <span className="chat-settings-peer-gender" role="img" aria-label={t(GENDER_ARIA_KEY_MAP[resolvedGender])}>
+              <GenderLineIcon gender={resolvedGender} size={18} />
+            </span>
+          </div>
         </section>
 
         <section className="chat-settings-card">

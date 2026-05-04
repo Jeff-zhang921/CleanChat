@@ -13,6 +13,8 @@ export type ProfileUser = {
   cleanId: string;
   avatar: AvatarKey;
   gender: GenderValue;
+  country?: string | null;
+  city?: string | null;
   shortIdClaim: CleanIdShortClaim;
 };
 
@@ -27,6 +29,8 @@ export type ProfileEditDraft = {
   cleanId: string;
   avatar: AvatarKey;
   gender: GenderValue;
+  country: string;
+  city: string;
 };
 
 export type ProfileRouteState = {

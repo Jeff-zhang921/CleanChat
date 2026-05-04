@@ -20,6 +20,11 @@ import {
   type ProfileRouteState,
   type ProfileUser,
 } from "../utils/profileUser";
+import {
+  getRegionCitiesForCountry,
+  getRegionCountries,
+  mergeSelectOptions,
+} from "../utils/region";
 import "./profile.css";
 import "./profileEdit.css";
 
@@ -41,6 +46,8 @@ const ProfileEditPage = () => {
     seededDraft?.avatar ?? routeState?.selectedAvatar ?? seededUser?.avatar ?? "AVATAR_LEO"
   );
   const [gender, setGender] = useState<GenderValue>(seededDraft?.gender ?? seededUser?.gender ?? "hidden");
+  const [country, setCountry] = useState(seededDraft?.country ?? seededUser?.country ?? "");
+  const [city, setCity] = useState(seededDraft?.city ?? seededUser?.city ?? "");
   const [status, setStatus] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
@@ -54,9 +61,15 @@ const ProfileEditPage = () => {
     setCleanId(routeState?.editDraft?.cleanId ?? user.cleanId ?? "");
     setAvatar(routeState?.editDraft?.avatar ?? routeState?.selectedAvatar ?? user.avatar ?? "AVATAR_LEO");
     setGender(routeState?.editDraft?.gender ?? user.gender);
+    const nextCountry = routeState?.editDraft?.country ?? user.country ?? "";
+    const nextCity = routeState?.editDraft?.city ?? user.city ?? "";
+    setCountry(nextCountry);
+    setCity(nextCountry ? nextCity : "");
   }, [
     routeState?.editDraft?.avatar,
     routeState?.editDraft?.cleanId,
+    routeState?.editDraft?.country,
+    routeState?.editDraft?.city,
     routeState?.editDraft?.gender,
     routeState?.editDraft?.name,
     routeState?.selectedAvatar,
@@ -200,6 +213,8 @@ const ProfileEditPage = () => {
       cleanId,
       avatar,
       gender,
+      country,
+      city,
     };
     navigate("/profile/avatar", {
       state: {
@@ -280,7 +295,9 @@ const ProfileEditPage = () => {
       trimmedName === user.name &&
       normalizedCleanId === user.cleanId &&
       gender === user.gender &&
-      avatar === user.avatar
+      avatar === user.avatar &&
+      country.trim() === (user.country?.trim() || "") &&
+      city.trim() === (user.city?.trim() || "")
     ) {
       leave(user);
       return;
@@ -323,7 +340,13 @@ const ProfileEditPage = () => {
         }
       }
 
-      const profileUpdates: { name?: string; gender?: GenderValue; avatar?: AvatarKey } = {};
+      const profileUpdates: {
+        name?: string;
+        gender?: GenderValue;
+        avatar?: AvatarKey;
+        country?: string | null;
+        city?: string | null;
+      } = {};
       if (trimmedName !== user.name) {
         profileUpdates.name = trimmedName;
       }
@@ -332,6 +355,24 @@ const ProfileEditPage = () => {
       }
       if (avatar !== user.avatar) {
         profileUpdates.avatar = avatar;
+      }
+
+      const normalizedCountry = country.trim();
+      const normalizedCity = city.trim();
+      const currentCountry = user.country?.trim() || "";
+      const currentCity = user.city?.trim() || "";
+
+      if (normalizedCountry !== currentCountry) {
+        if (!normalizedCountry) {
+          profileUpdates.country = null;
+          profileUpdates.city = null;
+        } else {
+          profileUpdates.country = normalizedCountry;
+        }
+      }
+
+      if (normalizedCountry && normalizedCity !== currentCity) {
+        profileUpdates.city = normalizedCity ? normalizedCity : null;
       }
 
       if (Object.keys(profileUpdates).length > 0) {
@@ -505,6 +546,60 @@ const ProfileEditPage = () => {
               <GenderLineIcon gender={gender} size={19} />
             </span>
           </button>
+
+          <label className="profile-edit-field" htmlFor="profile-country">
+            <span className="profile-edit-label">{t("profileEdit.country")}</span>
+            <select
+              id="profile-country"
+              className="profile-edit-select"
+              value={country}
+              onChange={(event) => {
+                const nextCountry = event.target.value;
+                setCountry(nextCountry);
+
+                if (!nextCountry) {
+                  setCity("");
+                  return;
+                }
+
+                const allowedCities = getRegionCitiesForCountry(nextCountry);
+                const normalizedCity = city.trim();
+                if (allowedCities.length > 0 && normalizedCity && !allowedCities.includes(normalizedCity)) {
+                  setCity("");
+                }
+              }}
+              disabled={isSaving}
+            >
+              <option value="">{t("profileEdit.countryPlaceholder")}</option>
+              {mergeSelectOptions(country, getRegionCountries()).map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="profile-edit-field" htmlFor="profile-city">
+            <span className="profile-edit-label">{t("profileEdit.city")}</span>
+            <select
+              id="profile-city"
+              className="profile-edit-select"
+              value={city}
+              onChange={(event) => setCity(event.target.value)}
+              disabled={isSaving || !country.trim()}
+            >
+              <option value="">
+                {country.trim()
+                  ? t("profileEdit.cityPlaceholder")
+                  : t("profileEdit.cityPlaceholderDisabled")}
+              </option>
+              {mergeSelectOptions(city, getRegionCitiesForCountry(country)).map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <section className="profile-avatars" aria-label={t("identityVault.avatarLibrary")}>
             <div className="profile-avatar-head">

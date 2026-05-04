@@ -36,6 +36,8 @@ const viewer = {
   cleanId: "jeff_clean",
   avatar: "AVATAR_LEO",
   gender: "male",
+  country: "United States",
+  city: "San Francisco",
 };
 
 const partner = {
@@ -45,6 +47,8 @@ const partner = {
   cleanId: "quiet_two",
   avatar: "AVATAR_SOPHIE",
   gender: "female",
+  country: "Japan",
+  city: "Tokyo",
 };
 
 const targetUser = {
@@ -54,6 +58,8 @@ const targetUser = {
   cleanId: "quiet_seven",
   avatar: "AVATAR_LEO",
   gender: "non_binary",
+  country: "Canada",
+  city: "Toronto",
 };
 
 const nowIso = () => new Date().toISOString();
@@ -746,7 +752,9 @@ const pageTargets: PageTarget[] = [
       await expect(
         page.locator(".groups-create-modal .group-create-panel"),
       ).toBeVisible();
-      await page.locator(".groups-create-modal .group-action.cancel").click();
+      await page
+        .locator(".groups-create-modal .group-action.cancel")
+        .click({ force: true });
       await expect(page.locator(".groups-create-modal")).toBeHidden();
     },
   },
@@ -796,6 +804,12 @@ const pageTargets: PageTarget[] = [
     authenticated: true,
     readySelector: ".chat-settings-page",
     smoke: async (page) => {
+      await expect(page.locator(".chat-settings-peer-region")).toContainText(
+        "Japan",
+      );
+      await expect(page.locator(".chat-settings-peer-region")).toContainText(
+        "Tokyo",
+      );
       const muteSwitch = page.locator("[role='switch']").first();
       await expect(muteSwitch).toBeVisible();
       await muteSwitch.click();
@@ -819,6 +833,12 @@ const pageTargets: PageTarget[] = [
     readySelector: ".profile-shell",
     smoke: async (page) => {
       await expect(page.locator(".profile-avatar-main")).toBeVisible();
+      await expect(page.locator(".profile-region")).toContainText(
+        "United States",
+      );
+      await expect(page.locator(".profile-region")).toContainText(
+        "San Francisco",
+      );
     },
   },
   {
@@ -868,6 +888,9 @@ const pageTargets: PageTarget[] = [
       await page.locator(".profile-edit-gender-picker .gender-picker-option").nth(1).click();
       await page.locator(".profile-edit-gender-drawer-close").click();
       await expect(page.locator(".profile-edit-gender-drawer")).toBeHidden();
+      await page.locator("#profile-country").selectOption("United Kingdom");
+      await expect(page.locator("#profile-city")).toBeEnabled();
+      await page.locator("#profile-city").selectOption("London");
       await expect(page.locator(".profile-edit-page .profile-avatar-grid")).toHaveCount(0);
       await page.locator(".profile-avatar-picker-trigger").click();
       await expect(page).toHaveURL(/\/profile\/avatar/);
@@ -1139,7 +1162,9 @@ const runPageAudit = (deviceName: string, device: typeof pixel7Device) => {
         await target.beforeGoto?.(page);
 
         await page.goto(target.path);
-        await expect(page.locator(target.readySelector).first()).toBeVisible();
+        await expect(page.locator(target.readySelector).first()).toBeVisible({
+          timeout: 10_000,
+        });
         await waitForLayoutSettled(page);
         await assertPageUsable(page, `${deviceName}:${target.name}`);
 

@@ -663,12 +663,11 @@ router.get("/users/:userId", async (req, res) => {
     return;
   }
 
-  const [existingThread, acceptedRequest, latestRequest] =
-    await Promise.all([
-      findExistingDirectThread(sessionUserId, targetUserId),
-      findAcceptedDirectRequest(sessionUserId, targetUserId),
-      findLatestDirectRequest(sessionUserId, targetUserId),
-    ]);
+  const [existingThread, acceptedRequest, latestRequest] = await Promise.all([
+    findExistingDirectThread(sessionUserId, targetUserId),
+    findAcceptedDirectRequest(sessionUserId, targetUserId),
+    findLatestDirectRequest(sessionUserId, targetUserId),
+  ]);
 
   res.json({
     user: targetUser,
@@ -816,17 +815,13 @@ router.get("/requests/direct/target/:userId", async (req, res) => {
     return;
   }
 
-  const [
-    existingThread,
-    acceptedRequest,
-    latestRequest,
-    blocked,
-  ] = await Promise.all([
-    findExistingDirectThread(sessionUserId, targetUserId),
-    findAcceptedDirectRequest(sessionUserId, targetUserId),
-    findLatestDirectRequest(sessionUserId, targetUserId),
-    ensurePairNotBlocked(sessionUserId, targetUserId),
-  ]);
+  const [existingThread, acceptedRequest, latestRequest, blocked] =
+    await Promise.all([
+      findExistingDirectThread(sessionUserId, targetUserId),
+      findAcceptedDirectRequest(sessionUserId, targetUserId),
+      findLatestDirectRequest(sessionUserId, targetUserId),
+      ensurePairNotBlocked(sessionUserId, targetUserId),
+    ]);
 
   res.json({
     user: targetUser,
@@ -2036,6 +2031,8 @@ router.get("/threads/:threadId/settings", async (req, res) => {
       cleanId: true,
       avatar: true,
       gender: true,
+      country: true,
+      city: true,
     },
   });
 

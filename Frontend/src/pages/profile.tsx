@@ -28,6 +28,7 @@ import {
   type ProfileRouteState,
   type ProfileUser,
 } from "../utils/profileUser";
+import { formatRegion } from "../utils/region";
 import "./profile.css";
 
 type OwnedGroupSummary = {
@@ -273,6 +274,8 @@ const ProfilePage = () => {
       cleanId,
       avatar,
       gender: user.gender,
+      country: user.country ?? "",
+      city: user.city ?? "",
     };
     navigate("/profile/avatar", {
       state: {
@@ -627,6 +630,7 @@ const ProfilePage = () => {
   const activeAvatar = user ? (isEditing ? avatar : user.avatar) : "AVATAR_LEO";
   const activeName = user ? (isEditing ? nickname : user.name) : "";
   const activeCleanId = user ? (isEditing ? cleanId : user.cleanId) : "";
+  const activeRegion = user ? formatRegion(user.country, user.city) : null;
   const selectedOwnedGroup = ownedGroups.find((group) => group.id === selectedGroupId) ?? null;
   const activeAvatarOption = getAvatarOption(activeAvatar);
   const selectedAvatarOption = getAvatarOption(avatar);
@@ -676,6 +680,7 @@ const ProfilePage = () => {
                     <p className="profile-cleanid">@{activeCleanId}</p>
                   </div>
                   <p className="profile-avatar-family">{activeAvatarOption.family}</p>
+                  {activeRegion && <span className="profile-region">{activeRegion}</span>}
                   <span>{user.email}</span>
                 </div>
               </div>
