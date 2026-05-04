@@ -181,33 +181,41 @@
   inset: 0;
   pointer-events: none;
   z-index: 60;
+  isolation: isolate;
 }
 
 .profile-edit-gender-drawer-backdrop {
   position: absolute;
   inset: 0;
   border: 0;
-  background: rgba(18, 25, 22, 0.26);
+  background: rgba(18, 25, 22, 0.42);
+  backdrop-filter: blur(12px) saturate(0.92);
+  -webkit-backdrop-filter: blur(12px) saturate(0.92);
   opacity: 0;
   transition: opacity 240ms ease;
+  z-index: 0;
 }
 
 .profile-edit-gender-drawer {
   position: absolute;
   top: 0;
   right: 0;
-  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
   width: min(31rem, 100%);
   display: grid;
   align-content: start;
   gap: 1rem;
-  padding: clamp(1rem, 3vw, 1.3rem);
+  padding: max(1rem, env(safe-area-inset-top, 0px)) clamp(1rem, 3vw, 1.3rem)
+    max(1.15rem, env(safe-area-inset-bottom, 0px));
   border-left: 1px solid rgba(91, 106, 96, 0.2);
-  background:
-    linear-gradient(180deg, rgba(250, 247, 241, 0.98), rgba(246, 242, 235, 0.96));
+  background: #fbf8f2;
   box-shadow: -20px 0 40px rgba(16, 22, 18, 0.12);
   transform: translateX(104%);
   transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  z-index: 1;
 }
 
 .profile-edit-gender-drawer-layer.is-open {
@@ -388,11 +396,13 @@
     bottom: 0;
     width: 100%;
     height: auto;
+    max-height: min(90dvh, 42rem);
     border-left: 0;
     border-top: 1px solid rgba(91, 106, 96, 0.2);
     border-radius: 1.2rem 1.2rem 0 0;
     transform: translateY(105%);
     box-shadow: 0 -20px 36px rgba(16, 22, 18, 0.14);
+    padding-bottom: max(1.2rem, env(safe-area-inset-bottom, 0px));
   }
 
   .profile-edit-gender-drawer-layer.is-open .profile-edit-gender-drawer {

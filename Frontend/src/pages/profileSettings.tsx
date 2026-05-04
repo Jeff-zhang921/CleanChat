@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { BACKEND_URL } from "../config";
@@ -212,6 +213,23 @@ const ProfileSettingsPage = () => {
       setIsLeaving(false);
     }
   }, [isSettingsRouteActive]);
+
+  useEffect(() => {
+    if (!isLanguagePickerOpen) {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isSwitchingLanguage) {
+        setIsLanguagePickerOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [isLanguagePickerOpen, isSwitchingLanguage]);
 
   useEffect(() => {
     if (!isSettingsRouteActive) {
@@ -463,6 +481,59 @@ const ProfileSettingsPage = () => {
     }
   };
 
+  const languageDialog =
+    isLanguagePickerOpen && typeof document !== "undefined"
+      ? createPortal(
+          <div className="profile-settings-language-layer">
+            <button
+              type="button"
+              className="profile-settings-language-backdrop"
+              aria-label={t("common.close")}
+              disabled={isSwitchingLanguage}
+              onClick={() => setIsLanguagePickerOpen(false)}
+            />
+            <section
+              className="profile-settings-language-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="profile-settings-language-title"
+            >
+              <header className="profile-settings-language-head">
+                <p className="profile-settings-eyebrow">{t("language.label")}</p>
+                <h3 id="profile-settings-language-title">{t("language.choose")}</h3>
+              </header>
+              <div className="profile-settings-language-options">
+                {LANGUAGE_SWITCH_OPTIONS.map((option) => {
+                  const isCurrent = currentLanguage === option.code;
+                  return (
+                    <button
+                      key={option.code}
+                      type="button"
+                      className={`profile-settings-language-option ${isCurrent ? "is-current" : ""}`}
+                      disabled={isSwitchingLanguage || isCurrent}
+                      aria-current={isCurrent ? "true" : undefined}
+                      onClick={() => void handleLanguageChange(option.code)}
+                    >
+                      <span>{t(option.nameKey)}</span>
+                      {isCurrent && <em>{t("language.current")}</em>}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                className="profile-settings-action profile-settings-language-close"
+                disabled={isSwitchingLanguage}
+                onClick={() => setIsLanguagePickerOpen(false)}
+              >
+                {t("common.close")}
+              </button>
+            </section>
+          </div>,
+          document.body,
+        )
+      : null;
+
   if (loading && !user) {
     return <ProfileSettingsLoadingState onBack={handleBack} />;
   }
@@ -641,65 +712,7 @@ const ProfileSettingsPage = () => {
           </div>
         </section>
 
-        {isLanguagePickerOpen && (
-          <div
-            role="presentation"
-            onClick={() => {
-              if (!isSwitchingLanguage) {
-                setIsLanguagePickerOpen(false);
-              }
-            }}
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(21, 26, 22, 0.34)",
-              backdropFilter: "blur(6px)",
-              display: "grid",
-              placeItems: "center",
-              zIndex: 30,
-              padding: "1rem",
-            }}
-          >
-            <div
-              role="dialog"
-              aria-modal="true"
-              onClick={(event) => event.stopPropagation()}
-              style={{
-                width: "min(100%, 24rem)",
-                borderRadius: "1.05rem",
-                border: "1px solid rgba(54, 72, 58, 0.16)",
-                background: "rgba(255, 255, 255, 0.94)",
-                boxShadow: "0 24px 56px rgba(0, 0, 0, 0.2)",
-                padding: "1rem",
-                display: "grid",
-                gap: "0.7rem",
-              }}
-            >
-              <h3 style={{ margin: 0, fontSize: "1rem", color: "#1d2a22" }}>{t("language.choose")}</h3>
-              <div className="profile-settings-actions" style={{ justifyContent: "stretch" }}>
-                {LANGUAGE_SWITCH_OPTIONS.map((option) => (
-                  <button
-                    key={option.code}
-                    type="button"
-                    className="profile-settings-action"
-                    disabled={isSwitchingLanguage || currentLanguage === option.code}
-                    onClick={() => void handleLanguageChange(option.code)}
-                  >
-                    {`${option.shortLabel} ${t(option.nameKey)}`}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                className="profile-settings-action"
-                disabled={isSwitchingLanguage}
-                onClick={() => setIsLanguagePickerOpen(false)}
-              >
-                {t("common.close")}
-              </button>
-            </div>
-          </div>
-        )}
+        {languageDialog}
 
         {status && (
           <p className="profile-settings-status" role="status">

@@ -737,12 +737,10 @@ const pageTargets: PageTarget[] = [
     readySelector: ".profile-settings-page",
     smoke: async (page) => {
       await page.locator(".profile-settings-action").first().click();
-      await expect(page.getByRole("dialog")).toBeVisible();
-      await page
-        .getByRole("dialog")
-        .locator(".profile-settings-action")
-        .last()
-        .click();
+      await expect(page.locator(".profile-settings-language-dialog")).toBeVisible();
+      await expect(page.locator(".profile-settings-language-option")).toHaveCount(5);
+      await page.locator(".profile-settings-language-close").click();
+      await expect(page.locator(".profile-settings-language-dialog")).toBeHidden();
     },
   },
   {
@@ -771,6 +769,11 @@ const pageTargets: PageTarget[] = [
     authenticated: true,
     readySelector: ".profile-edit-page",
     smoke: async (page) => {
+      await page.locator(".profile-edit-gender-trigger").click();
+      await expect(page.locator(".profile-edit-gender-drawer")).toBeVisible();
+      await page.locator(".profile-edit-gender-picker .gender-picker-option").nth(1).click();
+      await page.locator(".profile-edit-gender-drawer-close").click();
+      await expect(page.locator(".profile-edit-gender-drawer")).toBeHidden();
       await page.locator("#nickname").fill("Jeff Edited");
       await page.locator(".profile-edit-action-primary").click();
       await expect(page).toHaveURL(/\/profile/);

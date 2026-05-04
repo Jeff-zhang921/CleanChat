@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import GenderLineIcon from "../components/GenderLineIcon";
@@ -181,6 +182,45 @@ const ProfileEditPage = () => {
     isSelected: avatar === item.key,
     isCurrent: user?.avatar === item.key,
   }));
+
+  const genderDrawer =
+    isGenderDrawerOpen && typeof document !== "undefined"
+      ? createPortal(
+          <div className="profile-edit-gender-drawer-layer is-open" aria-hidden={false}>
+            <button
+              type="button"
+              className="profile-edit-gender-drawer-backdrop"
+              onClick={() => setIsGenderDrawerOpen(false)}
+              tabIndex={0}
+              aria-label={t("common.close")}
+            />
+            <aside
+              className="profile-edit-gender-drawer"
+              role="dialog"
+              aria-modal="true"
+              aria-label={t("profileEdit.editGender")}
+            >
+              <header className="profile-edit-gender-drawer-head">
+                <p className="profile-edit-eyebrow">{t("profileEdit.editGender")}</p>
+                <h2>{t("profileEdit.gender")}</h2>
+                <p>{t("profileEdit.genderHint")}</p>
+              </header>
+
+              <GenderPicker value={gender} onChange={setGender} disabled={isSaving} className="profile-edit-gender-picker" />
+
+              <button
+                type="button"
+                className="profile-edit-action profile-edit-action-primary profile-edit-gender-drawer-close"
+                onClick={() => setIsGenderDrawerOpen(false)}
+                disabled={isSaving}
+              >
+                {t("common.close")}
+              </button>
+            </aside>
+          </div>,
+          document.body,
+        )
+      : null;
 
   const handleSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -502,40 +542,7 @@ const ProfileEditPage = () => {
         </form>
       </main>
 
-      {isGenderDrawerOpen && (
-        <div className="profile-edit-gender-drawer-layer is-open" aria-hidden={false}>
-          <button
-            type="button"
-            className="profile-edit-gender-drawer-backdrop"
-            onClick={() => setIsGenderDrawerOpen(false)}
-            tabIndex={0}
-            aria-label={t("common.close")}
-          />
-          <aside
-            className="profile-edit-gender-drawer"
-            role="dialog"
-            aria-modal="true"
-            aria-label={t("profileEdit.editGender")}
-          >
-            <header className="profile-edit-gender-drawer-head">
-              <p className="profile-edit-eyebrow">{t("profileEdit.editGender")}</p>
-              <h2>{t("profileEdit.gender")}</h2>
-              <p>{t("profileEdit.genderHint")}</p>
-            </header>
-
-            <GenderPicker value={gender} onChange={setGender} disabled={isSaving} className="profile-edit-gender-picker" />
-
-            <button
-              type="button"
-              className="profile-edit-action profile-edit-action-primary profile-edit-gender-drawer-close"
-              onClick={() => setIsGenderDrawerOpen(false)}
-              disabled={isSaving}
-            >
-              {t("common.close")}
-            </button>
-          </aside>
-        </div>
-      )}
+      {genderDrawer}
     </div>
   );
 };
