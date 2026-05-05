@@ -145,7 +145,8 @@
         "subcategories": {
           "music": "音樂",
           "gaming": "遊戲",
-          "fitness": "健身"
+          "fitness": "健身",
+          "sports": "運動"
         }
       },
       "career": {
@@ -155,6 +156,13 @@
           "frontend": "前端",
           "backend": "後端",
           "design": "設計"
+        }
+      },
+      "other": {
+        "label": "其他",
+        "description": "其他社區興趣和討論。",
+        "subcategories": {
+          "general": "一般"
         }
       }
     },

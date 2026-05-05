@@ -160,7 +160,8 @@
         "subcategories": {
           "music": "音乐",
           "gaming": "游戏",
-          "fitness": "健身"
+          "fitness": "健身",
+          "sports": "运动"
         }
       },
       "career": {
@@ -171,7 +172,15 @@
           "backend": "后端",
           "design": "设计"
         }
-      }
+      },
+        "other": {
+          "label": "其他",
+          "description": "其他社区兴趣和讨论。",
+          "subcategories": {
+            "general": "一般"
+          }
+        }
+
     },
     "noGroupsFound": "未找到群组。",
     "joinedGroups": "已加入的群组",

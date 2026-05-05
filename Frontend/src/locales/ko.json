@@ -145,7 +145,8 @@
         "subcategories": {
           "music": "음악",
           "gaming": "게임",
-          "fitness": "피트니스"
+          "fitness": "피트니스",
+          "sports": "스포츠"
         }
       },
       "career": {
@@ -155,6 +156,13 @@
           "frontend": "프론트엔드",
           "backend": "백엔드",
           "design": "디자인"
+        }
+      },
+      "other": {
+        "label": "기타",
+        "description": "기타 커뮤니티 관심사와 토론.",
+        "subcategories": {
+          "general": "일반"
         }
       }
     },

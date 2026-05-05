@@ -43,6 +43,8 @@ export const COMMUNITY_CATEGORIES = [
       { id: "music", label: "Music" },
       { id: "gaming", label: "Gaming" },
       { id: "fitness", label: "Fitness" },
+      { id:"sports", label: "Sports" },
+      
     ],
   },
   {
@@ -54,6 +56,13 @@ export const COMMUNITY_CATEGORIES = [
       { id: "design", label: "Design" },
     ],
   },
+  {
+    id:"other",
+    label: "Other",
+    subcategories: [
+        { id: "general", label: "General" },
+    ],
+  }
 ] as const;
 
 export type GroupKind = "community" | "private";

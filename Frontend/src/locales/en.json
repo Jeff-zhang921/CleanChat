@@ -160,7 +160,8 @@
         "subcategories": {
           "music": "Music",
           "gaming": "Gaming",
-          "fitness": "Fitness"
+          "fitness": "Fitness",
+          "sports": "Sports"
         }
       },
       "career": {
@@ -171,8 +172,16 @@
           "backend": "Backend",
           "design": "Design"
         }
-      }
+      },
+        "other": {
+          "label": "Other",
+          "description": "Other community interests and discussions.",
+          "subcategories": {
+            "general": "General"
+          }
+        }
     },
+
     "noGroupsFound": "No groups found.",
     "joinedGroups": "Joined groups",
     "joinedGroupsHint": "Your active rooms stay at the top for faster re-entry.",

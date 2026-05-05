@@ -145,7 +145,8 @@
         "subcategories": {
           "music": "音楽",
           "gaming": "ゲーム",
-          "fitness": "フィットネス"
+          "fitness": "フィットネス",
+          "sports": "スポーツ"
         }
       },
       "career": {
@@ -155,6 +156,13 @@
           "frontend": "フロントエンド",
           "backend": "バックエンド",
           "design": "デザイン"
+        }
+      },
+      "other": {
+        "label": "その他",
+        "description": "その他のコミュニティの興味や議論。",
+        "subcategories": {
+          "general": "一般"
         }
       }
     },
