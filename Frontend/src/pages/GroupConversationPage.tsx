@@ -104,6 +104,8 @@ const GroupConversationPage = () => {
   const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [status, setStatus] = useState(() => t("groups.loadingGroups"));
   const [query, setQuery] = useState("");
+  const [searchMainCategoryId, setSearchMainCategoryId] = useState("");
+  const [searchSubcategoryId, setSearchSubcategoryId] = useState("");
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
@@ -131,8 +133,10 @@ const GroupConversationPage = () => {
   const pathSegments = location.pathname.split("/").filter(Boolean);
   const selectedMainCategoryId = pathSegments[1] ? decodeURIComponent(pathSegments[1]) : "";
   const selectedSubcategoryId = pathSegments[2] ? decodeURIComponent(pathSegments[2]) : "";
+  const isAtCommunityRoot = !selectedMainCategoryId && !selectedSubcategoryId;
   const selectedMainCategory = findCommunityCategory(selectedMainCategoryId);
   const selectedSubcategory = findCommunitySubcategory(selectedMainCategoryId, selectedSubcategoryId);
+  const searchMainCategory = findCommunityCategory(searchMainCategoryId);
 
   const getCategoryLabel = (category: CommunityCategory) =>
     t(`groups.categories.${category.id}.label`, { defaultValue: category.label });
@@ -178,6 +182,14 @@ const GroupConversationPage = () => {
     });
     return () => window.cancelAnimationFrame(frame);
   }, [isSearchExpanded]);
+
+  useEffect(() => {
+    if (isAtCommunityRoot) return;
+    setQuery("");
+    setSearchMainCategoryId("");
+    setSearchSubcategoryId("");
+    setIsSearchExpanded(false);
+  }, [isAtCommunityRoot]);
 
   const refreshGroups = useCallback(async () => {
     const response = await fetch(`${BACKEND_URL}/chat/groups?scope=communities`, {
@@ -295,7 +307,17 @@ const GroupConversationPage = () => {
 
   const filteredGroups = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    const scopedGroups = selectedSubcategory
+    const scopedGroups = isAtCommunityRoot
+      ? communityGroups.filter((group) => {
+          if (searchMainCategoryId && group.mainCategoryId !== searchMainCategoryId) {
+            return false;
+          }
+          if (searchSubcategoryId && group.subcategoryId !== searchSubcategoryId) {
+            return false;
+          }
+          return true;
+        })
+      : selectedSubcategory
       ? communitiesInSelectedSubcategory
       : selectedMainCategory
         ? communityGroups.filter(
@@ -327,7 +349,10 @@ const GroupConversationPage = () => {
   }, [
     communitiesInSelectedSubcategory,
     communityGroups,
+    isAtCommunityRoot,
     query,
+    searchMainCategoryId,
+    searchSubcategoryId,
     selectedMainCategory,
     selectedSubcategory,
   ]);
@@ -628,7 +653,9 @@ const GroupConversationPage = () => {
   };
 
   const heroName = me?.name || me?.cleanId || me?.email || t("common.cleanChat");
-  const hasQuery = query.trim().length > 0;
+  const hasSearchText = query.trim().length > 0;
+  const hasSearchFilter = Boolean(searchMainCategoryId || searchSubcategoryId);
+  const hasQuery = isAtCommunityRoot && (hasSearchText || hasSearchFilter);
   const joinedInSelectedSubcategory = filteredGroups.filter((group) => group.joined);
   const discoverInSelectedSubcategory = filteredGroups.filter((group) => !group.joined);
   const invitationCount = groupInvitations.length;
@@ -654,6 +681,8 @@ const GroupConversationPage = () => {
   };
   const closeSearch = () => {
     setQuery("");
+    setSearchMainCategoryId("");
+    setSearchSubcategoryId("");
     setIsSearchExpanded(false);
   };
 
@@ -875,6 +904,48 @@ const GroupConversationPage = () => {
         </button>
       )}
       <div className={`search-shell ${isSearchOpen ? "expanded" : ""}`}>
+        <div className="groups-search-filter-row">
+          <label className="groups-search-filter">
+            <span>{t("groups.mainCategory", { defaultValue: "Main category" })}</span>
+            <select
+              className="groups-search-main-select"
+              value={searchMainCategoryId}
+              onChange={(event) => {
+                setSearchMainCategoryId(event.target.value);
+                setSearchSubcategoryId("");
+              }}
+            >
+              <option value="">
+                {t("groups.chooseMainCategory", { defaultValue: "Choose main category" })}
+              </option>
+              {COMMUNITY_CATEGORIES.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {getCategoryLabel(category)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="groups-search-filter">
+            <span>{t("groups.subCategory", { defaultValue: "Sub-category" })}</span>
+            <select
+              className="groups-search-subcategory-select"
+              value={searchSubcategoryId}
+              onChange={(event) => setSearchSubcategoryId(event.target.value)}
+              disabled={!searchMainCategory}
+            >
+              <option value="">
+                {searchMainCategory
+                  ? t("groups.chooseSubCategory", { defaultValue: "Choose sub-category" })
+                  : t("groups.chooseMainCategory", { defaultValue: "Choose main category" })}
+              </option>
+              {searchMainCategory?.subcategories.map((subcategory) => (
+                <option key={subcategory.id} value={subcategory.id}>
+                  {getSubcategoryLabel(searchMainCategory, subcategory)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <div className="search-field">
           <label className="sr-only" htmlFor="group-search">
             {t("groups.searchGroups")}
@@ -1021,7 +1092,7 @@ const GroupConversationPage = () => {
         )}
 
         <div className="groups-command-bar" aria-label={t("groups.communityActions", { defaultValue: "Community actions" })}>
-          {renderSearchControl()}
+          {isAtCommunityRoot && renderSearchControl()}
           <div className="groups-command-actions">
             <button
               type="button"
@@ -1029,9 +1100,12 @@ const GroupConversationPage = () => {
               onClick={openInvitationsPanel}
             >
               {t("groups.invitationsButton")}
-              {invitationCount > 0 && (
-                <span className="groups-invitations-count">{invitationCount}</span>
-              )}
+              <Badge
+                count={invitationCount}
+                size="compact"
+                className="groups-action-badge groups-invitations-count"
+                ariaLabel={`${t("groups.invitationsButton")} ${invitationCount}`}
+              />
             </button>
           </div>
         </div>

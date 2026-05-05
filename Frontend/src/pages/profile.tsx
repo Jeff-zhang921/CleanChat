@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import BottomNav from "../components/BottomNav";
+import Badge from "../components/Badge";
 import {
   getAvatarOption,
   getAvatarToneClass,
@@ -29,6 +30,7 @@ import {
   type ProfileUser,
 } from "../utils/profileUser";
 import { formatRegion } from "../utils/region";
+import { useNotificationBadges } from "../state/notificationBadgeContext";
 import "./profile.css";
 
 type OwnedGroupSummary = {
@@ -97,6 +99,7 @@ const ProfilePage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const { pendingDirectRequests, pendingGroupRequests } = useNotificationBadges();
   const routeState = (location.state as ProfileRouteState | null) ?? null;
   const seededUser = routeState?.user ? hydrateProfileUser(routeState.user) : null;
   const [loading, setLoading] = useState(!seededUser);
@@ -711,7 +714,7 @@ const ProfilePage = () => {
                 </button>
                 <button
                   type="button"
-                  className="profile-action-row"
+                  className="profile-action-row profile-user-requests-action"
                   onClick={openUserRequestHub}
                 >
                   <span className="profile-action-row-copy">
@@ -722,11 +725,17 @@ const ProfilePage = () => {
                       {t("profile.userRequestsNote")}
                     </span>
                   </span>
+                  <Badge
+                    count={pendingDirectRequests}
+                    size="compact"
+                    className="profile-action-row-badge profile-user-requests-badge"
+                    ariaLabel={`${t("profile.manageUserRequests")} ${pendingDirectRequests}`}
+                  />
                   <span className="profile-action-row-arrow" aria-hidden="true">{"\u2192"}</span>
                 </button>
                 <button
                   type="button"
-                  className="profile-action-row"
+                  className="profile-action-row profile-group-access-action"
                   onClick={openGroupRequestHub}
                 >
                   <span className="profile-action-row-copy">
@@ -737,6 +746,12 @@ const ProfilePage = () => {
                       {t("profile.groupAccessNote")}
                     </span>
                   </span>
+                  <Badge
+                    count={pendingGroupRequests}
+                    size="compact"
+                    className="profile-action-row-badge profile-group-access-badge"
+                    ariaLabel={`${t("profile.manageGroupAccess")} ${pendingGroupRequests}`}
+                  />
                   <span className="profile-action-row-arrow" aria-hidden="true">{"\u2192"}</span>
                 </button>
               </div>

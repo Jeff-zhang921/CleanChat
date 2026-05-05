@@ -849,12 +849,21 @@ const pageTargets: PageTarget[] = [
       await expect(
         activeRoot.locator('.bottom-nav-link[href="/groups"] .bottom-nav-badge'),
       ).toHaveText("1");
+      await expect(
+        activeRoot.locator(".groups-invitations-trigger .groups-action-badge"),
+      ).toHaveText("1");
 
       await expect(
         activeRoot.locator(".search-input-wrap input"),
       ).toBeVisible();
-      await activeRoot.locator(".search-input-wrap input").fill("alpha");
+      await activeRoot.locator(".groups-search-main-select").selectOption("interests");
+      await expect(activeRoot.locator(".groups-search-subcategory-select")).toBeEnabled();
+      await activeRoot.locator(".groups-search-subcategory-select").selectOption("music");
+      await activeRoot.locator(".search-input-wrap input").fill("gamma");
       await expect(activeRoot.locator(".group-card").first()).toBeVisible();
+      await expect(activeRoot.locator(".group-card").first()).toContainText("Gamma Music");
+      await activeRoot.locator(".search-input-wrap input").fill("alpha");
+      await expect(activeRoot.locator(".group-card")).toHaveCount(0);
       await activeRoot.locator(".search-dismiss").click();
       const careerCategory = activeRoot.locator('[data-community-category-id="career"]');
       const frontendSubcategory = activeRoot.locator('[data-community-subcategory-id="frontend"]');
@@ -865,7 +874,9 @@ const pageTargets: PageTarget[] = [
       });
       await careerCategory.click({ position: { x: 24, y: 24 } });
       await expect(activeRoot.locator(".community-back-button")).toBeVisible();
+      await expect(activeRoot.locator(".groups-search-toolbar")).toHaveCount(0);
       await activeRoot.locator(".community-back-button").click();
+      await expect(activeRoot.locator(".groups-search-toolbar")).toBeVisible();
       await expect(careerCategory).toBeVisible();
       await careerCategory.evaluate((element) => {
         element.scrollIntoView({ block: "center", inline: "nearest" });
@@ -878,14 +889,7 @@ const pageTargets: PageTarget[] = [
       await frontendSubcategory.click({ position: { x: 24, y: 24 } });
       await expect(activeRoot.locator(".community-back-button")).toBeVisible();
       await expect(activeRoot.locator(".group-card").first()).toBeVisible();
-      await expect(
-        activeRoot.locator(".search-input-wrap input"),
-      ).toBeVisible();
-      await activeRoot.locator(".search-input-wrap input").fill("gamma");
-      await expect(activeRoot.locator(".group-card")).toHaveCount(0);
-      await activeRoot.locator(".search-input-wrap input").fill("alpha");
-      await expect(activeRoot.locator(".group-card")).toHaveCount(1);
-      await activeRoot.locator(".search-dismiss").click();
+      await expect(activeRoot.locator(".groups-search-toolbar")).toHaveCount(0);
 
       await activeRoot.locator(".groups-invitations-trigger").click();
       await expect(page.locator(".groups-invitations-modal")).toBeVisible();
@@ -1016,6 +1020,8 @@ const pageTargets: PageTarget[] = [
     readySelector: ".profile-shell",
     smoke: async (page) => {
       await expect(page.locator(".profile-avatar-main")).toBeVisible();
+      await expect(page.locator(".profile-user-requests-badge")).toHaveText("1");
+      await expect(page.locator(".profile-group-access-badge")).toHaveText("1");
       await expect(page.locator(".profile-region")).toContainText(
         "United States",
       );
