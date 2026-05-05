@@ -123,6 +123,7 @@
     "backToSubcategories": "小カテゴリへ戻る",
     "communityActions": "コミュニティ操作",
     "searchAllCommunities": "コミュニティを検索",
+    "clearFilter": "フィルターをクリア",
     "privateGroupNote": "招待専用です。コミュニティ一覧や公開検索には表示されません。",
     "privateGroupCreated": "非公開グループを作成しました。",
     "categories": {

@@ -138,6 +138,7 @@
     "backToSubcategories": "Back to sub-categories",
     "communityActions": "Community actions",
     "searchAllCommunities": "Search communities",
+    "clearFilter": "Clear filter",
     "privateGroupNote": "Invite-only. It will not appear in community lists or public search.",
     "privateGroupCreated": "Private group created.",
     "categories": {

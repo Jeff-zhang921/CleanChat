@@ -138,6 +138,7 @@
     "backToSubcategories": "返回小类",
     "communityActions": "社区操作",
     "searchAllCommunities": "搜索社区",
+    "clearFilter": "清除筛选",
     "privateGroupNote": "仅限邀请加入。它不会出现在社区列表或公开搜索里。",
     "privateGroupCreated": "私密群已创建。",
     "categories": {

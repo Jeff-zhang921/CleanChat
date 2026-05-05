@@ -171,21 +171,23 @@
 .groups-search-overlay {
   position: fixed;
   inset: 0;
-  z-index: 63;
+  z-index: 80;
   display: grid;
   place-items: center;
   padding: 1rem;
-  background: rgba(8, 11, 19, 0.42);
+  background: rgba(31, 34, 28, 0.24);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .groups-search-modal {
-  width: min(100%, 34rem);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 1rem;
+  width: min(100%, 30rem);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 1.25rem;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(249, 246, 240, 0.94)),
-    #ffffff;
-  box-shadow: 0 22px 56px rgba(12, 17, 31, 0.24);
+    radial-gradient(circle at 90% 0%, rgba(207, 246, 226, 0.76), transparent 42%),
+    rgba(255, 252, 246, 0.94);
+  box-shadow: 0 28px 70px rgba(20, 38, 28, 0.18);
   padding: 1rem;
   display: grid;
   gap: 0.78rem;
@@ -214,13 +216,26 @@
 .groups-search-modal-head h3 {
   margin: 0.18rem 0 0;
   font-family: "Space Grotesk", sans-serif;
-  font-size: 1.1rem;
+  font-size: clamp(1.35rem, 3.2vw, 1.75rem);
+}
+
+.groups-search-eyebrow {
+  margin: 0;
+  font-size: 0.74rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(23, 33, 26, 0.56);
+  font-weight: 700;
 }
 
 .groups-search-modal-actions {
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 0.5rem;
+}
+
+.groups-search-reset {
+  justify-self: start;
 }
 
 .groups-search-filter-row {
@@ -1252,25 +1267,20 @@
     gap: 0.42rem;
   }
 
-  .groups-search-overlay {
-    align-items: end;
-    padding: 0;
-  }
-
   .groups-search-modal {
-    width: 100%;
+    width: min(calc(100% - 1.4rem), 30rem);
     max-height: min(86dvh, 40rem);
     overflow-y: auto;
-    border-radius: 1.15rem 1.15rem 0 0;
-    padding:
-      0.95rem
-      0.9rem
-      max(calc(0.9rem + env(safe-area-inset-bottom, 0px)), 1rem);
+    border-radius: 1.18rem;
   }
 
   .groups-search-modal-actions {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
+  }
+
+  .groups-search-reset {
+    justify-self: stretch;
   }
 
   .community-back-button {

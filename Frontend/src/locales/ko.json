@@ -123,6 +123,7 @@
     "backToSubcategories": "하위 카테고리로 돌아가기",
     "communityActions": "커뮤니티 작업",
     "searchAllCommunities": "커뮤니티 검색",
+    "clearFilter": "필터 지우기",
     "privateGroupNote": "초대 전용입니다. 커뮤니티 목록이나 공개 검색에 표시되지 않습니다.",
     "privateGroupCreated": "비공개 그룹이 생성되었습니다.",
     "categories": {

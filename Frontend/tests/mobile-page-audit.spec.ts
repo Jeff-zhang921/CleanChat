@@ -869,7 +869,9 @@ const pageTargets: PageTarget[] = [
       await activeRoot.locator(".search-input-wrap input").fill("alpha");
       await activeRoot.locator(".groups-search-apply").click();
       await expect(activeRoot.locator(".group-card")).toHaveCount(0);
-      await activeRoot.locator(".groups-search-clear").click();
+      await activeRoot.locator(".groups-search-trigger").click();
+      await activeRoot.locator(".groups-search-reset").click();
+      await expect(activeRoot.locator(".groups-search-modal")).toHaveCount(0);
       const careerCategory = activeRoot.locator('[data-community-category-id="career"]');
       const frontendSubcategory = activeRoot.locator('[data-community-subcategory-id="frontend"]');
 

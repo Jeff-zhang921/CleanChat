@@ -123,6 +123,7 @@
     "backToSubcategories": "返回小類",
     "communityActions": "社區操作",
     "searchAllCommunities": "搜尋社區",
+    "clearFilter": "清除篩選",
     "privateGroupNote": "僅限邀請加入。它不會出現在社區列表或公開搜尋裡。",
     "privateGroupCreated": "私密群已建立。",
     "categories": {

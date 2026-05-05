@@ -714,6 +714,15 @@ const GroupConversationPage = () => {
     setDraftSearchSubcategoryId("");
     setIsSearchPanelOpen(false);
   };
+  const clearSearchFilters = () => {
+    setQuery("");
+    setSearchMainCategoryId("");
+    setSearchSubcategoryId("");
+    setDraftQuery("");
+    setDraftSearchMainCategoryId("");
+    setDraftSearchSubcategoryId("");
+    setIsSearchPanelOpen(false);
+  };
   const applySearch = () => {
     setQuery(draftQuery.trim());
     setSearchMainCategoryId(draftSearchMainCategoryId);
@@ -965,7 +974,7 @@ const GroupConversationPage = () => {
           >
             <div className="groups-search-modal-head">
               <div>
-                <p className="eyebrow">{t("groups.communitiesTitle", { defaultValue: "Communities" })}</p>
+                <p className="groups-search-eyebrow">{t("groups.communitiesTitle", { defaultValue: "Communities" })}</p>
                 <h3 id="groups-search-title">{t("groups.searchGroups")}</h3>
               </div>
               <button type="button" className="groups-search-modal-close" onClick={closeSearchPanel}>
@@ -1046,6 +1055,9 @@ const GroupConversationPage = () => {
             </div>
 
             <div className="groups-search-modal-actions">
+              <button type="button" className="group-action cancel groups-search-reset" onClick={clearSearchFilters}>
+                {t("groups.clearFilter", { defaultValue: "Clear filter" })}
+              </button>
               <button type="button" className="group-action cancel" onClick={closeSearchPanel}>
                 {t("common.cancel")}
               </button>
