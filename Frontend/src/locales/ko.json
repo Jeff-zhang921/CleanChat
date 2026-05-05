@@ -95,6 +95,64 @@
     "visibleCount": "표시 중인 그룹 {{count}}개",
     "joinedAndDiscover": "가입 {{joined}}개 · 탐색 {{discover}}개",
     "createGroup": "그룹 만들기",
+    "communitiesTitle": "커뮤니티",
+    "categoryPageCopy": "먼저 큰 카테고리를 선택하세요. 비공개 그룹은 숨겨져 있으며 초대로만 참여할 수 있습니다.",
+    "subcategoryPageCopy": "알맞은 커뮤니티 목록으로 가려면 하위 카테고리를 선택하세요.",
+    "communityListCopy": "{{subcategory}}의 공개 커뮤니티에 참여하거나, 승인 필요 시 신청하세요.",
+    "categoryTrail": "카테고리 경로",
+    "mainCategories": "큰 카테고리",
+    "mainCategory": "큰 카테고리",
+    "subCategories": "하위 카테고리",
+    "subCategory": "하위 카테고리",
+    "subCategoryHint": "{{category}}의 커뮤니티를 둘러보세요.",
+    "communityCount": "커뮤니티 {{count}}개",
+    "createCommunity": "커뮤니티 만들기",
+    "createPrivateGroup": "비공개 그룹 만들기",
+    "newCommunity": "새 커뮤니티",
+    "newPrivateGroup": "새 비공개 그룹",
+    "createCommunityHint": "공개 또는 승인형 커뮤니티를 열기 전에 정확한 카테고리를 선택하세요.",
+    "createPrivateGroupHint": "비공개 그룹은 숨겨집니다. 새 멤버는 그룹 안의 초대로만 참여할 수 있습니다.",
+    "chooseCommunityCategory": "큰 카테고리와 하위 카테고리를 선택하세요.",
+    "creatingCommunity": "커뮤니티를 만드는 중...",
+    "creatingPrivateGroup": "비공개 그룹을 만드는 중...",
+    "chooseMainCategory": "큰 카테고리 선택",
+    "chooseSubCategory": "하위 카테고리 선택",
+    "joinedCommunities": "참여 중인 커뮤니티",
+    "backToCategories": "큰 카테고리로 돌아가기",
+    "backToSubcategories": "하위 카테고리로 돌아가기",
+    "communityActions": "커뮤니티 작업",
+    "searchAllCommunities": "커뮤니티 검색",
+    "privateGroupNote": "초대 전용입니다. 커뮤니티 목록이나 공개 검색에 표시되지 않습니다.",
+    "privateGroupCreated": "비공개 그룹이 생성되었습니다.",
+    "categories": {
+      "campus-life": {
+        "label": "캠퍼스 생활",
+        "description": "일상적인 캠퍼스 요구, 지역 질문, 현실적인 협업.",
+        "subcategories": {
+          "study": "공부",
+          "events": "이벤트",
+          "housing": "주거"
+        }
+      },
+      "interests": {
+        "label": "관심사",
+        "description": "공통 취미를 위한 부담 없는 공간.",
+        "subcategories": {
+          "music": "음악",
+          "gaming": "게임",
+          "fitness": "피트니스"
+        }
+      },
+      "career": {
+        "label": "커리어",
+        "description": "직무 학습, 포트폴리오 도움, 집중 연습.",
+        "subcategories": {
+          "frontend": "프론트엔드",
+          "backend": "백엔드",
+          "design": "디자인"
+        }
+      }
+    },
     "noGroupsFound": "그룹을 찾을 수 없습니다.",
     "joinedGroups": "가입한 그룹",
     "joinedGroupsHint": "자주 쓰는 방을 상단에 두어 빠르게 다시 들어갑니다.",

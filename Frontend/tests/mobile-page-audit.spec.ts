@@ -392,11 +392,23 @@ const handleBackendRoute = async (route: Route) => {
   }
 
   if (path === "/chat/groups" && method === "POST") {
+    const requestBody = route.request().postDataJSON() as
+      | {
+          groupKind?: string;
+          name?: string;
+          mainCategoryId?: string;
+          subcategoryId?: string;
+        }
+      | undefined;
+    const isPrivateGroup = requestBody?.groupKind === "private";
     await routeJson(route, {
       group: {
         ...groups[0],
-        id: "created",
-        name: "Created Group",
+        id: isPrivateGroup ? "private-created" : "created",
+        name: requestBody?.name || (isPrivateGroup ? "Created Private Group" : "Created Group"),
+        groupKind: isPrivateGroup ? "private" : "community",
+        mainCategoryId: isPrivateGroup ? null : requestBody?.mainCategoryId ?? "career",
+        subcategoryId: isPrivateGroup ? null : requestBody?.subcategoryId ?? "frontend",
         joined: true,
         isOwner: true,
       },
@@ -818,9 +830,32 @@ const pageTargets: PageTarget[] = [
       await expect(
         activeRoot.locator('.bottom-nav-link[href="/groups"] .bottom-nav-badge'),
       ).toHaveText("1");
-      await activeRoot.locator(".community-category-card", { hasText: "Career" }).click();
-      await expect(activeRoot.locator(".community-subcategory-card", { hasText: "Frontend" })).toBeVisible();
-      await activeRoot.locator(".community-subcategory-card", { hasText: "Frontend" }).click();
+
+      await activeRoot.locator(".search-launcher").click();
+      await activeRoot.locator(".search-input-wrap input").fill("alpha");
+      await expect(activeRoot.locator(".group-card").first()).toBeVisible();
+      await activeRoot.locator(".search-dismiss").click();
+      const careerCategory = activeRoot.locator('[data-community-category-id="career"]');
+      const frontendSubcategory = activeRoot.locator('[data-community-subcategory-id="frontend"]');
+
+      await expect(careerCategory).toBeVisible();
+      await careerCategory.evaluate((element) => {
+        element.scrollIntoView({ block: "center", inline: "nearest" });
+      });
+      await careerCategory.click({ position: { x: 24, y: 24 } });
+      await expect(activeRoot.locator(".community-back-button")).toBeVisible();
+      await activeRoot.locator(".community-back-button").click();
+      await expect(careerCategory).toBeVisible();
+      await careerCategory.evaluate((element) => {
+        element.scrollIntoView({ block: "center", inline: "nearest" });
+      });
+      await careerCategory.click({ position: { x: 24, y: 24 } });
+      await expect(frontendSubcategory).toBeVisible();
+      await frontendSubcategory.evaluate((element) => {
+        element.scrollIntoView({ block: "center", inline: "nearest" });
+      });
+      await frontendSubcategory.click({ position: { x: 24, y: 24 } });
+      await expect(activeRoot.locator(".community-back-button")).toBeVisible();
       await expect(activeRoot.locator(".group-card").first()).toBeVisible();
       await activeRoot.locator(".search-launcher").click();
       await expect(
@@ -849,6 +884,17 @@ const pageTargets: PageTarget[] = [
         .locator(".groups-create-modal .group-action.cancel")
         .click({ force: true });
       await expect(page.locator(".groups-create-modal")).toBeHidden();
+
+      await activeRoot.locator(".groups-create-private-trigger").click();
+      await expect(
+        page.locator(".groups-create-modal .group-create-panel"),
+      ).toBeVisible();
+      await expect(page.locator(".groups-create-modal select")).toHaveCount(0);
+      await expect(page.locator(".group-create-private-note")).toBeVisible();
+      await page
+        .locator(".groups-create-modal .group-action.cancel")
+        .click({ force: true });
+      await expect(page.locator(".groups-create-modal")).toBeHidden();
     },
   },
   {
@@ -867,7 +913,7 @@ const pageTargets: PageTarget[] = [
     name: "chat-direct",
     path: "/chat/2",
     authenticated: true,
-    readySelector: ".chat-bubble",
+    readySelector: ".chat-bubble:not(.chat-bubble-skeleton)",
     smoke: async (page) => {
       await expectChatHistoryScrollable(page, "direct chat");
       await page.locator(".chat-input input[type='text']").fill("mobile smoke");
@@ -881,7 +927,7 @@ const pageTargets: PageTarget[] = [
     name: "chat-group",
     path: "/chat/group/alpha",
     authenticated: true,
-    readySelector: ".chat-bubble",
+    readySelector: ".chat-bubble:not(.chat-bubble-skeleton)",
     smoke: async (page) => {
       await expectChatHistoryScrollable(page, "group chat");
       await page.locator(".chat-input input[type='text']").fill("group smoke");
@@ -1020,7 +1066,8 @@ const pageTargets: PageTarget[] = [
       const saveButton = page.locator(".profile-edit-action-primary").last();
       await saveButton.scrollIntoViewIfNeeded();
       await saveButton.click();
-      await expect(page).toHaveURL(/\/profile/);
+      await expect(page).toHaveURL(/\/profile$/);
+      await expect(page.locator(".profile-shell")).toBeVisible();
     },
   },
   {
@@ -1308,3 +1355,34 @@ const runPageAudit = (deviceName: string, device: typeof pixel7Device) => {
 
 runPageAudit("pixel7", pixel7Device);
 runPageAudit("ipad-pro-11", ipadPro11Device);
+
+test.describe("desktop group page audit", () => {
+  test.use({
+    viewport: { width: 1366, height: 900 },
+    deviceScaleFactor: 1,
+    isMobile: false,
+    hasTouch: false,
+    reducedMotion: "reduce",
+    serviceWorkers: "block",
+  });
+
+  test("groups actions, search, and creation controls fit desktop", async ({ page }) => {
+    test.setTimeout(60_000);
+    const target = pageTargets.find((item) => item.name === "groups");
+    expect(target).toBeTruthy();
+    if (!target) return;
+
+    await installApiMocks(page);
+    await installSession(page, target.authenticated);
+    await page.goto(target.path, { waitUntil: "domcontentloaded" });
+    await expect(page.locator(target.readySelector).first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await waitForLayoutSettled(page);
+    await assertPageUsable(page, "desktop:groups");
+
+    await target.smoke?.(page);
+    await waitForLayoutSettled(page);
+    await assertPageUsable(page, "desktop:groups:after-smoke");
+  });
+});

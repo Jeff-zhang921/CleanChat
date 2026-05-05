@@ -95,6 +95,64 @@
     "visibleCount": "目前顯示 {{count}} 個群組",
     "joinedAndDiscover": "已加入 {{joined}} 個 · 待探索 {{discover}} 個",
     "createGroup": "建立群組",
+    "communitiesTitle": "社區",
+    "categoryPageCopy": "先選擇一個大類。私密群會保持隱藏，只能透過邀請加入。",
+    "subcategoryPageCopy": "選擇一個小類，進入對應的社區列表。",
+    "communityListCopy": "加入 {{subcategory}} 下的公開社區；如果需要審核，先提交申請。",
+    "categoryTrail": "分類路徑",
+    "mainCategories": "大類",
+    "mainCategory": "大類",
+    "subCategories": "小類",
+    "subCategory": "小類",
+    "subCategoryHint": "瀏覽 {{category}} 下的社區。",
+    "communityCount": "{{count}} 個社區",
+    "createCommunity": "建立社區",
+    "createPrivateGroup": "建立私密群",
+    "newCommunity": "新社區",
+    "newPrivateGroup": "新私密群",
+    "createCommunityHint": "建立公開或需要審核的社區前，請先選擇準確分類。",
+    "createPrivateGroupHint": "私密群不會公開展示，新成員只能透過群內邀請加入。",
+    "chooseCommunityCategory": "請選擇大類和小類。",
+    "creatingCommunity": "正在建立社區...",
+    "creatingPrivateGroup": "正在建立私密群...",
+    "chooseMainCategory": "選擇大類",
+    "chooseSubCategory": "選擇小類",
+    "joinedCommunities": "已加入的社區",
+    "backToCategories": "返回大類",
+    "backToSubcategories": "返回小類",
+    "communityActions": "社區操作",
+    "searchAllCommunities": "搜尋社區",
+    "privateGroupNote": "僅限邀請加入。它不會出現在社區列表或公開搜尋裡。",
+    "privateGroupCreated": "私密群已建立。",
+    "categories": {
+      "campus-life": {
+        "label": "校園生活",
+        "description": "日常校園需求、本地問題和現實協作。",
+        "subcategories": {
+          "study": "學習",
+          "events": "活動",
+          "housing": "住房"
+        }
+      },
+      "interests": {
+        "label": "興趣",
+        "description": "圍繞共同愛好建立的低壓力空間。",
+        "subcategories": {
+          "music": "音樂",
+          "gaming": "遊戲",
+          "fitness": "健身"
+        }
+      },
+      "career": {
+        "label": "職涯發展",
+        "description": "職涯學習、作品集協助和專注練習。",
+        "subcategories": {
+          "frontend": "前端",
+          "backend": "後端",
+          "design": "設計"
+        }
+      }
+    },
     "noGroupsFound": "找不到群組。",
     "joinedGroups": "已加入群組",
     "joinedGroupsHint": "活躍房間置頂，方便快速回到對話。",

@@ -9,6 +9,8 @@ import {
   findCommunityCategory,
   findCommunitySubcategory,
   isValidCommunityCategoryPair,
+  type CommunityCategory,
+  type CommunitySubcategory,
 } from "../constants/communityCategories";
 import { GROUP_AVATAR_OPTIONS, type GroupAvatarKey } from "../constants/groupAvatars";
 import { useNotificationBadges } from "../state/notificationBadgeContext";
@@ -104,6 +106,7 @@ const GroupConversationPage = () => {
   const [query, setQuery] = useState("");
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
+  const [createGroupKind, setCreateGroupKind] = useState<GroupKind>("community");
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupDescription, setNewGroupDescription] = useState("");
   const [newGroupMainCategoryId, setNewGroupMainCategoryId] = useState("");
@@ -129,6 +132,22 @@ const GroupConversationPage = () => {
   const selectedSubcategoryId = pathSegments[2] ? decodeURIComponent(pathSegments[2]) : "";
   const selectedMainCategory = findCommunityCategory(selectedMainCategoryId);
   const selectedSubcategory = findCommunitySubcategory(selectedMainCategoryId, selectedSubcategoryId);
+
+  const getCategoryLabel = (category: CommunityCategory) =>
+    t(`groups.categories.${category.id}.label`, { defaultValue: category.label });
+
+  const getCategoryDescription = (category: CommunityCategory) =>
+    t(`groups.categories.${category.id}.description`, {
+      defaultValue: category.description,
+    });
+
+  const getSubcategoryLabel = (
+    category: CommunityCategory,
+    subcategory: CommunitySubcategory,
+  ) =>
+    t(`groups.categories.${category.id}.subcategories.${subcategory.id}`, {
+      defaultValue: subcategory.label,
+    });
 
   const showStatusToast = (toastMessage: string, durationMs = 2200) => {
     setStatus(toastMessage);
@@ -276,12 +295,27 @@ const GroupConversationPage = () => {
   const filteredGroups = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) return communitiesInSelectedSubcategory;
-    return communitiesInSelectedSubcategory.filter(
-      (group) =>
-        group.name.toLowerCase().includes(normalizedQuery) ||
-        group.description.toLowerCase().includes(normalizedQuery),
-    );
-  }, [communitiesInSelectedSubcategory, query]);
+    return communityGroups.filter((group) => {
+      const category = findCommunityCategory(group.mainCategoryId);
+      const subcategory = findCommunitySubcategory(
+        group.mainCategoryId,
+        group.subcategoryId,
+      );
+      const searchableText = [
+        group.name,
+        group.description,
+        category?.label,
+        category?.description,
+        subcategory?.label,
+        group.mainCategoryId,
+        group.subcategoryId,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return searchableText.includes(normalizedQuery);
+    });
+  }, [communitiesInSelectedSubcategory, communityGroups, query]);
 
   const openGroupChat = (group: GroupSummary) => {
     navigate("/chat", {
@@ -329,16 +363,19 @@ const GroupConversationPage = () => {
     }
   };
 
-  const openCreatePanel = () => {
-    setNewGroupMainCategoryId(selectedMainCategory?.id ?? "");
-    setNewGroupSubcategoryId(selectedSubcategory?.id ?? "");
+  const openCreatePanel = (groupKind: GroupKind = "community") => {
+    setCreateGroupKind(groupKind);
+    setNewGroupMainCategoryId(groupKind === "community" ? selectedMainCategory?.id ?? "" : "");
+    setNewGroupSubcategoryId(groupKind === "community" ? selectedSubcategory?.id ?? "" : "");
+    setNewGroupRequiresApproval(false);
     setIsCreatePanelOpen(true);
   };
 
   const handleCreateGroup = async () => {
     const name = newGroupName.trim().replace(/\s+/g, " ");
     const description = newGroupDescription.trim();
-    if (!isValidCommunityCategoryPair(newGroupMainCategoryId, newGroupSubcategoryId)) {
+    const isPrivateGroup = createGroupKind === "private";
+    if (!isPrivateGroup && !isValidCommunityCategoryPair(newGroupMainCategoryId, newGroupSubcategoryId)) {
       setStatus(t("groups.chooseCommunityCategory", { defaultValue: "Choose a main category and sub-category." }));
       return;
     }
@@ -352,19 +389,23 @@ const GroupConversationPage = () => {
     }
 
     setIsCreating(true);
-    setStatus(t("groups.creatingCommunity", { defaultValue: "Creating community..." }));
+    setStatus(
+      isPrivateGroup
+        ? t("groups.creatingPrivateGroup", { defaultValue: "Creating private group..." })
+        : t("groups.creatingCommunity", { defaultValue: "Creating community..." }),
+    );
     try {
       const response = await fetch(`${BACKEND_URL}/chat/groups`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          groupKind: "community",
-          mainCategoryId: newGroupMainCategoryId,
-          subcategoryId: newGroupSubcategoryId,
+          groupKind: createGroupKind,
+          mainCategoryId: isPrivateGroup ? undefined : newGroupMainCategoryId,
+          subcategoryId: isPrivateGroup ? undefined : newGroupSubcategoryId,
           name,
           description,
-          requiresApproval: newGroupRequiresApproval,
+          requiresApproval: !isPrivateGroup && newGroupRequiresApproval,
           avatarKey: newGroupAvatarKey,
         }),
       });
@@ -379,13 +420,15 @@ const GroupConversationPage = () => {
         setStatus(t("groups.createMissingData"));
         return;
       }
-      setGroups((prev) => [createdGroup, ...prev.filter((item) => item.id !== createdGroup.id)]);
+      if (!isPrivateGroup) {
+        setGroups((prev) => [createdGroup, ...prev.filter((item) => item.id !== createdGroup.id)]);
+      }
       setNewGroupName("");
       setNewGroupDescription("");
       setNewGroupAvatarKey(GROUP_AVATAR_OPTIONS[0].key);
       setNewGroupRequiresApproval(false);
       setIsCreatePanelOpen(false);
-      setStatus("");
+      setStatus(isPrivateGroup ? t("groups.privateGroupCreated", { defaultValue: "Private group created." }) : "");
       openGroupChat(createdGroup);
     } catch {
       setStatus(t("groups.createFailed"));
@@ -574,7 +617,20 @@ const GroupConversationPage = () => {
   const invitationCount = groupInvitations.length;
   const isSearchOpen = isSearchExpanded || hasQuery;
   const getGroupAvatarLabel = (key: GroupAvatarKey) => t(GROUP_AVATAR_LABEL_KEYS[key]);
-  const selectedSubcategoryLabel = selectedSubcategory?.label ?? "";
+  const selectedMainCategoryLabel = selectedMainCategory ? getCategoryLabel(selectedMainCategory) : "";
+  const selectedSubcategoryLabel =
+    selectedMainCategory && selectedSubcategory
+      ? getSubcategoryLabel(selectedMainCategory, selectedSubcategory)
+      : "";
+  const backTarget =
+    selectedMainCategory && selectedSubcategory
+      ? buildCategoryPath(selectedMainCategory.id)
+      : "/groups";
+  const backLabel =
+    selectedMainCategory && selectedSubcategory
+      ? t("groups.backToSubcategories", { defaultValue: "Back to sub-categories" })
+      : t("groups.backToCategories", { defaultValue: "Back to categories" });
+  const isCreatingPrivateGroup = createGroupKind === "private";
 
   const openSearch = () => {
     setIsSearchExpanded(true);
@@ -742,19 +798,23 @@ const GroupConversationPage = () => {
 
   const renderMainCategories = () => (
     <section className="community-category-grid" aria-label={t("groups.mainCategories", { defaultValue: "Main categories" })}>
-      {COMMUNITY_CATEGORIES.map((category) => (
-        <button
-          key={category.id}
-          type="button"
-          className="community-category-card"
-          onClick={() => navigate(buildCategoryPath(category.id))}
-        >
-          <span>{t("groups.mainCategory", { defaultValue: "Main category" })}</span>
-          <strong>{category.label}</strong>
-          <p>{category.description}</p>
-          <em>{t("groups.communityCount", { defaultValue: "{{count}} communities", count: getCommunityCount(category.id) })}</em>
-        </button>
-      ))}
+      {COMMUNITY_CATEGORIES.map((category) => {
+        const categoryLabel = getCategoryLabel(category);
+        return (
+          <button
+            key={category.id}
+            type="button"
+            className="community-category-card"
+            data-community-category-id={category.id}
+            onClick={() => navigate(buildCategoryPath(category.id))}
+          >
+            <span>{t("groups.mainCategory", { defaultValue: "Main category" })}</span>
+            <strong>{categoryLabel}</strong>
+            <p>{getCategoryDescription(category)}</p>
+            <em>{t("groups.communityCount", { defaultValue: "{{count}} communities", count: getCommunityCount(category.id) })}</em>
+          </button>
+        );
+      })}
     </section>
   );
 
@@ -767,14 +827,15 @@ const GroupConversationPage = () => {
             key={subcategory.id}
             type="button"
             className="community-category-card community-subcategory-card"
+            data-community-subcategory-id={subcategory.id}
             onClick={() => navigate(buildCategoryPath(selectedMainCategory.id, subcategory.id))}
           >
             <span>{t("groups.subCategory", { defaultValue: "Sub-category" })}</span>
-            <strong>{subcategory.label}</strong>
+            <strong>{getSubcategoryLabel(selectedMainCategory, subcategory)}</strong>
             <p>
               {t("groups.subCategoryHint", {
                 defaultValue: "Browse communities in {{category}}.",
-                category: selectedMainCategory.label,
+                category: getCategoryLabel(selectedMainCategory),
               })}
             </p>
             <em>{t("groups.communityCount", { defaultValue: "{{count}} communities", count: getCommunityCount(selectedMainCategory.id, subcategory.id) })}</em>
@@ -784,60 +845,64 @@ const GroupConversationPage = () => {
     );
   };
 
-  const renderCommunityList = () => (
-    <>
-      <div className={`conversations-toolbar ${isSearchOpen ? "search-open" : ""}`}>
-        {!isSearchOpen && (
-          <button
-            type="button"
-            className="search-launcher"
-            aria-label={t("groups.openSearch")}
-            onClick={openSearch}
-          >
-            <SearchGlyph />
-          </button>
-        )}
-        <div className={`search-shell ${isSearchOpen ? "expanded" : ""}`}>
-          <div className="search-field">
-            <label className="sr-only" htmlFor="group-search">
-              {t("groups.searchGroups")}
-            </label>
-            <div className="search-input-wrap">
-              <span className="search-icon">
-                <SearchGlyph />
-              </span>
-              <input
-                ref={searchInputRef}
-                id="group-search"
-                type="text"
-                placeholder={t("groups.searchPlaceholder")}
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onFocus={openSearch}
-                onBlur={() => {
-                  if (!query.trim()) {
-                    setIsSearchExpanded(false);
-                  }
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") {
-                    closeSearch();
-                  }
-                }}
-              />
-              <button
-                type="button"
-                className="search-dismiss"
-                aria-label={t("groups.closeSearch")}
-                onClick={closeSearch}
-              >
-                {t("common.close")}
-              </button>
-            </div>
+  const renderSearchControl = () => (
+    <div className={`conversations-toolbar groups-search-toolbar ${isSearchOpen ? "search-open" : ""}`}>
+      {!isSearchOpen && (
+        <button
+          type="button"
+          className="search-launcher"
+          aria-label={t("groups.openSearch")}
+          onClick={openSearch}
+        >
+          <SearchGlyph />
+        </button>
+      )}
+      <div className={`search-shell ${isSearchOpen ? "expanded" : ""}`}>
+        <div className="search-field">
+          <label className="sr-only" htmlFor="group-search">
+            {t("groups.searchGroups")}
+          </label>
+          <div className="search-input-wrap">
+            <span className="search-icon">
+              <SearchGlyph />
+            </span>
+            <input
+              ref={searchInputRef}
+              id="group-search"
+              type="text"
+              placeholder={t("groups.searchAllCommunities", {
+                defaultValue: "Search communities",
+              })}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onFocus={openSearch}
+              onBlur={() => {
+                if (!query.trim()) {
+                  setIsSearchExpanded(false);
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  closeSearch();
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="search-dismiss"
+              aria-label={t("groups.closeSearch")}
+              onClick={closeSearch}
+            >
+              {t("common.close")}
+            </button>
           </div>
         </div>
       </div>
+    </div>
+  );
 
+  const renderCommunityList = () => (
+    <>
       <div className="groups-stage-bar">
         <div className="groups-stage-copy">
           <h2>{hasQuery ? t("groups.searchResults") : selectedSubcategoryLabel}</h2>
@@ -849,25 +914,6 @@ const GroupConversationPage = () => {
                   discover: discoverInSelectedSubcategory.length,
                 })}
           </span>
-        </div>
-        <div className="groups-stage-actions">
-          <button
-            type="button"
-            className="group-action invitations groups-invitations-trigger"
-            onClick={openInvitationsPanel}
-          >
-            {t("groups.invitationsButton")}
-            {invitationCount > 0 && (
-              <span className="groups-invitations-count">{invitationCount}</span>
-            )}
-          </button>
-          <button
-            type="button"
-            className="group-action create groups-create-trigger"
-            onClick={openCreatePanel}
-          >
-            {t("groups.createCommunity", { defaultValue: "Create Community" })}
-          </button>
         </div>
       </div>
 
@@ -905,14 +951,14 @@ const GroupConversationPage = () => {
   );
 
   const pageTitle = selectedSubcategory
-    ? selectedSubcategory.label
+    ? selectedSubcategoryLabel
     : selectedMainCategory
-      ? selectedMainCategory.label
+      ? selectedMainCategoryLabel
       : t("groups.communitiesTitle", { defaultValue: "Communities" });
   const pageCopy = selectedSubcategory
     ? t("groups.communityListCopy", {
         defaultValue: "Join public communities in {{subcategory}}, or apply when approval is required.",
-        subcategory: selectedSubcategory.label,
+        subcategory: selectedSubcategoryLabel,
       })
     : selectedMainCategory
       ? t("groups.subcategoryPageCopy", {
@@ -939,34 +985,62 @@ const GroupConversationPage = () => {
           </button>
           {selectedMainCategory && (
             <button type="button" onClick={() => navigate(buildCategoryPath(selectedMainCategory.id))}>
-              {selectedMainCategory.label}
+              {selectedMainCategoryLabel}
             </button>
           )}
-          {selectedSubcategory && <span>{selectedSubcategory.label}</span>}
+          {selectedSubcategory && <span>{selectedSubcategoryLabel}</span>}
         </div>
 
-        {!selectedMainCategory && renderMainCategories()}
-        {selectedMainCategory && !selectedSubcategory && renderSubcategories()}
-        {selectedMainCategory && selectedSubcategory && renderCommunityList()}
-      </div>
-
-      {!selectedSubcategory && (
-        <div className="groups-floating-actions">
+        {(selectedMainCategory || selectedSubcategory) && (
           <button
             type="button"
-            className="group-action invitations groups-invitations-trigger"
-            onClick={openInvitationsPanel}
+            className="community-back-button"
+            onClick={() => navigate(backTarget)}
           >
-            {t("groups.invitationsButton")}
-            {invitationCount > 0 && (
-              <span className="groups-invitations-count">{invitationCount}</span>
-            )}
+            {backLabel}
           </button>
-          <button type="button" className="group-action create" onClick={openCreatePanel}>
-            {t("groups.createCommunity", { defaultValue: "Create Community" })}
-          </button>
+        )}
+
+        <div className="groups-command-bar" aria-label={t("groups.communityActions", { defaultValue: "Community actions" })}>
+          {renderSearchControl()}
+          <div className="groups-command-actions">
+            <button
+              type="button"
+              className="group-action invitations groups-invitations-trigger"
+              onClick={openInvitationsPanel}
+            >
+              {t("groups.invitationsButton")}
+              {invitationCount > 0 && (
+                <span className="groups-invitations-count">{invitationCount}</span>
+              )}
+            </button>
+            <button
+              type="button"
+              className="group-action create groups-create-trigger"
+              onClick={() => openCreatePanel("community")}
+            >
+              {t("groups.createCommunity", { defaultValue: "Create Community" })}
+            </button>
+            <button
+              type="button"
+              className="group-action private groups-create-private-trigger"
+              onClick={() => openCreatePanel("private")}
+            >
+              {t("groups.createPrivateGroup", { defaultValue: "Create Private Group" })}
+            </button>
+          </div>
         </div>
-      )}
+
+        {hasQuery ? (
+          renderCommunityList()
+        ) : (
+          <>
+            {!selectedMainCategory && renderMainCategories()}
+            {selectedMainCategory && !selectedSubcategory && renderSubcategories()}
+            {selectedMainCategory && selectedSubcategory && renderCommunityList()}
+          </>
+        )}
+      </div>
 
       {isCreatePanelOpen && (
         <div className="groups-create-overlay" role="presentation" onClick={() => setIsCreatePanelOpen(false)}>
@@ -979,9 +1053,25 @@ const GroupConversationPage = () => {
           >
             <div className="groups-create-head">
               <div>
-                <p className="eyebrow">{t("groups.newCommunity", { defaultValue: "New Community" })}</p>
-                <h3 id="create-group-title">{t("groups.createCommunity", { defaultValue: "Create Community" })}</h3>
-                <p>{t("groups.createCommunityHint", { defaultValue: "Pick the exact category before opening a public or approval-based community." })}</p>
+                <p className="eyebrow">
+                  {isCreatingPrivateGroup
+                    ? t("groups.newPrivateGroup", { defaultValue: "New Private Group" })
+                    : t("groups.newCommunity", { defaultValue: "New Community" })}
+                </p>
+                <h3 id="create-group-title">
+                  {isCreatingPrivateGroup
+                    ? t("groups.createPrivateGroup", { defaultValue: "Create Private Group" })
+                    : t("groups.createCommunity", { defaultValue: "Create Community" })}
+                </h3>
+                <p>
+                  {isCreatingPrivateGroup
+                    ? t("groups.createPrivateGroupHint", {
+                        defaultValue: "Private groups stay hidden. New members can only join from invites inside the group.",
+                      })
+                    : t("groups.createCommunityHint", {
+                        defaultValue: "Pick the exact category before opening a public or approval-based community.",
+                      })}
+                </p>
               </div>
               <button
                 type="button"
@@ -994,41 +1084,52 @@ const GroupConversationPage = () => {
             </div>
 
             <section className="group-create-panel">
-              <div className="group-create-category-grid">
-                <label className="group-create-field">
-                  <span>{t("groups.mainCategory", { defaultValue: "Main category" })}</span>
-                  <select
-                    value={newGroupMainCategoryId}
-                    onChange={(event) => {
-                      setNewGroupMainCategoryId(event.target.value);
-                      setNewGroupSubcategoryId("");
-                    }}
-                    disabled={isCreating}
-                  >
-                    <option value="">{t("groups.chooseMainCategory", { defaultValue: "Choose main category" })}</option>
-                    {COMMUNITY_CATEGORIES.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="group-create-field">
-                  <span>{t("groups.subCategory", { defaultValue: "Sub-category" })}</span>
-                  <select
-                    value={newGroupSubcategoryId}
-                    onChange={(event) => setNewGroupSubcategoryId(event.target.value)}
-                    disabled={isCreating || !newGroupMainCategoryId}
-                  >
-                    <option value="">{t("groups.chooseSubCategory", { defaultValue: "Choose sub-category" })}</option>
-                    {findCommunityCategory(newGroupMainCategoryId)?.subcategories.map((subcategory) => (
-                      <option key={subcategory.id} value={subcategory.id}>
-                        {subcategory.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+              {!isCreatingPrivateGroup ? (
+                <div className="group-create-category-grid">
+                  <label className="group-create-field">
+                    <span>{t("groups.mainCategory", { defaultValue: "Main category" })}</span>
+                    <select
+                      value={newGroupMainCategoryId}
+                      onChange={(event) => {
+                        setNewGroupMainCategoryId(event.target.value);
+                        setNewGroupSubcategoryId("");
+                      }}
+                      disabled={isCreating}
+                    >
+                      <option value="">{t("groups.chooseMainCategory", { defaultValue: "Choose main category" })}</option>
+                      {COMMUNITY_CATEGORIES.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {getCategoryLabel(category)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="group-create-field">
+                    <span>{t("groups.subCategory", { defaultValue: "Sub-category" })}</span>
+                    <select
+                      value={newGroupSubcategoryId}
+                      onChange={(event) => setNewGroupSubcategoryId(event.target.value)}
+                      disabled={isCreating || !newGroupMainCategoryId}
+                    >
+                      <option value="">{t("groups.chooseSubCategory", { defaultValue: "Choose sub-category" })}</option>
+                      {findCommunityCategory(newGroupMainCategoryId)?.subcategories.map((subcategory) => {
+                        const category = findCommunityCategory(newGroupMainCategoryId);
+                        return (
+                          <option key={subcategory.id} value={subcategory.id}>
+                            {category ? getSubcategoryLabel(category, subcategory) : subcategory.label}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </label>
+                </div>
+              ) : (
+                <p className="group-create-private-note">
+                  {t("groups.privateGroupNote", {
+                    defaultValue: "Invite-only. It will not appear in community lists or public search.",
+                  })}
+                </p>
+              )}
 
               <div className="group-create-grid">
                 <input
@@ -1047,15 +1148,17 @@ const GroupConversationPage = () => {
                   maxLength={180}
                   disabled={isCreating}
                 />
-                <label className="group-create-toggle">
-                  <input
-                    type="checkbox"
-                    checked={newGroupRequiresApproval}
-                    onChange={(event) => setNewGroupRequiresApproval(event.target.checked)}
-                    disabled={isCreating}
-                  />
-                  {t("groups.requireVerification")}
-                </label>
+                {!isCreatingPrivateGroup && (
+                  <label className="group-create-toggle">
+                    <input
+                      type="checkbox"
+                      checked={newGroupRequiresApproval}
+                      onChange={(event) => setNewGroupRequiresApproval(event.target.checked)}
+                      disabled={isCreating}
+                    />
+                    {t("groups.requireVerification")}
+                  </label>
+                )}
                 <button type="button" className="group-action create" onClick={handleCreateGroup} disabled={isCreating}>
                   {isCreating ? t("groups.creating") : t("common.create")}
                 </button>

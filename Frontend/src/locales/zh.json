@@ -110,6 +110,64 @@
     "visibleCount": "当前可见 {{count}} 个群组",
     "joinedAndDiscover": "已加入 {{joined}} 个 · 待发现 {{discover}} 个",
     "createGroup": "创建群组",
+    "communitiesTitle": "社区",
+    "categoryPageCopy": "先选择一个大类。私密群会保持隐藏，只能通过邀请加入。",
+    "subcategoryPageCopy": "选择一个小类，进入对应的社区列表。",
+    "communityListCopy": "加入 {{subcategory}} 下的公开社区；如果需要审核，先提交申请。",
+    "categoryTrail": "分类路径",
+    "mainCategories": "大类",
+    "mainCategory": "大类",
+    "subCategories": "小类",
+    "subCategory": "小类",
+    "subCategoryHint": "浏览 {{category}} 下的社区。",
+    "communityCount": "{{count}} 个社区",
+    "createCommunity": "创建社区",
+    "createPrivateGroup": "创建私密群",
+    "newCommunity": "新社区",
+    "newPrivateGroup": "新私密群",
+    "createCommunityHint": "创建公开或需要审核的社区前，请先选择准确分类。",
+    "createPrivateGroupHint": "私密群不会公开展示，新成员只能通过群内邀请加入。",
+    "chooseCommunityCategory": "请选择大类和小类。",
+    "creatingCommunity": "正在创建社区...",
+    "creatingPrivateGroup": "正在创建私密群...",
+    "chooseMainCategory": "选择大类",
+    "chooseSubCategory": "选择小类",
+    "joinedCommunities": "已加入的社区",
+    "backToCategories": "返回大类",
+    "backToSubcategories": "返回小类",
+    "communityActions": "社区操作",
+    "searchAllCommunities": "搜索社区",
+    "privateGroupNote": "仅限邀请加入。它不会出现在社区列表或公开搜索里。",
+    "privateGroupCreated": "私密群已创建。",
+    "categories": {
+      "campus-life": {
+        "label": "校园生活",
+        "description": "日常校园需求、本地问题和现实协作。",
+        "subcategories": {
+          "study": "学习",
+          "events": "活动",
+          "housing": "住房"
+        }
+      },
+      "interests": {
+        "label": "兴趣",
+        "description": "围绕共同爱好建立的低压力空间。",
+        "subcategories": {
+          "music": "音乐",
+          "gaming": "游戏",
+          "fitness": "健身"
+        }
+      },
+      "career": {
+        "label": "职业发展",
+        "description": "职业学习、作品集帮助和专注练习。",
+        "subcategories": {
+          "frontend": "前端",
+          "backend": "后端",
+          "design": "设计"
+        }
+      }
+    },
     "noGroupsFound": "未找到群组。",
     "joinedGroups": "已加入的群组",
     "joinedGroupsHint": "你的活跃房间会固定在顶部，方便快速回到对话。",

@@ -95,6 +95,64 @@
     "visibleCount": "表示中 {{count}} グループ",
     "joinedAndDiscover": "参加済み {{joined}} ・ 探索 {{discover}}",
     "createGroup": "グループ作成",
+    "communitiesTitle": "コミュニティ",
+    "categoryPageCopy": "まず大カテゴリを選んでください。非公開グループは表示されず、招待でのみ参加できます。",
+    "subcategoryPageCopy": "適切なコミュニティ一覧へ進むため、小カテゴリを選んでください。",
+    "communityListCopy": "{{subcategory}} の公開コミュニティに参加できます。承認が必要な場合は申請してください。",
+    "categoryTrail": "カテゴリ階層",
+    "mainCategories": "大カテゴリ",
+    "mainCategory": "大カテゴリ",
+    "subCategories": "小カテゴリ",
+    "subCategory": "小カテゴリ",
+    "subCategoryHint": "{{category}} のコミュニティを閲覧します。",
+    "communityCount": "{{count}} コミュニティ",
+    "createCommunity": "コミュニティ作成",
+    "createPrivateGroup": "非公開グループ作成",
+    "newCommunity": "新しいコミュニティ",
+    "newPrivateGroup": "新しい非公開グループ",
+    "createCommunityHint": "公開または承認制コミュニティを開く前に、正確なカテゴリを選んでください。",
+    "createPrivateGroupHint": "非公開グループは表示されません。新しいメンバーはグループ内の招待でのみ参加できます。",
+    "chooseCommunityCategory": "大カテゴリと小カテゴリを選んでください。",
+    "creatingCommunity": "コミュニティを作成中...",
+    "creatingPrivateGroup": "非公開グループを作成中...",
+    "chooseMainCategory": "大カテゴリを選択",
+    "chooseSubCategory": "小カテゴリを選択",
+    "joinedCommunities": "参加中のコミュニティ",
+    "backToCategories": "大カテゴリへ戻る",
+    "backToSubcategories": "小カテゴリへ戻る",
+    "communityActions": "コミュニティ操作",
+    "searchAllCommunities": "コミュニティを検索",
+    "privateGroupNote": "招待専用です。コミュニティ一覧や公開検索には表示されません。",
+    "privateGroupCreated": "非公開グループを作成しました。",
+    "categories": {
+      "campus-life": {
+        "label": "キャンパス生活",
+        "description": "日常のキャンパス需要、地域の質問、現実的な調整。",
+        "subcategories": {
+          "study": "学習",
+          "events": "イベント",
+          "housing": "住まい"
+        }
+      },
+      "interests": {
+        "label": "興味",
+        "description": "共通の趣味のための気軽なスペース。",
+        "subcategories": {
+          "music": "音楽",
+          "gaming": "ゲーム",
+          "fitness": "フィットネス"
+        }
+      },
+      "career": {
+        "label": "キャリア",
+        "description": "職業学習、ポートフォリオ支援、集中した練習。",
+        "subcategories": {
+          "frontend": "フロントエンド",
+          "backend": "バックエンド",
+          "design": "デザイン"
+        }
+      }
+    },
     "noGroupsFound": "グループが見つかりません。",
     "joinedGroups": "参加中のグループ",
     "joinedGroupsHint": "よく使うルームを上に固定し、再入室を速くします。",

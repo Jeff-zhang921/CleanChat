@@ -110,6 +110,64 @@
     "visibleCount": "{{count}} groups visible",
     "joinedAndDiscover": "{{joined}} joined · {{discover}} to discover",
     "createGroup": "Create Group",
+    "communitiesTitle": "Communities",
+    "categoryPageCopy": "Choose a category first. Private groups stay hidden and invite-only.",
+    "subcategoryPageCopy": "Choose a sub-category to find the right community lane.",
+    "communityListCopy": "Join public communities in {{subcategory}}, or apply when approval is required.",
+    "categoryTrail": "Category trail",
+    "mainCategories": "Main categories",
+    "mainCategory": "Main category",
+    "subCategories": "Sub-categories",
+    "subCategory": "Sub-category",
+    "subCategoryHint": "Browse communities in {{category}}.",
+    "communityCount": "{{count}} communities",
+    "createCommunity": "Create Community",
+    "createPrivateGroup": "Create Private Group",
+    "newCommunity": "New Community",
+    "newPrivateGroup": "New Private Group",
+    "createCommunityHint": "Pick the exact category before opening a public or approval-based community.",
+    "createPrivateGroupHint": "Private groups stay hidden. New members can only join from invites inside the group.",
+    "chooseCommunityCategory": "Choose a main category and sub-category.",
+    "creatingCommunity": "Creating community...",
+    "creatingPrivateGroup": "Creating private group...",
+    "chooseMainCategory": "Choose main category",
+    "chooseSubCategory": "Choose sub-category",
+    "joinedCommunities": "Joined communities",
+    "backToCategories": "Back to categories",
+    "backToSubcategories": "Back to sub-categories",
+    "communityActions": "Community actions",
+    "searchAllCommunities": "Search communities",
+    "privateGroupNote": "Invite-only. It will not appear in community lists or public search.",
+    "privateGroupCreated": "Private group created.",
+    "categories": {
+      "campus-life": {
+        "label": "Campus Life",
+        "description": "Daily campus needs, local questions, and real-world coordination.",
+        "subcategories": {
+          "study": "Study",
+          "events": "Events",
+          "housing": "Housing"
+        }
+      },
+      "interests": {
+        "label": "Interests",
+        "description": "Shared hobbies and low-pressure spaces for common interests.",
+        "subcategories": {
+          "music": "Music",
+          "gaming": "Gaming",
+          "fitness": "Fitness"
+        }
+      },
+      "career": {
+        "label": "Career",
+        "description": "Professional learning, portfolio help, and focused practice.",
+        "subcategories": {
+          "frontend": "Frontend",
+          "backend": "Backend",
+          "design": "Design"
+        }
+      }
+    },
     "noGroupsFound": "No groups found.",
     "joinedGroups": "Joined groups",
     "joinedGroupsHint": "Your active rooms stay at the top for faster re-entry.",
