@@ -31,6 +31,9 @@ export const COMMUNITY_CATEGORIES = [
       { id: "study", label: "Study" },
       { id: "events", label: "Events" },
       { id: "housing", label: "Housing" },
+        {id: "food", label: "Food" },
+        {id: "transportation", label: "Transportation" },
+        {id: "major-specific", label: "Major-specific" },
     ],
   },
   {

@@ -133,7 +133,10 @@
         "subcategories": {
           "study": "学習",
           "events": "イベント",
-          "housing": "住まい"
+          "housing": "住まい",
+          "food": "食事",
+          "transportation": "交通",
+          "major-specific": "専攻別"
         }
       },
       "interests": {

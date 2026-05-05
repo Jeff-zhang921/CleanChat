@@ -148,7 +148,10 @@
         "subcategories": {
           "study": "学习",
           "events": "活动",
-          "housing": "住房"
+          "housing": "住房",
+          "food": "食物",
+          "transportation": "交通",
+          "major-specific": "专业特定"
         }
       },
       "interests": {

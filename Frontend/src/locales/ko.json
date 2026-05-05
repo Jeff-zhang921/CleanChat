@@ -133,7 +133,10 @@
         "subcategories": {
           "study": "공부",
           "events": "이벤트",
-          "housing": "주거"
+          "housing": "주거",
+          "food": "음식",
+          "transportation": "교통",
+          "major-specific": "전공별"
         }
       },
       "interests": {

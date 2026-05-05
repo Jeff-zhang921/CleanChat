@@ -148,7 +148,10 @@
         "subcategories": {
           "study": "Study",
           "events": "Events",
-          "housing": "Housing"
+          "housing": "Housing",
+          "food": "Food",
+          "transportation": "Transportation",
+          "major-specific": "Major-specific"
         }
       },
       "interests": {

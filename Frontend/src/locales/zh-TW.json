@@ -133,7 +133,10 @@
         "subcategories": {
           "study": "學習",
           "events": "活動",
-          "housing": "住房"
+          "housing": "住房",
+          "food": "食物",
+          "transportation": "交通",
+          "major-specific": "專業特定"
         }
       },
       "interests": {
