@@ -124,6 +124,17 @@ const GroupSettingsPage = () => {
 
         if (!response.ok || !data.group || !Array.isArray(data.members)) {
           if (isMounted) {
+            if (response.status === 404) {
+              const toastMessage = t("groups.communityDisbandedToast", {
+                defaultValue: "This community has been disbanded.",
+              });
+              setStatus(toastMessage);
+              navigate("/groups", {
+                replace: true,
+                state: { statusToast: toastMessage },
+              });
+              return;
+            }
             setStatus(data.message || data.error || t("groupSettings.loadFailed"));
           }
           return;
@@ -216,7 +227,7 @@ const GroupSettingsPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [groupId, t]);
+  }, [groupId, navigate, t]);
 
   useEffect(() => {
     if (!isInvitePanelOpen) {
@@ -489,7 +500,13 @@ const GroupSettingsPage = () => {
         toast: t("groupSettings.leftToast"),
       });
       setShowLeaveConfirm(false);
-      navigate("/conversations", { replace: true });
+      navigate(fallbackFromPath, {
+        replace: true,
+        state:
+          fallbackFromPath === "/groups"
+            ? { statusToast: t("groupSettings.leftToast") }
+            : undefined,
+      });
     } catch {
       setStatus(t("groupSettings.leaveFailed"));
       setIsLeaving(false);

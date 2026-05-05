@@ -74,17 +74,29 @@ const buildGroupsRealtimeDetail = (
   payload: unknown,
 ): GroupsRealtimeDetail => {
   const detail: GroupsRealtimeDetail = { reason };
+  const eventType = readStringField(payload, "type");
   const groupId = readStringField(payload, "groupId");
   const invitationId = readPositiveNumberField(payload, "invitationId");
   const requesterId = readPositiveNumberField(payload, "requesterId");
+  const actorUserId = readPositiveNumberField(payload, "actorUserId");
   const updatedAt = readStringField(payload, "updatedAt");
 
+  if (eventType) detail.eventType = eventType;
   if (groupId) detail.groupId = groupId;
   if (invitationId) detail.invitationId = invitationId;
   if (requesterId) detail.requesterId = requesterId;
+  if (actorUserId) detail.actorUserId = actorUserId;
   if (updatedAt) detail.updatedAt = updatedAt;
 
   return detail;
+};
+
+const getCatalogRealtimeReason = (payload: unknown): GroupsRealtimeReason => {
+  const eventType = readStringField(payload, "type");
+  if (eventType === "created") return "group-created";
+  if (eventType === "deleted") return "group-deleted";
+  if (eventType === "member-left") return "member-left";
+  return "catalog-updated";
 };
 
 export const NotificationBadgeProvider = ({
@@ -287,8 +299,15 @@ export const NotificationBadgeProvider = ({
         dispatchGroupsRealtime(buildGroupsRealtimeDetail(reason, payload));
       };
 
-    const handleGroupCatalogUpdated =
-      refreshBadgesAndGroups("catalog-updated");
+    const handleGroupCatalogUpdated = (payload: unknown) => {
+      refreshBadges();
+      dispatchGroupsRealtime(
+        buildGroupsRealtimeDetail(getCatalogRealtimeReason(payload), payload),
+      );
+    };
+    const handleGroupCreated = refreshBadgesAndGroups("group-created");
+    const handleGroupDeleted = refreshBadgesAndGroups("group-deleted");
+    const handleGroupMemberLeft = refreshBadgesAndGroups("member-left");
     const handleGroupInvitationNew = refreshBadgesAndGroups("invitation-new");
     const handleGroupInvitationResolved =
       refreshBadgesAndGroups("invitation-resolved");
@@ -300,6 +319,9 @@ export const NotificationBadgeProvider = ({
     socket.on("request:direct:new", refreshBadges);
     socket.on("request:direct:resolved", refreshBadges);
     socket.on("group:catalog-updated", handleGroupCatalogUpdated);
+    socket.on("group:created", handleGroupCreated);
+    socket.on("group:deleted", handleGroupDeleted);
+    socket.on("group:member-left", handleGroupMemberLeft);
     socket.on("group:invitation:new", handleGroupInvitationNew);
     socket.on("group:invitation:resolved", handleGroupInvitationResolved);
     socket.on("group:join-request:new", handleGroupJoinRequestNew);
@@ -309,6 +331,9 @@ export const NotificationBadgeProvider = ({
       socket.off("request:direct:new", refreshBadges);
       socket.off("request:direct:resolved", refreshBadges);
       socket.off("group:catalog-updated", handleGroupCatalogUpdated);
+      socket.off("group:created", handleGroupCreated);
+      socket.off("group:deleted", handleGroupDeleted);
+      socket.off("group:member-left", handleGroupMemberLeft);
       socket.off("group:invitation:new", handleGroupInvitationNew);
       socket.off("group:invitation:resolved", handleGroupInvitationResolved);
       socket.off("group:join-request:new", handleGroupJoinRequestNew);

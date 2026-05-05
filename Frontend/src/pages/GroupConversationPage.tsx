@@ -15,6 +15,7 @@ import {
 import { GROUP_AVATAR_OPTIONS, type GroupAvatarKey } from "../constants/groupAvatars";
 import { useNotificationBadges } from "../state/notificationBadgeContext";
 import {
+  dispatchGroupConversationLeft,
   GROUPS_REALTIME_EVENT,
   type GroupsRealtimeDetail,
 } from "../utils/conversationEvents";
@@ -99,6 +100,11 @@ const GroupConversationPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const locationState = (location.state as { statusToast?: string } | null) ?? null;
+  const incomingStatusToast =
+    typeof locationState?.statusToast === "string"
+      ? locationState.statusToast.trim()
+      : "";
   const { refreshPendingCounts } = useNotificationBadges();
   const [me, setMe] = useState<SessionUser | null>(null);
   const [groups, setGroups] = useState<GroupSummary[]>([]);
@@ -123,6 +129,7 @@ const GroupConversationPage = () => {
   const [workingGroupId, setWorkingGroupId] = useState<string | null>(null);
   const [workingAction, setWorkingAction] = useState<"join" | "leave" | "delete" | "avatar" | null>(null);
   const [pendingDeleteGroup, setPendingDeleteGroup] = useState<GroupSummary | null>(null);
+  const [pendingLeaveGroup, setPendingLeaveGroup] = useState<GroupSummary | null>(null);
   const [pendingAvatarGroup, setPendingAvatarGroup] = useState<GroupSummary | null>(null);
   const [pendingAvatarKey, setPendingAvatarKey] = useState<GroupAvatarKey>(GROUP_AVATAR_OPTIONS[0].key);
   const [isInvitationPanelOpen, setIsInvitationPanelOpen] = useState(false);
@@ -131,7 +138,9 @@ const GroupConversationPage = () => {
   const [processingInvitationId, setProcessingInvitationId] = useState<number | null>(null);
   const [inviteStatus, setInviteStatus] = useState("");
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const groupsRef = useRef<GroupSummary[]>([]);
   const statusToastTimeoutRef = useRef<number | null>(null);
+  const statusToastMessageRef = useRef<string | null>(null);
 
   const pathSegments = location.pathname.split("/").filter(Boolean);
   const selectedMainCategoryId = pathSegments[1] ? decodeURIComponent(pathSegments[1]) : "";
@@ -159,7 +168,8 @@ const GroupConversationPage = () => {
       defaultValue: subcategory.label,
     });
 
-  const showStatusToast = (toastMessage: string, durationMs = 2200) => {
+  const showStatusToast = useCallback((toastMessage: string, durationMs = 2200) => {
+    statusToastMessageRef.current = toastMessage;
     setStatus(toastMessage);
     if (statusToastTimeoutRef.current !== null) {
       window.clearTimeout(statusToastTimeoutRef.current);
@@ -167,17 +177,43 @@ const GroupConversationPage = () => {
 
     statusToastTimeoutRef.current = window.setTimeout(() => {
       setStatus((current) => (current === toastMessage ? "" : current));
+      if (statusToastMessageRef.current === toastMessage) {
+        statusToastMessageRef.current = null;
+      }
       statusToastTimeoutRef.current = null;
     }, durationMs);
-  };
+  }, []);
 
   useEffect(() => {
     return () => {
       if (statusToastTimeoutRef.current !== null) {
         window.clearTimeout(statusToastTimeoutRef.current);
       }
+      statusToastMessageRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    groupsRef.current = groups;
+  }, [groups]);
+
+  useEffect(() => {
+    if (!incomingStatusToast) {
+      return;
+    }
+
+    showStatusToast(incomingStatusToast, 2600);
+    navigate(
+      { pathname: location.pathname, search: location.search },
+      { replace: true, state: null },
+    );
+  }, [
+    incomingStatusToast,
+    location.pathname,
+    location.search,
+    navigate,
+    showStatusToast,
+  ]);
 
   useEffect(() => {
     if (!isSearchPanelOpen) return;
@@ -212,7 +248,9 @@ const GroupConversationPage = () => {
     const data = await response.json().catch(() => ({}));
     const incoming = Array.isArray(data.groups) ? data.groups : [];
     setGroups(incoming);
-    setStatus("");
+    setStatus((current) =>
+      current && statusToastMessageRef.current === current ? current : "",
+    );
   }, [t]);
 
   const refreshGroupInvitations = useCallback(async () => {
@@ -277,6 +315,30 @@ const GroupConversationPage = () => {
         return;
       }
 
+      if (detail.reason === "group-deleted" && detail.groupId) {
+        const knownGroup = groupsRef.current.some((group) => group.id === detail.groupId);
+        setGroups((prev) => prev.filter((group) => group.id !== detail.groupId));
+        setPendingDeleteGroup((current) =>
+          current?.id === detail.groupId ? null : current,
+        );
+        setPendingLeaveGroup((current) =>
+          current?.id === detail.groupId ? null : current,
+        );
+        setPendingAvatarGroup((current) =>
+          current?.id === detail.groupId ? null : current,
+        );
+        if (knownGroup) {
+          showStatusToast(
+            t("groups.communityDisbandedToast", {
+              defaultValue: "This community has been disbanded.",
+            }),
+            2600,
+          );
+        }
+        void refreshGroupInvitations();
+        return;
+      }
+
       void refreshGroups();
       if (
         detail.reason === "invitation-new" ||
@@ -297,7 +359,7 @@ const GroupConversationPage = () => {
         handleGroupsRealtime as EventListener,
       );
     };
-  }, [refreshGroupInvitations, refreshGroups]);
+  }, [refreshGroupInvitations, refreshGroups, showStatusToast, t]);
 
   const communityGroups = useMemo(
     () => groups.filter((group) => group.groupKind !== "private"),
@@ -510,7 +572,20 @@ const GroupConversationPage = () => {
             : item,
         ),
       );
-      setStatus("");
+      dispatchGroupConversationLeft({
+        groupId: group.id,
+        toast: t("groups.leftToast", {
+          name: group.name,
+          defaultValue: "You left {{name}}.",
+        }),
+      });
+      setPendingLeaveGroup(null);
+      showStatusToast(
+        t("groups.leftToast", {
+          name: group.name,
+          defaultValue: "You left {{name}}.",
+        }),
+      );
     } catch {
       setStatus(t("groups.leaveFailed"));
     } finally {
@@ -538,7 +613,12 @@ const GroupConversationPage = () => {
         return;
       }
       setGroups((prev) => prev.filter((item) => item.id !== group.id));
-      setStatus("");
+      showStatusToast(
+        t("groups.groupDeletedToast", {
+          name: group.name,
+          defaultValue: "Deleted {{name}}.",
+        }),
+      );
     } catch {
       setStatus(t("groups.deleteFailed"));
     } finally {
@@ -821,7 +901,7 @@ const GroupConversationPage = () => {
               disabled={isWorking || isCreating}
               onClick={(event) => {
                 event.stopPropagation();
-                void handleLeaveGroup(group);
+                setPendingLeaveGroup(group);
               }}
             >
               {leaveLabel}
@@ -1503,6 +1583,35 @@ const GroupConversationPage = () => {
                 {inviteStatus}
               </p>
             )}
+          </div>
+        </div>
+      )}
+
+      {pendingLeaveGroup && (
+        <div className="groups-leave-overlay" role="presentation">
+          <div className="groups-leave-modal" role="dialog" aria-modal="true" aria-labelledby="leave-group-title">
+            <h3 id="leave-group-title">{t("groups.leaveConfirmTitle", { name: pendingLeaveGroup.name })}</h3>
+            <p>{t("groups.leaveConfirmBody")}</p>
+            <div className="groups-delete-actions">
+              <button
+                type="button"
+                className="group-action cancel"
+                onClick={() => setPendingLeaveGroup(null)}
+                disabled={workingAction === "leave"}
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                type="button"
+                className="group-action leave"
+                onClick={() => {
+                  void handleLeaveGroup(pendingLeaveGroup);
+                }}
+                disabled={workingAction === "leave"}
+              >
+                {workingAction === "leave" ? t("groups.leaving") : t("groups.leave")}
+              </button>
+            </div>
           </div>
         </div>
       )}

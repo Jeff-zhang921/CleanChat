@@ -20,8 +20,10 @@ import { clearAuthToken, getAuthToken } from "../utils/auth";
 import {
   CONVERSATION_DELETED_EVENT,
   GROUP_CONVERSATION_LEFT_EVENT,
+  GROUPS_REALTIME_EVENT,
   type ConversationDeletedDetail,
   type GroupConversationLeftDetail,
+  type GroupsRealtimeDetail,
 } from "../utils/conversationEvents";
 import {
   ensurePushSubscriptionForCurrentUser,
@@ -839,6 +841,40 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     [clearConversationMute, clearConversationUnread, t],
   );
 
+  const removeDeletedGroup = useCallback(
+    (groupId: string, toast?: string) => {
+      const normalizedGroupId = groupId.trim();
+      if (!normalizedGroupId) {
+        return;
+      }
+
+      if (!groupsRef.current.some((group) => group.id === normalizedGroupId)) {
+        return;
+      }
+
+      setGroups((prev) => prev.filter((group) => group.id !== normalizedGroupId));
+      clearConversationUnread(getGroupUnreadKey(normalizedGroupId));
+      clearConversationMute(getGroupMuteKey(normalizedGroupId));
+
+      const toastMessage =
+        toast?.trim() ||
+        t("groups.communityDisbandedToast", {
+          defaultValue: "This community has been disbanded.",
+        });
+      setStatus(toastMessage);
+
+      if (statusToastTimeoutRef.current !== null) {
+        window.clearTimeout(statusToastTimeoutRef.current);
+      }
+
+      statusToastTimeoutRef.current = window.setTimeout(() => {
+        setStatus((current) => (current === toastMessage ? "" : current));
+        statusToastTimeoutRef.current = null;
+      }, 1600);
+    },
+    [clearConversationMute, clearConversationUnread, t],
+  );
+
   useEffect(() => {
     if (!me) return;
     writeConversationsCache({
@@ -1393,6 +1429,23 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       window.removeEventListener(CONVERSATION_DELETED_EVENT, handler as EventListener);
     };
   }, [removeDeletedThread]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<GroupsRealtimeDetail>;
+      const detail = customEvent.detail;
+      if (detail?.reason !== "group-deleted" || !detail.groupId) {
+        return;
+      }
+
+      removeDeletedGroup(detail.groupId);
+    };
+
+    window.addEventListener(GROUPS_REALTIME_EVENT, handler as EventListener);
+    return () => {
+      window.removeEventListener(GROUPS_REALTIME_EVENT, handler as EventListener);
+    };
+  }, [removeDeletedGroup]);
 
   useEffect(() => {
     const handler = (event: Event) => {

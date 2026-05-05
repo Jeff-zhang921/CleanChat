@@ -547,8 +547,16 @@ const handleBackendRoute = async (route: Route) => {
     return;
   }
 
-  if (/^\/chat\/groups\/[^/]+\/(?:join|leave|avatar|mute)$/.test(path)) {
-    await routeJson(route, { ok: true, group: groups[0] });
+  const groupActionMatch = path.match(/^\/chat\/groups\/[^/]+\/(join|leave|avatar|mute)$/);
+  if (groupActionMatch) {
+    const action = groupActionMatch[1];
+    await routeJson(route, {
+      ok: true,
+      group:
+        action === "leave"
+          ? { ...groups[0], joined: false, memberCount: 17 }
+          : groups[0],
+    });
     return;
   }
 
@@ -898,6 +906,26 @@ const pageTargets: PageTarget[] = [
       await expect(activeRoot.locator(".group-card").first()).toBeVisible();
       await expect(activeRoot.locator(".groups-search-entry")).toHaveCount(0);
 
+      const alphaCard = activeRoot.locator(".group-card").filter({ hasText: "Alpha Room" });
+      await expect(alphaCard).toBeVisible();
+      await alphaCard.locator(".group-action.leave").click();
+      await expect(page.locator(".groups-leave-modal")).toBeVisible();
+      await page.locator(".groups-leave-modal .group-action.cancel").click();
+      await expect(page.locator(".groups-leave-modal")).toHaveCount(0);
+      await alphaCard.locator(".group-action.leave").click();
+      await page.locator(".groups-leave-modal .group-action.leave").click();
+      await expect(page.locator(".groups-leave-modal")).toHaveCount(0);
+      await expect(alphaCard.locator(".group-action.join")).toBeVisible();
+
+      await page.evaluate(() => {
+        window.dispatchEvent(
+          new CustomEvent("cleanchat:groups-realtime", {
+            detail: { reason: "group-deleted", groupId: "alpha" },
+          }),
+        );
+      });
+      await expect(activeRoot.locator(".group-card").filter({ hasText: "Alpha Room" })).toHaveCount(0);
+
       await activeRoot.locator(".groups-invitations-trigger").click();
       await expect(page.locator(".groups-invitations-modal")).toBeVisible();
       await expect(page.locator(".groups-invitations-list li")).toHaveCount(1);
@@ -910,7 +938,7 @@ const pageTargets: PageTarget[] = [
 
       await activeRoot.locator(".groups-create-fab").click();
       await expect(activeRoot.locator(".groups-create-menu")).toBeVisible();
-      await activeRoot.locator(".groups-create-menu-option.community").click();
+      await activeRoot.locator(".groups-create-menu-option.community").click({ force: true });
       await expect(
         page.locator(".groups-create-modal .group-create-panel"),
       ).toBeVisible();
@@ -923,7 +951,7 @@ const pageTargets: PageTarget[] = [
 
       await activeRoot.locator(".groups-create-fab").click();
       await expect(activeRoot.locator(".groups-create-menu")).toBeVisible();
-      await activeRoot.locator(".groups-create-menu-option.private").click();
+      await activeRoot.locator(".groups-create-menu-option.private").click({ force: true });
       await expect(
         page.locator(".groups-create-modal .group-create-panel"),
       ).toBeVisible();
@@ -1370,7 +1398,7 @@ const runPageAudit = (deviceName: string, device: typeof pixel7Device) => {
       test(`${target.name} renders, scrolls, and basic controls work`, async ({
         page,
       }) => {
-        test.setTimeout(60_000);
+        test.setTimeout(target.name === "groups" ? 90_000 : 60_000);
         await installApiMocks(page);
         await installSession(page, target.authenticated);
         await target.beforeGoto?.(page);

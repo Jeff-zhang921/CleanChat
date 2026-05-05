@@ -30,7 +30,11 @@ import {
   readDraftForTarget,
   writeDraftForTarget,
 } from "../utils/chatDraftStorage";
-import { dispatchConversationDeleted } from "../utils/conversationEvents";
+import {
+  dispatchConversationDeleted,
+  GROUPS_REALTIME_EVENT,
+  type GroupsRealtimeDetail,
+} from "../utils/conversationEvents";
 import { getSystemMessageText, parseGroupMemberJoinedSystemMessage } from "../utils/systemMessages";
 import { clearGroupUnread, clearThreadUnread } from "../utils/unreadCounts";
 import "./chatPage.css";
@@ -533,6 +537,35 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     showToast(nextMessage);
   };
 
+  const handleUnavailableGroup = useCallback(
+    (targetGroupId: string, message?: string) => {
+      const toastMessage =
+        message?.trim() ||
+        t("groups.communityDisbandedToast", {
+          defaultValue: "This community has been disbanded.",
+        });
+
+      clearGroupUnread(targetGroupId);
+      clearDraftForTarget({ chatType: "group", groupId: targetGroupId });
+      clearMessages();
+      setMessageBody("");
+      setQuoteDraft(null);
+      setStatus(toastMessage);
+      showToast(toastMessage, { durationMs: 1600 });
+
+      if (onRequestClose) {
+        onRequestClose("/groups");
+        return;
+      }
+
+      navigate("/groups", {
+        replace: true,
+        state: { statusToast: toastMessage },
+      });
+    },
+    [clearMessages, navigate, onRequestClose, showToast, t],
+  );
+
   const clearTextSelection = () => {
     if (typeof window === "undefined") {
       return;
@@ -774,6 +807,15 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
+        if (response.status === 404) {
+          handleUnavailableGroup(
+            id,
+            t("groups.communityDisbandedToast", {
+              defaultValue: "This community has been disbanded.",
+            }),
+          );
+          return;
+        }
         failHistoryLoad(token, data.message || t("chat.groupHistoryLoadFailed"));
         return;
       }
@@ -1124,6 +1166,33 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
       socketRef.current.emit("group:join", { groupId });
     }
   }, [groupId, chatMode]);
+
+  useEffect(() => {
+    const handleGroupsRealtime = (event: Event) => {
+      const detail = (event as CustomEvent<GroupsRealtimeDetail>).detail;
+      if (detail?.reason !== "group-deleted" || !detail.groupId) {
+        return;
+      }
+
+      if (
+        chatModeRef.current === "group" &&
+        groupIdRef.current === detail.groupId
+      ) {
+        handleUnavailableGroup(detail.groupId);
+      }
+    };
+
+    window.addEventListener(
+      GROUPS_REALTIME_EVENT,
+      handleGroupsRealtime as EventListener,
+    );
+    return () => {
+      window.removeEventListener(
+        GROUPS_REALTIME_EVENT,
+        handleGroupsRealtime as EventListener,
+      );
+    };
+  }, [handleUnavailableGroup]);
 
   useEffect(() => {
     if (chatMode === "direct" && threadId) {

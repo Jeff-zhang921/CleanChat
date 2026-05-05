@@ -1857,6 +1857,7 @@ router.post("/groups/:groupId/leave", async (req, res) => {
     return;
   }
 
+  const groupBeforeLeave = getGroupById(groupId);
   const left = leaveGroup(groupId, sessionUserId);
   if (!left) {
     res.status(404).json({ message: "Group not found." });
@@ -1864,6 +1865,22 @@ router.post("/groups/:groupId/leave", async (req, res) => {
   }
 
   clearGroupMuteForUser(sessionUserId, groupId);
+
+  if (!left.alreadyLeft) {
+    const payload = {
+      type: "member-left",
+      groupId,
+      actorUserId: sessionUserId,
+    };
+    if (groupBeforeLeave?.groupKind === "private") {
+      emitToUser(req, sessionUserId, "group:catalog-updated", payload);
+      listGroupMemberIds(groupId).forEach((memberId) => {
+        emitToUser(req, memberId, "group:catalog-updated", payload);
+      });
+    } else {
+      emitToAll(req, "group:catalog-updated", payload);
+    }
+  }
 
   res.status(200).json({ group: left.summary, alreadyLeft: left.alreadyLeft });
 });
@@ -2292,6 +2309,11 @@ router.delete("/groups/:groupId", async (req, res) => {
     return;
   }
 
+  const groupBeforeDelete = getGroupById(groupId);
+  const privateMemberIds =
+    groupBeforeDelete?.groupKind === "private"
+      ? listGroupMemberIds(groupId)
+      : [];
   const deleted = deleteGroup(groupId, sessionUserId);
   if (!deleted.deleted) {
     if (deleted.reason === "forbidden") {
@@ -2306,10 +2328,18 @@ router.delete("/groups/:groupId", async (req, res) => {
 
   clearGroupMuteForAllUsers(groupId);
   clearGroupReadCheckpointForAllUsers(groupId);
-  emitGroupCatalogUpdated(req, groupId, {
+  const payload = {
     type: "deleted",
+    groupId,
     actorUserId: sessionUserId,
-  });
+  };
+  if (groupBeforeDelete?.groupKind === "private") {
+    privateMemberIds.forEach((memberId) => {
+      emitToUser(req, memberId, "group:catalog-updated", payload);
+    });
+  } else {
+    emitToAll(req, "group:catalog-updated", payload);
+  }
 
   res.status(200).json({ message: "Group deleted." });
 });

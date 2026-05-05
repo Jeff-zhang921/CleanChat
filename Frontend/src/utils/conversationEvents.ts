@@ -12,6 +12,9 @@ export type GroupConversationLeftDetail = {
 
 export type GroupsRealtimeReason =
   | "catalog-updated"
+  | "group-created"
+  | "group-deleted"
+  | "member-left"
   | "invitation-new"
   | "invitation-resolved"
   | "join-request-new"
@@ -19,9 +22,11 @@ export type GroupsRealtimeReason =
 
 export type GroupsRealtimeDetail = {
   reason: GroupsRealtimeReason;
+  eventType?: string;
   groupId?: string;
   invitationId?: number;
   requesterId?: number;
+  actorUserId?: number;
   updatedAt?: string;
 };
 

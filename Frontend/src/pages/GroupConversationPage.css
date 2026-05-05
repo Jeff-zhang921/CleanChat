@@ -909,6 +909,7 @@
 .groups-create-overlay,
 .groups-invite-overlay,
 .groups-invitations-overlay,
+.groups-leave-overlay,
 .groups-delete-overlay,
 .groups-avatar-overlay {
   position: fixed;
@@ -931,6 +932,7 @@
 .groups-create-modal,
 .groups-invite-modal,
 .groups-invitations-modal,
+.groups-leave-modal,
 .groups-avatar-modal,
 .groups-delete-modal {
   width: min(100%, 34rem);
@@ -963,6 +965,14 @@
 .groups-delete-modal {
   width: min(100%, 31rem);
   border-color: #e4d6d8;
+}
+
+.groups-leave-modal {
+  width: min(100%, 31rem);
+  border-color: rgba(92, 155, 124, 0.24);
+  background:
+    radial-gradient(circle at top left, rgba(232, 247, 239, 0.9), transparent 42%),
+    #ffffff;
 }
 
 .groups-create-head {
@@ -1019,6 +1029,7 @@
 .groups-create-modal h3,
 .groups-invite-modal h3,
 .groups-invitations-modal h3,
+.groups-leave-modal h3,
 .groups-avatar-modal h3,
 .groups-delete-modal h3 {
   margin: 0;
@@ -1157,6 +1168,11 @@
   color: #8f2630;
 }
 
+.groups-leave-modal h3 {
+  color: #1f553c;
+}
+
+.groups-leave-modal p,
 .groups-delete-modal p {
   margin: 0;
   color: #31384b;
@@ -1430,6 +1446,7 @@
   }
 
   .groups-delete-modal,
+  .groups-leave-modal,
   .groups-avatar-modal,
   .groups-create-modal,
   .groups-invite-modal,
