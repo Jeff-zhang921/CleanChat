@@ -6,6 +6,7 @@
     "delete": "删除",
     "create": "创建",
     "close": "关闭",
+    "confirm": "确定",
     "loading": "加载中...",
     "connected": "已连接",
     "notConnected": "未连接",

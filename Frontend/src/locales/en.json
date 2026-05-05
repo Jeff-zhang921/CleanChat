@@ -6,6 +6,7 @@
     "delete": "Delete",
     "create": "Create",
     "close": "Close",
+    "confirm": "Confirm",
     "loading": "Loading...",
     "connected": "Connected",
     "notConnected": "Not connected",

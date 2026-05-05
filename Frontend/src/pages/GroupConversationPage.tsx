@@ -106,7 +106,10 @@ const GroupConversationPage = () => {
   const [query, setQuery] = useState("");
   const [searchMainCategoryId, setSearchMainCategoryId] = useState("");
   const [searchSubcategoryId, setSearchSubcategoryId] = useState("");
-  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [draftQuery, setDraftQuery] = useState("");
+  const [draftSearchMainCategoryId, setDraftSearchMainCategoryId] = useState("");
+  const [draftSearchSubcategoryId, setDraftSearchSubcategoryId] = useState("");
+  const [isSearchPanelOpen, setIsSearchPanelOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
   const [createGroupKind, setCreateGroupKind] = useState<GroupKind>("community");
@@ -137,6 +140,8 @@ const GroupConversationPage = () => {
   const selectedMainCategory = findCommunityCategory(selectedMainCategoryId);
   const selectedSubcategory = findCommunitySubcategory(selectedMainCategoryId, selectedSubcategoryId);
   const searchMainCategory = findCommunityCategory(searchMainCategoryId);
+  const searchSubcategory = findCommunitySubcategory(searchMainCategoryId, searchSubcategoryId);
+  const draftSearchMainCategory = findCommunityCategory(draftSearchMainCategoryId);
 
   const getCategoryLabel = (category: CommunityCategory) =>
     t(`groups.categories.${category.id}.label`, { defaultValue: category.label });
@@ -175,20 +180,23 @@ const GroupConversationPage = () => {
   }, []);
 
   useEffect(() => {
-    if (!isSearchExpanded) return;
+    if (!isSearchPanelOpen) return;
     const frame = window.requestAnimationFrame(() => {
       searchInputRef.current?.focus();
       searchInputRef.current?.select();
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [isSearchExpanded]);
+  }, [isSearchPanelOpen]);
 
   useEffect(() => {
     if (isAtCommunityRoot) return;
     setQuery("");
     setSearchMainCategoryId("");
     setSearchSubcategoryId("");
-    setIsSearchExpanded(false);
+    setDraftQuery("");
+    setDraftSearchMainCategoryId("");
+    setDraftSearchSubcategoryId("");
+    setIsSearchPanelOpen(false);
   }, [isAtCommunityRoot]);
 
   const refreshGroups = useCallback(async () => {
@@ -659,7 +667,6 @@ const GroupConversationPage = () => {
   const joinedInSelectedSubcategory = filteredGroups.filter((group) => group.joined);
   const discoverInSelectedSubcategory = filteredGroups.filter((group) => !group.joined);
   const invitationCount = groupInvitations.length;
-  const isSearchOpen = true;
   const getGroupAvatarLabel = (key: GroupAvatarKey) => t(GROUP_AVATAR_LABEL_KEYS[key]);
   const selectedMainCategoryLabel = selectedMainCategory ? getCategoryLabel(selectedMainCategory) : "";
   const selectedSubcategoryLabel =
@@ -675,15 +682,43 @@ const GroupConversationPage = () => {
       ? t("groups.backToSubcategories", { defaultValue: "Back to sub-categories" })
       : t("groups.backToCategories", { defaultValue: "Back to categories" });
   const isCreatingPrivateGroup = createGroupKind === "private";
+  const searchSummaryParts = [
+    searchMainCategory ? getCategoryLabel(searchMainCategory) : "",
+    searchMainCategory && searchSubcategory
+      ? getSubcategoryLabel(searchMainCategory, searchSubcategory)
+      : "",
+    query.trim(),
+  ].filter(Boolean);
+  const searchSummaryText = searchSummaryParts.length
+    ? searchSummaryParts.join(" / ")
+    : t("groups.searchAllCommunities", { defaultValue: "Search communities" });
 
   const openSearch = () => {
-    setIsSearchExpanded(true);
+    setDraftQuery(query);
+    setDraftSearchMainCategoryId(searchMainCategoryId);
+    setDraftSearchSubcategoryId(searchSubcategoryId);
+    setIsSearchPanelOpen(true);
+  };
+  const closeSearchPanel = () => {
+    setDraftQuery(query);
+    setDraftSearchMainCategoryId(searchMainCategoryId);
+    setDraftSearchSubcategoryId(searchSubcategoryId);
+    setIsSearchPanelOpen(false);
   };
   const closeSearch = () => {
     setQuery("");
     setSearchMainCategoryId("");
     setSearchSubcategoryId("");
-    setIsSearchExpanded(false);
+    setDraftQuery("");
+    setDraftSearchMainCategoryId("");
+    setDraftSearchSubcategoryId("");
+    setIsSearchPanelOpen(false);
+  };
+  const applySearch = () => {
+    setQuery(draftQuery.trim());
+    setSearchMainCategoryId(draftSearchMainCategoryId);
+    setSearchSubcategoryId(draftSearchMainCategoryId ? draftSearchSubcategoryId : "");
+    setIsSearchPanelOpen(false);
   };
 
   const getCommunityCount = (mainCategoryId: string, subcategoryId?: string) =>
@@ -892,100 +927,135 @@ const GroupConversationPage = () => {
   };
 
   const renderSearchControl = () => (
-    <div className={`conversations-toolbar groups-search-toolbar ${isSearchOpen ? "search-open" : ""}`}>
-      {!isSearchOpen && (
+    <div className="groups-search-entry">
+      <button
+        type="button"
+        className={`groups-search-trigger ${hasQuery ? "has-active-search" : ""}`}
+        aria-haspopup="dialog"
+        aria-expanded={isSearchPanelOpen}
+        onClick={openSearch}
+      >
+        <span className="groups-search-trigger-icon" aria-hidden="true">
+          <SearchGlyph />
+        </span>
+        <span className="groups-search-trigger-copy">
+          <strong>{t("groups.searchGroups")}</strong>
+          <small>{searchSummaryText}</small>
+        </span>
+      </button>
+      {hasQuery && (
         <button
           type="button"
-          className="search-launcher"
-          aria-label={t("groups.openSearch")}
-          onClick={openSearch}
+          className="groups-search-clear"
+          aria-label={t("groups.closeSearch")}
+          onClick={closeSearch}
         >
-          <SearchGlyph />
+          {t("common.close")}
         </button>
       )}
-      <div className={`search-shell ${isSearchOpen ? "expanded" : ""}`}>
-        <div className="groups-search-filter-row">
-          <label className="groups-search-filter">
-            <span>{t("groups.mainCategory", { defaultValue: "Main category" })}</span>
-            <select
-              className="groups-search-main-select"
-              value={searchMainCategoryId}
-              onChange={(event) => {
-                setSearchMainCategoryId(event.target.value);
-                setSearchSubcategoryId("");
-              }}
-            >
-              <option value="">
-                {t("groups.chooseMainCategory", { defaultValue: "Choose main category" })}
-              </option>
-              {COMMUNITY_CATEGORIES.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {getCategoryLabel(category)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="groups-search-filter">
-            <span>{t("groups.subCategory", { defaultValue: "Sub-category" })}</span>
-            <select
-              className="groups-search-subcategory-select"
-              value={searchSubcategoryId}
-              onChange={(event) => setSearchSubcategoryId(event.target.value)}
-              disabled={!searchMainCategory}
-            >
-              <option value="">
-                {searchMainCategory
-                  ? t("groups.chooseSubCategory", { defaultValue: "Choose sub-category" })
-                  : t("groups.chooseMainCategory", { defaultValue: "Choose main category" })}
-              </option>
-              {searchMainCategory?.subcategories.map((subcategory) => (
-                <option key={subcategory.id} value={subcategory.id}>
-                  {getSubcategoryLabel(searchMainCategory, subcategory)}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="search-field">
-          <label className="sr-only" htmlFor="group-search">
-            {t("groups.searchGroups")}
-          </label>
-          <div className="search-input-wrap">
-            <span className="search-icon">
-              <SearchGlyph />
-            </span>
-            <input
-              ref={searchInputRef}
-              id="group-search"
-              type="text"
-              placeholder={t("groups.searchAllCommunities", {
-                defaultValue: "Search communities",
-              })}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onFocus={openSearch}
-              onBlur={() => {
-                if (!query.trim()) {
-                  setIsSearchExpanded(false);
-                }
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  closeSearch();
-                }
-              }}
-            />
-            <button
-              type="button"
-              className="search-dismiss"
-              aria-label={t("groups.closeSearch")}
-              onClick={closeSearch}
-            >
-              {t("common.close")}
-            </button>
+
+      {isSearchPanelOpen && (
+        <div className="groups-search-overlay" role="presentation" onClick={closeSearchPanel}>
+          <div
+            className="groups-search-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="groups-search-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="groups-search-modal-head">
+              <div>
+                <p className="eyebrow">{t("groups.communitiesTitle", { defaultValue: "Communities" })}</p>
+                <h3 id="groups-search-title">{t("groups.searchGroups")}</h3>
+              </div>
+              <button type="button" className="groups-search-modal-close" onClick={closeSearchPanel}>
+                {t("common.close")}
+              </button>
+            </div>
+
+            <div className="groups-search-filter-row">
+              <label className="groups-search-filter">
+                <span>{t("groups.mainCategory", { defaultValue: "Main category" })}</span>
+                <select
+                  className="groups-search-main-select"
+                  value={draftSearchMainCategoryId}
+                  onChange={(event) => {
+                    setDraftSearchMainCategoryId(event.target.value);
+                    setDraftSearchSubcategoryId("");
+                  }}
+                >
+                  <option value="">
+                    {t("groups.chooseMainCategory", { defaultValue: "Choose main category" })}
+                  </option>
+                  {COMMUNITY_CATEGORIES.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {getCategoryLabel(category)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="groups-search-filter">
+                <span>{t("groups.subCategory", { defaultValue: "Sub-category" })}</span>
+                <select
+                  className="groups-search-subcategory-select"
+                  value={draftSearchSubcategoryId}
+                  onChange={(event) => setDraftSearchSubcategoryId(event.target.value)}
+                  disabled={!draftSearchMainCategory}
+                >
+                  <option value="">
+                    {draftSearchMainCategory
+                      ? t("groups.chooseSubCategory", { defaultValue: "Choose sub-category" })
+                      : t("groups.chooseMainCategory", { defaultValue: "Choose main category" })}
+                  </option>
+                  {draftSearchMainCategory?.subcategories.map((subcategory) => (
+                    <option key={subcategory.id} value={subcategory.id}>
+                      {getSubcategoryLabel(draftSearchMainCategory, subcategory)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="search-field">
+              <label className="sr-only" htmlFor="group-search">
+                {t("groups.searchGroups")}
+              </label>
+              <div className="search-input-wrap">
+                <span className="search-icon">
+                  <SearchGlyph />
+                </span>
+                <input
+                  ref={searchInputRef}
+                  id="group-search"
+                  type="text"
+                  placeholder={t("groups.searchAllCommunities", {
+                    defaultValue: "Search communities",
+                  })}
+                  value={draftQuery}
+                  onChange={(event) => setDraftQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      closeSearchPanel();
+                    }
+                    if (event.key === "Enter") {
+                      applySearch();
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="groups-search-modal-actions">
+              <button type="button" className="group-action cancel" onClick={closeSearchPanel}>
+                {t("common.cancel")}
+              </button>
+              <button type="button" className="group-action create groups-search-apply" onClick={applySearch}>
+                {t("common.confirm", { defaultValue: "Confirm" })}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 

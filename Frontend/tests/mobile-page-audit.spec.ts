@@ -853,18 +853,23 @@ const pageTargets: PageTarget[] = [
         activeRoot.locator(".groups-invitations-trigger .groups-action-badge"),
       ).toHaveText("1");
 
-      await expect(
-        activeRoot.locator(".search-input-wrap input"),
-      ).toBeVisible();
+      await expect(activeRoot.locator(".groups-search-trigger")).toBeVisible();
+      await expect(activeRoot.locator(".search-input-wrap input")).toHaveCount(0);
+      await activeRoot.locator(".groups-search-trigger").click();
+      await expect(activeRoot.locator(".groups-search-modal")).toBeVisible();
       await activeRoot.locator(".groups-search-main-select").selectOption("interests");
       await expect(activeRoot.locator(".groups-search-subcategory-select")).toBeEnabled();
       await activeRoot.locator(".groups-search-subcategory-select").selectOption("music");
       await activeRoot.locator(".search-input-wrap input").fill("gamma");
+      await expect(activeRoot.locator(".group-card")).toHaveCount(0);
+      await activeRoot.locator(".groups-search-apply").click();
       await expect(activeRoot.locator(".group-card").first()).toBeVisible();
       await expect(activeRoot.locator(".group-card").first()).toContainText("Gamma Music");
+      await activeRoot.locator(".groups-search-trigger").click();
       await activeRoot.locator(".search-input-wrap input").fill("alpha");
+      await activeRoot.locator(".groups-search-apply").click();
       await expect(activeRoot.locator(".group-card")).toHaveCount(0);
-      await activeRoot.locator(".search-dismiss").click();
+      await activeRoot.locator(".groups-search-clear").click();
       const careerCategory = activeRoot.locator('[data-community-category-id="career"]');
       const frontendSubcategory = activeRoot.locator('[data-community-subcategory-id="frontend"]');
 
@@ -874,9 +879,9 @@ const pageTargets: PageTarget[] = [
       });
       await careerCategory.click({ position: { x: 24, y: 24 } });
       await expect(activeRoot.locator(".community-back-button")).toBeVisible();
-      await expect(activeRoot.locator(".groups-search-toolbar")).toHaveCount(0);
+      await expect(activeRoot.locator(".groups-search-entry")).toHaveCount(0);
       await activeRoot.locator(".community-back-button").click();
-      await expect(activeRoot.locator(".groups-search-toolbar")).toBeVisible();
+      await expect(activeRoot.locator(".groups-search-entry")).toBeVisible();
       await expect(careerCategory).toBeVisible();
       await careerCategory.evaluate((element) => {
         element.scrollIntoView({ block: "center", inline: "nearest" });
@@ -889,7 +894,7 @@ const pageTargets: PageTarget[] = [
       await frontendSubcategory.click({ position: { x: 24, y: 24 } });
       await expect(activeRoot.locator(".community-back-button")).toBeVisible();
       await expect(activeRoot.locator(".group-card").first()).toBeVisible();
-      await expect(activeRoot.locator(".groups-search-toolbar")).toHaveCount(0);
+      await expect(activeRoot.locator(".groups-search-entry")).toHaveCount(0);
 
       await activeRoot.locator(".groups-invitations-trigger").click();
       await expect(page.locator(".groups-invitations-modal")).toBeVisible();
