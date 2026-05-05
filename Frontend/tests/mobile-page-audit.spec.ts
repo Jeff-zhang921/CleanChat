@@ -190,6 +190,25 @@ const groups = [
     lastMessagePreview: "",
     lastMessageAt: nowIso(),
   },
+  {
+    id: "gamma",
+    name: "Gamma Music",
+    description: "A different category community for scoped search checks.",
+    avatarKey: "flare",
+    avatarUrl: groupAvatarUrl,
+    groupKind: "community",
+    creatorId: partner.id,
+    mainCategoryId: "interests",
+    subcategoryId: "music",
+    joined: false,
+    isOwner: false,
+    memberCount: 12,
+    pendingRequestCount: 0,
+    joinRequestStatus: "none",
+    mutedByMe: false,
+    lastMessagePreview: "",
+    lastMessageAt: nowIso(),
+  },
 ];
 
 const buildGroupMessages = (groupId: string) =>
@@ -831,7 +850,9 @@ const pageTargets: PageTarget[] = [
         activeRoot.locator('.bottom-nav-link[href="/groups"] .bottom-nav-badge'),
       ).toHaveText("1");
 
-      await activeRoot.locator(".search-launcher").click();
+      await expect(
+        activeRoot.locator(".search-input-wrap input"),
+      ).toBeVisible();
       await activeRoot.locator(".search-input-wrap input").fill("alpha");
       await expect(activeRoot.locator(".group-card").first()).toBeVisible();
       await activeRoot.locator(".search-dismiss").click();
@@ -857,11 +878,13 @@ const pageTargets: PageTarget[] = [
       await frontendSubcategory.click({ position: { x: 24, y: 24 } });
       await expect(activeRoot.locator(".community-back-button")).toBeVisible();
       await expect(activeRoot.locator(".group-card").first()).toBeVisible();
-      await activeRoot.locator(".search-launcher").click();
       await expect(
         activeRoot.locator(".search-input-wrap input"),
       ).toBeVisible();
+      await activeRoot.locator(".search-input-wrap input").fill("gamma");
+      await expect(activeRoot.locator(".group-card")).toHaveCount(0);
       await activeRoot.locator(".search-input-wrap input").fill("alpha");
+      await expect(activeRoot.locator(".group-card")).toHaveCount(1);
       await activeRoot.locator(".search-dismiss").click();
 
       await activeRoot.locator(".groups-invitations-trigger").click();
@@ -874,7 +897,9 @@ const pageTargets: PageTarget[] = [
 
       await expect(activeRoot.locator(".groups-invite-trigger")).toHaveCount(0);
 
-      await activeRoot.locator(".group-action.create:visible").first().click();
+      await activeRoot.locator(".groups-create-fab").click();
+      await expect(activeRoot.locator(".groups-create-menu")).toBeVisible();
+      await activeRoot.locator(".groups-create-menu-option.community").click();
       await expect(
         page.locator(".groups-create-modal .group-create-panel"),
       ).toBeVisible();
@@ -885,7 +910,9 @@ const pageTargets: PageTarget[] = [
         .click({ force: true });
       await expect(page.locator(".groups-create-modal")).toBeHidden();
 
-      await activeRoot.locator(".groups-create-private-trigger").click();
+      await activeRoot.locator(".groups-create-fab").click();
+      await expect(activeRoot.locator(".groups-create-menu")).toBeVisible();
+      await activeRoot.locator(".groups-create-menu-option.private").click();
       await expect(
         page.locator(".groups-create-modal .group-create-panel"),
       ).toBeVisible();

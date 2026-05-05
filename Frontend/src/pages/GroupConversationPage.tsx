@@ -105,6 +105,7 @@ const GroupConversationPage = () => {
   const [status, setStatus] = useState(() => t("groups.loadingGroups"));
   const [query, setQuery] = useState("");
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [isCreatePanelOpen, setIsCreatePanelOpen] = useState(false);
   const [createGroupKind, setCreateGroupKind] = useState<GroupKind>("community");
   const [newGroupName, setNewGroupName] = useState("");
@@ -294,8 +295,16 @@ const GroupConversationPage = () => {
 
   const filteredGroups = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedQuery) return communitiesInSelectedSubcategory;
-    return communityGroups.filter((group) => {
+    const scopedGroups = selectedSubcategory
+      ? communitiesInSelectedSubcategory
+      : selectedMainCategory
+        ? communityGroups.filter(
+            (group) => group.mainCategoryId === selectedMainCategory.id,
+          )
+        : communityGroups;
+
+    if (!normalizedQuery) return scopedGroups;
+    return scopedGroups.filter((group) => {
       const category = findCommunityCategory(group.mainCategoryId);
       const subcategory = findCommunitySubcategory(
         group.mainCategoryId,
@@ -315,7 +324,13 @@ const GroupConversationPage = () => {
         .toLowerCase();
       return searchableText.includes(normalizedQuery);
     });
-  }, [communitiesInSelectedSubcategory, communityGroups, query]);
+  }, [
+    communitiesInSelectedSubcategory,
+    communityGroups,
+    query,
+    selectedMainCategory,
+    selectedSubcategory,
+  ]);
 
   const openGroupChat = (group: GroupSummary) => {
     navigate("/chat", {
@@ -364,6 +379,7 @@ const GroupConversationPage = () => {
   };
 
   const openCreatePanel = (groupKind: GroupKind = "community") => {
+    setIsCreateMenuOpen(false);
     setCreateGroupKind(groupKind);
     setNewGroupMainCategoryId(groupKind === "community" ? selectedMainCategory?.id ?? "" : "");
     setNewGroupSubcategoryId(groupKind === "community" ? selectedSubcategory?.id ?? "" : "");
@@ -548,6 +564,7 @@ const GroupConversationPage = () => {
   };
 
   const openInvitationsPanel = () => {
+    setIsCreateMenuOpen(false);
     setInviteStatus("");
     setIsInvitationPanelOpen(true);
     void refreshGroupInvitations();
@@ -615,7 +632,7 @@ const GroupConversationPage = () => {
   const joinedInSelectedSubcategory = filteredGroups.filter((group) => group.joined);
   const discoverInSelectedSubcategory = filteredGroups.filter((group) => !group.joined);
   const invitationCount = groupInvitations.length;
-  const isSearchOpen = isSearchExpanded || hasQuery;
+  const isSearchOpen = true;
   const getGroupAvatarLabel = (key: GroupAvatarKey) => t(GROUP_AVATAR_LABEL_KEYS[key]);
   const selectedMainCategoryLabel = selectedMainCategory ? getCategoryLabel(selectedMainCategory) : "";
   const selectedSubcategoryLabel =
@@ -995,9 +1012,11 @@ const GroupConversationPage = () => {
           <button
             type="button"
             className="community-back-button"
+            aria-label={backLabel}
             onClick={() => navigate(backTarget)}
           >
-            {backLabel}
+            <span className="community-back-chevron" aria-hidden="true">&lt;</span>
+            <span>{t("common.back")}</span>
           </button>
         )}
 
@@ -1014,20 +1033,6 @@ const GroupConversationPage = () => {
                 <span className="groups-invitations-count">{invitationCount}</span>
               )}
             </button>
-            <button
-              type="button"
-              className="group-action create groups-create-trigger"
-              onClick={() => openCreatePanel("community")}
-            >
-              {t("groups.createCommunity", { defaultValue: "Create Community" })}
-            </button>
-            <button
-              type="button"
-              className="group-action private groups-create-private-trigger"
-              onClick={() => openCreatePanel("private")}
-            >
-              {t("groups.createPrivateGroup", { defaultValue: "Create Private Group" })}
-            </button>
           </div>
         </div>
 
@@ -1040,6 +1045,81 @@ const GroupConversationPage = () => {
             {selectedMainCategory && selectedSubcategory && renderCommunityList()}
           </>
         )}
+      </div>
+
+      {isCreateMenuOpen && (
+        <div
+          className="groups-create-menu-layer"
+          role="presentation"
+          onClick={() => setIsCreateMenuOpen(false)}
+        >
+          <div
+            id="groups-create-menu"
+            className="groups-create-menu"
+            role="menu"
+            aria-label={t("groups.communityActions", { defaultValue: "Community actions" })}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="groups-create-menu-option community groups-create-trigger"
+              onClick={() => openCreatePanel("community")}
+            >
+              <span className="groups-create-menu-mark" aria-hidden="true">
+                <span className="groups-fab-icon">
+                  <span />
+                  <span />
+                </span>
+              </span>
+              <span className="groups-create-menu-copy">
+                <strong>{t("groups.createCommunity", { defaultValue: "Create Community" })}</strong>
+                <small>
+                  {selectedSubcategory
+                    ? selectedSubcategoryLabel
+                    : t("groups.communitiesTitle", { defaultValue: "Communities" })}
+                </small>
+              </span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="groups-create-menu-option private groups-create-private-trigger"
+              onClick={() => openCreatePanel("private")}
+            >
+              <span className="groups-create-menu-mark" aria-hidden="true">
+                <span className="groups-fab-icon">
+                  <span />
+                  <span />
+                </span>
+              </span>
+              <span className="groups-create-menu-copy">
+                <strong>{t("groups.createPrivateGroup", { defaultValue: "Create Private Group" })}</strong>
+                <small>
+                  {t("groups.privateGroupNote", {
+                    defaultValue: "Invite-only. It will not appear in community lists or public search.",
+                  })}
+                </small>
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="groups-create-fab-shell">
+        <button
+          type="button"
+          className={`groups-create-fab ${isCreateMenuOpen ? "is-open" : ""}`}
+          aria-label={t("groups.communityActions", { defaultValue: "Community actions" })}
+          aria-expanded={isCreateMenuOpen}
+          aria-controls="groups-create-menu"
+          onClick={() => setIsCreateMenuOpen((current) => !current)}
+        >
+          <span className="groups-fab-icon" aria-hidden="true">
+            <span />
+            <span />
+          </span>
+        </button>
       </div>
 
       {isCreatePanelOpen && (
