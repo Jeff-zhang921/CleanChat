@@ -14,6 +14,7 @@ import {
 import { getUserIdFromToken } from "../auth";
 import { sendPushToUser } from "../push";
 import { isGroupMutedForUser, isThreadMutedForUser } from "../muteStore";
+import { flushRuntimeStatePersistence } from "../runtimePersistence";
 const prisma = new PrismaClient();
 
 const IMAGE_MESSAGE_PREFIX = "IMG::";
@@ -23,6 +24,12 @@ const IMAGE_EXTENSION_REGEX =
   /\.(?:png|jpe?g|gif|webp|bmp|svg|heic|heif|avif)(?:\?.*)?$/i;
 const PUSH_BODY_MAX_CHARS = 160;
 const RECALLED_MESSAGE_BODY = "__CLEANCHAT_RECALLED__";
+
+const persistRuntimeStateSoon = (context: string) => {
+  void flushRuntimeStatePersistence().catch((error) => {
+    console.error(`Failed to persist runtime state after ${context}.`, error);
+  });
+};
 
 const isHttpUrl = (value: string) => /^https?:\/\/\S+$/i.test(value);
 
@@ -609,6 +616,7 @@ export function initSocket(server: HTTPServer) {
       memberIds.forEach((memberId) => {
         io.to(`user:${memberId}`).emit("group:message:new", message);
       });
+      persistRuntimeStateSoon("group message send");
 
       const group = getGroupById(groupId);
       const senderLabel = sessionUser.name?.trim() || `@${sessionUser.cleanId}`;
@@ -713,6 +721,7 @@ export function initSocket(server: HTTPServer) {
             recalledPayload,
           );
         });
+        persistRuntimeStateSoon("group message recall");
         reply(true);
       },
     );

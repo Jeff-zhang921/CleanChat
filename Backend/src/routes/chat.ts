@@ -52,6 +52,7 @@ import {
   setGroupMutedForUser,
   setThreadMutedForUser,
 } from "../muteStore";
+import { flushRuntimeStatePersistence } from "../runtimePersistence";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -96,6 +97,17 @@ type SocketEmitter = {
 };
 
 const GROUP_MEMBER_JOINED_MESSAGE_PREFIX = "__CLEANCHAT_GROUP_MEMBER_JOINED__:";
+
+const persistRuntimeState = async (context: string) => {
+  try {
+    const flushed = await flushRuntimeStatePersistence();
+    if (!flushed) {
+      console.warn(`Runtime state flush was not completed after ${context}.`);
+    }
+  } catch (error) {
+    console.error(`Failed to persist runtime state after ${context}.`, error);
+  }
+};
 
 const resolveDisplayLabel = (user: {
   name: string | null;
@@ -1608,6 +1620,7 @@ router.post("/groups", async (req, res) => {
       subcategoryId: categorySelection?.subcategoryId,
     },
   );
+  await persistRuntimeState("group creation");
   emitGroupCatalogUpdated(req, group.id, {
     type: "created",
     actorUserId: sessionUserId,
@@ -1651,6 +1664,7 @@ router.post("/groups/:groupId/join", async (req, res) => {
         groupId,
         requesterId: sessionUserId,
       });
+      await persistRuntimeState("group join request creation");
     }
     res.status(joined.alreadyRequested ? 200 : 202).json({
       group: joined.summary,
@@ -1677,6 +1691,10 @@ router.post("/groups/:groupId/join", async (req, res) => {
       type: "member-joined",
       actorUserId: sessionUserId,
     });
+  }
+
+  if (!joined.alreadyJoined) {
+    await persistRuntimeState("group join");
   }
 
   res.status(joined.alreadyJoined ? 200 : 201).json({
@@ -1747,6 +1765,10 @@ router.post("/groups/:groupId/invitations", async (req, res) => {
     });
   }
 
+  if (!invited.alreadyInvited) {
+    await persistRuntimeState("group invitation creation");
+  }
+
   res.status(invited.alreadyInvited ? 200 : 201).json({
     group: invited.summary,
     invitation: invited.invitation,
@@ -1803,6 +1825,7 @@ router.post("/groups/invitations/:invitationId/accept", async (req, res) => {
       actorUserId: sessionUserId,
     });
   }
+  await persistRuntimeState("group invitation acceptance");
   emitToUser(req, sessionUserId, "group:invitation:resolved", {
     type: "accepted",
     groupId: accepted.summary?.id ?? null,
@@ -1840,6 +1863,7 @@ router.post("/groups/invitations/:invitationId/reject", async (req, res) => {
     groupId: rejected.summary?.id ?? null,
     invitationId,
   });
+  await persistRuntimeState("group invitation rejection");
 
   res.status(200).json({ group: rejected.summary });
 });
@@ -1880,6 +1904,10 @@ router.post("/groups/:groupId/leave", async (req, res) => {
     } else {
       emitToAll(req, "group:catalog-updated", payload);
     }
+  }
+
+  if (!left.alreadyLeft) {
+    await persistRuntimeState("group leave");
   }
 
   res.status(200).json({ group: left.summary, alreadyLeft: left.alreadyLeft });
@@ -1930,6 +1958,7 @@ router.delete("/groups/:groupId/members/:userId", async (req, res) => {
     actorUserId: sessionUserId,
     targetUserId,
   });
+  await persistRuntimeState("group member removal");
 
   res.status(200).json({
     group: removed.summary,
@@ -2080,6 +2109,7 @@ router.patch("/groups/:groupId/settings", async (req, res) => {
     return;
   }
 
+  await persistRuntimeState("group join policy update");
   res.status(200).json({ group: updated.summary });
 });
 
@@ -2116,6 +2146,7 @@ router.patch("/groups/:groupId/avatar", async (req, res) => {
     return;
   }
 
+  await persistRuntimeState("group avatar update");
   res.status(200).json({ group: updated.summary });
 });
 
@@ -2236,6 +2267,7 @@ router.post(
       type: "member-joined",
       actorUserId: targetUserId,
     });
+    await persistRuntimeState("group join request approval");
 
     res.status(200).json({ group: approved.summary });
   },
@@ -2291,6 +2323,7 @@ router.post(
       groupId,
       actorUserId: sessionUserId,
     });
+    await persistRuntimeState("group join request rejection");
 
     res.status(200).json({ group: rejected.summary });
   },
@@ -2340,6 +2373,7 @@ router.delete("/groups/:groupId", async (req, res) => {
   } else {
     emitToAll(req, "group:catalog-updated", payload);
   }
+  await persistRuntimeState("group deletion");
 
   res.status(200).json({ message: "Group deleted." });
 });
