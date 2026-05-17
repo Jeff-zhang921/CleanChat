@@ -529,6 +529,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   const activeChatViewRef = useRef<ActiveChatView | null>(readActiveChatView());
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const statusToastTimeoutRef = useRef<number | null>(null);
+  const wasDormantRef = useRef(isDormant);
 
   const updateUnreadCounts = (updater: (current: ConversationUnreadCounts) => ConversationUnreadCounts) => {
     setUnreadCounts((current) => {
@@ -988,7 +989,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     return () => window.cancelAnimationFrame(frame);
   }, [isSearchExpanded]);
 
-  const refreshThreads = async () => {
+  const refreshThreads = useCallback(async () => {
     const threadsResponse = await fetch(`${BACKEND_URL}/chat/threads`, {
       credentials: "include",
     });
@@ -1002,9 +1003,9 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     setThreads(sortThreadsByLatestActivity(Array.isArray(data) ? data : []));
     setStatus("");
     return true;
-  };
+  }, [t]);
 
-  const refreshGroups = async () => {
+  const refreshGroups = useCallback(async () => {
     const groupsResponse = await fetch(`${BACKEND_URL}/chat/groups`, {
       credentials: "include",
     });
@@ -1019,7 +1020,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     setGroups(incomingGroups);
     setStatus("");
     return true;
-  };
+  }, [t]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1077,9 +1078,39 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     };
   }, [
     initialCache,
+    refreshGroups,
     refreshMutedConversationsFromBackend,
+    refreshThreads,
     refreshUnreadCountsFromBackend,
     t,
+  ]);
+
+  useEffect(() => {
+    if (!me) {
+      wasDormantRef.current = isDormant;
+      return;
+    }
+
+    const didBecomeActive = wasDormantRef.current && !isDormant;
+    wasDormantRef.current = isDormant;
+
+    if (!didBecomeActive) {
+      return;
+    }
+
+    void Promise.all([
+      refreshThreads(),
+      refreshGroups(),
+      refreshUnreadCountsFromBackend(),
+      refreshMutedConversationsFromBackend(),
+    ]);
+  }, [
+    isDormant,
+    me,
+    refreshGroups,
+    refreshMutedConversationsFromBackend,
+    refreshThreads,
+    refreshUnreadCountsFromBackend,
   ]);
 
   useEffect(() => {
@@ -1345,7 +1376,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
       socket?.disconnect();
       socketRef.current = null;
     };
-  }, [me, removeDeletedThread, t]);
+  }, [me, refreshGroups, refreshThreads, removeDeletedThread, t]);
 
   useEffect(() => {
     if (typeof window === "undefined" || import.meta.env.PROD) return;
@@ -1434,18 +1465,23 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     const handler = (event: Event) => {
       const customEvent = event as CustomEvent<GroupsRealtimeDetail>;
       const detail = customEvent.detail;
-      if (detail?.reason !== "group-deleted" || !detail.groupId) {
+      if (!detail?.reason) {
         return;
       }
 
-      removeDeletedGroup(detail.groupId);
+      if (detail.reason === "group-deleted" && detail.groupId) {
+        removeDeletedGroup(detail.groupId);
+        return;
+      }
+
+      void refreshGroups();
     };
 
     window.addEventListener(GROUPS_REALTIME_EVENT, handler as EventListener);
     return () => {
       window.removeEventListener(GROUPS_REALTIME_EVENT, handler as EventListener);
     };
-  }, [removeDeletedGroup]);
+  }, [refreshGroups, removeDeletedGroup]);
 
   useEffect(() => {
     const handler = (event: Event) => {

@@ -902,6 +902,15 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     });
 
     socket.on("message:new", (msg: ChatMessage) => {
+      const activeThreadId = threadIdRef.current;
+      if (
+        chatModeRef.current !== "direct" ||
+        typeof msg.threadId !== "number" ||
+        msg.threadId !== activeThreadId
+      ) {
+        return;
+      }
+
       appendIncomingMessage(msg);
       const currentUser = meRef.current;
 
@@ -972,6 +981,15 @@ const ChatPage = ({ onRequestClose }: ChatPageProps) => {
     socket.on("thread:deleted", handleThreadDeleted);
 
     socket.on("group:message:new", (msg: ChatMessage) => {
+      const activeGroupId = groupIdRef.current;
+      if (
+        chatModeRef.current !== "group" ||
+        typeof msg.groupId !== "string" ||
+        msg.groupId !== activeGroupId
+      ) {
+        return;
+      }
+
       appendIncomingMessage(msg);
       const currentUser = meRef.current;
 
