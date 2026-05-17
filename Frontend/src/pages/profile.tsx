@@ -687,6 +687,24 @@ const ProfilePage = () => {
                   <span>{user.email}</span>
                 </div>
               </div>
+              <div className="profile-entry-metrics" aria-label={t("profile.yourAccount")}>
+                <div className="profile-entry-metric profile-entry-metric-cleanid">
+                  <span>{t("profile.cleanId")}</span>
+                  <strong>@{activeCleanId}</strong>
+                </div>
+                <div className={`profile-entry-metric profile-entry-metric-${activeShortIdClaim.tier}`}>
+                  <span>{t("profile.currentMark")}</span>
+                  <strong>{activeShortIdClaim.pill}</strong>
+                </div>
+                <div className="profile-entry-metric">
+                  <span>{t("profile.manageUserRequests")}</span>
+                  <strong>{pendingDirectRequests}</strong>
+                </div>
+                <div className="profile-entry-metric">
+                  <span>{t("profile.manageGroupAccess")}</span>
+                  <strong>{pendingGroupRequests}</strong>
+                </div>
+              </div>
             </section>
 
             {!isEditing && (
