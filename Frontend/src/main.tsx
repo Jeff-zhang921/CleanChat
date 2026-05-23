@@ -1,24 +1,45 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { registerSW } from "virtual:pwa-register";
 import App from './App';
 import './i18n';
-import { installAuthFetchInterceptor } from './utils/auth';
-import { ensureNotificationRegistration } from './utils/notifications';
+import { getAuthToken, installAuthFetchInterceptor } from './utils/auth';
 // import './index.css';
 
 installAuthFetchInterceptor();
-void ensureNotificationRegistration();
 
-const updateSW = registerSW({
-  immediate: true,
-  onRegisteredSW: (_swUrl, registration) => {
-    registration?.update();
-  },
-  onNeedRefresh: () => {
-    updateSW(true);
-  },
+const runWhenIdle = (task: () => void) => {
+  if (typeof window === "undefined") {
+    task();
+    return;
+  }
+
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(task, { timeout: 5000 });
+    return;
+  }
+
+  globalThis.setTimeout(task, 1200);
+};
+
+runWhenIdle(() => {
+  if (getAuthToken()) {
+    void import("./utils/notifications").then(({ ensureNotificationRegistration }) =>
+      ensureNotificationRegistration(),
+    );
+  }
+
+  void import("virtual:pwa-register").then(({ registerSW }) => {
+    const updateSW = registerSW({
+      immediate: true,
+      onRegisteredSW: (_swUrl, registration) => {
+        registration?.update();
+      },
+      onNeedRefresh: () => {
+        updateSW(true);
+      },
+    });
+  });
 });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

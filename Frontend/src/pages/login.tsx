@@ -16,12 +16,33 @@ import {
   type SupportedLanguage,
 } from "../i18n";
 import { clearAuthToken, getAuthToken } from "../utils/auth";
-import { isIOSDevice, isStandalonePwa } from "../utils/notifications";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PENDING_EMAIL_KEY = "cleanchat:pending-email";
 const AUTH_RESTORE_MAX_ATTEMPTS = 3;
 const AUTH_RESTORE_RETRY_MS = 1200;
+
+const isIOSDevice = () => {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  return (
+    /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+    (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 0)
+  );
+};
+
+const isStandalonePwa = () => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+  );
+};
 
 type PointerState = {
   x: number;

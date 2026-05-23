@@ -126,6 +126,23 @@ button {
   overflow-x: clip;
 }
 
+.app-route-fallback {
+  min-height: 100svh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  color: #1f8a5b;
+}
+
+.app-route-fallback span {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 2px solid rgba(31, 138, 91, 0.16);
+  border-top-color: currentColor;
+  animation: app-route-fallback-spin 720ms linear infinite;
+}
+
 .hybrid-app-shell {
   position: relative;
   min-height: 100svh;
@@ -222,6 +239,12 @@ button {
     opacity: 1;
     transform: none;
     filter: blur(0);
+  }
+}
+
+@keyframes app-route-fallback-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 

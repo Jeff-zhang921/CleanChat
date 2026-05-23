@@ -1,27 +1,32 @@
 import './App.css';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from 'react';
 // import PersonalPage from './pages/personalPage';
-import ChatPage from './pages/chatPage';
-import ChatSettingsPage from './pages/chatSettings';
-import GroupSettingsPage from './pages/groupSettings';
-import ConversationsPage from './pages/ConversationPage';
-import GroupConversationPage from './pages/GroupConversationPage';
-import LoginPage from './pages/login'
-import VerifyPage from './pages/verify'
-import BasicInfoPage from './pages/basicInfo'
-import ProfilePage from './pages/profile'
-import UserProfilePage from './pages/userProfile'
-import ProfileEditPage from './pages/profileEdit'
-import SendChatRequestPage from './pages/sendChatRequest'
-import UserRequestPage from './pages/userRequestPage'
-import GroupRequestPage from './pages/groupRequestPage'
-import ProfileSettingsPage from './pages/profileSettings'
-import FeedbackPage from './pages/feedback'
-import DiscoverPage from './pages/discover'
-import ProfileAvatarPage from './pages/profileAvatar'
-import { NotificationBadgeProvider } from './state/notificationBadgeContext';
 import { getAuthToken } from './utils/auth';
+
+const ChatPage = lazy(() => import('./pages/chatPage'));
+const ChatSettingsPage = lazy(() => import('./pages/chatSettings'));
+const GroupSettingsPage = lazy(() => import('./pages/groupSettings'));
+const ConversationsPage = lazy(() => import('./pages/ConversationPage'));
+const GroupConversationPage = lazy(() => import('./pages/GroupConversationPage'));
+const LoginPage = lazy(() => import('./pages/login'));
+const VerifyPage = lazy(() => import('./pages/verify'));
+const BasicInfoPage = lazy(() => import('./pages/basicInfo'));
+const ProfilePage = lazy(() => import('./pages/profile'));
+const UserProfilePage = lazy(() => import('./pages/userProfile'));
+const ProfileEditPage = lazy(() => import('./pages/profileEdit'));
+const SendChatRequestPage = lazy(() => import('./pages/sendChatRequest'));
+const UserRequestPage = lazy(() => import('./pages/userRequestPage'));
+const GroupRequestPage = lazy(() => import('./pages/groupRequestPage'));
+const ProfileSettingsPage = lazy(() => import('./pages/profileSettings'));
+const FeedbackPage = lazy(() => import('./pages/feedback'));
+const DiscoverPage = lazy(() => import('./pages/discover'));
+const ProfileAvatarPage = lazy(() => import('./pages/profileAvatar'));
+const NotificationBadgeProvider = lazy(() =>
+  import('./state/notificationBadgeContext').then(({ NotificationBadgeProvider }) => ({
+    default: NotificationBadgeProvider,
+  })),
+);
 
 type PretextBackdropVariant = 'auth' | 'app';
 type RootViewKey = 'conversations' | 'groups' | 'discover' | 'profile' | 'settings';
@@ -227,6 +232,12 @@ const HomeRedirect = () => {
   const hasToken = getAuthToken().length > 0;
   return <Navigate to={hasToken ? '/conversations' : '/login'} replace />;
 };
+
+const AppRouteFallback = () => (
+  <div className="app-route-fallback" role="status" aria-live="polite">
+    <span />
+  </div>
+);
 
 const normalizePathname = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
 
@@ -527,6 +538,20 @@ const HybridAppShell = () => {
   );
 };
 
+const ProtectedHybridRoute = () => {
+  const hasToken = getAuthToken().length > 0;
+
+  if (!hasToken) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return (
+    <NotificationBadgeProvider>
+      <HybridAppShell />
+    </NotificationBadgeProvider>
+  );
+};
+
 const RoutedApp = () => {
   const location = useLocation();
   const authRoutes = ['/login', '/verify', '/basic-info'];
@@ -539,15 +564,17 @@ const RoutedApp = () => {
       <PretextBackdrop variant={variant} />
       <div style={{ position: 'relative', zIndex: 1 }}>
         <div className="app-route-stage">
-          <Routes>
-            <Route path="/" element={<HomeRedirect />} />
-            <Route path="/login" element={<LoginPage/>} />
-            <Route path="/verify" element={<VerifyPage />} />
-            <Route path="/basic-info" element={<BasicInfoPage />} />
-            <Route path="/profile/vault" element={<Navigate to="/profile/edit" replace />} />
-            <Route path="*" element={<HybridAppShell />} />
-            {/* <Route path="/personal" element={<PersonalPage />} /> */}
-          </Routes>
+          <Suspense fallback={<AppRouteFallback />}>
+            <Routes>
+              <Route path="/" element={<HomeRedirect />} />
+              <Route path="/login" element={<LoginPage/>} />
+              <Route path="/verify" element={<VerifyPage />} />
+              <Route path="/basic-info" element={<BasicInfoPage />} />
+              <Route path="/profile/vault" element={<Navigate to="/profile/edit" replace />} />
+              <Route path="*" element={<ProtectedHybridRoute />} />
+              {/* <Route path="/personal" element={<PersonalPage />} /> */}
+            </Routes>
+          </Suspense>
         </div>
       </div>
     </div>
@@ -555,10 +582,6 @@ const RoutedApp = () => {
 };
 
 function App(){
-    return (
-      <NotificationBadgeProvider>
-        <RoutedApp />
-      </NotificationBadgeProvider>
-    );
+    return <RoutedApp />;
 }
 export default App;
