@@ -15,6 +15,7 @@ import {
 import { GROUP_AVATAR_OPTIONS, type GroupAvatarKey } from "../constants/groupAvatars";
 import { useNotificationBadges } from "../state/notificationBadgeContext";
 import {
+  dispatchGroupsRealtime,
   dispatchGroupConversationLeft,
   GROUPS_REALTIME_EVENT,
   type GroupsRealtimeDetail,
@@ -540,6 +541,14 @@ const GroupConversationPage = () => {
       setNewGroupRequiresApproval(false);
       setIsCreatePanelOpen(false);
       setStatus(isPrivateGroup ? t("groups.privateGroupCreated", { defaultValue: "Private group created." }) : "");
+      if (createdGroup.joined) {
+        dispatchGroupsRealtime({
+          reason: "group-created",
+          eventType: "created",
+          groupId: createdGroup.id,
+          group: createdGroup,
+        });
+      }
       openGroupChat(createdGroup);
     } catch {
       setStatus(t("groups.createFailed"));
@@ -717,14 +726,24 @@ const GroupConversationPage = () => {
         const acceptedGroup = data.group as GroupSummary | undefined;
         if (!acceptedGroup) {
           await refreshGroups();
-        } else if (acceptedGroup.groupKind !== "private") {
-          setGroups((prev) => {
-            const exists = prev.some((item) => item.id === acceptedGroup.id);
-            return exists
-              ? prev.map((item) => (item.id === acceptedGroup.id ? acceptedGroup : item))
-              : [acceptedGroup, ...prev];
-          });
         } else {
+          if (acceptedGroup.groupKind !== "private") {
+            setGroups((prev) => {
+              const exists = prev.some((item) => item.id === acceptedGroup.id);
+              return exists
+                ? prev.map((item) => (item.id === acceptedGroup.id ? acceptedGroup : item))
+                : [acceptedGroup, ...prev];
+            });
+          }
+          if (acceptedGroup.joined) {
+            dispatchGroupsRealtime({
+              reason: "invitation-resolved",
+              eventType: "invite-accepted",
+              groupId: acceptedGroup.id,
+              invitationId: invitation.id,
+              group: acceptedGroup,
+            });
+          }
           await refreshGroups();
         }
         setInviteStatus(t("groups.inviteAccepted", { group: invitation.group.name }));

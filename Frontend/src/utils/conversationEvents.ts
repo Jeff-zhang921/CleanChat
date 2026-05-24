@@ -24,6 +24,7 @@ export type GroupsRealtimeDetail = {
   reason: GroupsRealtimeReason;
   eventType?: string;
   groupId?: string;
+  group?: unknown;
   invitationId?: number;
   requesterId?: number;
   actorUserId?: number;

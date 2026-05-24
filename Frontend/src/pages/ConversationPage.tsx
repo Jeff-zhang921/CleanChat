@@ -131,6 +131,7 @@ type GroupSummary = {
   name: string;
   description: string;
   avatarUrl: string;
+  groupKind?: "community" | "private";
   joined: boolean;
   isOwner: boolean;
   memberCount: number;
@@ -241,6 +242,22 @@ const writeConversationsCache = (payload: ConversationsCache) => {
   } catch {
     // Ignore storage failures and keep the live view working.
   }
+};
+
+const isJoinedGroupSummary = (value: unknown): value is GroupSummary => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Partial<GroupSummary>;
+  return (
+    typeof candidate.id === "string" &&
+    candidate.id.trim().length > 0 &&
+    typeof candidate.name === "string" &&
+    typeof candidate.avatarUrl === "string" &&
+    candidate.joined === true &&
+    typeof candidate.memberCount === "number"
+  );
 };
 
 const hasConversationReturnIntent = () => {
@@ -876,6 +893,27 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     [clearConversationMute, clearConversationUnread, t],
   );
 
+  const upsertJoinedGroup = useCallback((group: GroupSummary) => {
+    if (!group.joined) {
+      return;
+    }
+
+    setGroups((prev) => {
+      const existingIndex = prev.findIndex((item) => item.id === group.id);
+      if (existingIndex < 0) {
+        return [group, ...prev];
+      }
+
+      const next = [...prev];
+      next[existingIndex] = {
+        ...next[existingIndex],
+        ...group,
+        joined: true,
+      };
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     if (!me) return;
     writeConversationsCache({
@@ -1006,7 +1044,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
   }, [t]);
 
   const refreshGroups = useCallback(async () => {
-    const groupsResponse = await fetch(`${BACKEND_URL}/chat/groups`, {
+    const groupsResponse = await fetch(`${BACKEND_URL}/chat/groups?scope=joined`, {
       credentials: "include",
     });
     if (!groupsResponse.ok) {
@@ -1474,6 +1512,9 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
         return;
       }
 
+      if (isJoinedGroupSummary(detail.group)) {
+        upsertJoinedGroup(detail.group);
+      }
       void refreshGroups();
     };
 
@@ -1481,7 +1522,7 @@ const ConversationPage = ({ isDormant = false }: ConversationPageProps) => {
     return () => {
       window.removeEventListener(GROUPS_REALTIME_EVENT, handler as EventListener);
     };
-  }, [refreshGroups, removeDeletedGroup]);
+  }, [refreshGroups, removeDeletedGroup, upsertJoinedGroup]);
 
   useEffect(() => {
     const handler = (event: Event) => {
